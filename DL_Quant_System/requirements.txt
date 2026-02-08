@@ -1,0 +1,7 @@
+tushare
+pandas
+numpy
+scikit-learn
+matplotlib
+tensorflow
+xgboost
