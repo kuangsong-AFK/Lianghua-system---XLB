@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小吕布量化 · 终极指挥台 (Little Bu Quant Pro)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- 1. 全局设置 --- */
+        body { 
+            margin: 0; 
+            padding: 0; 
+            overflow: hidden; 
+            background-color: #000; 
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+            color: #ffffff;
+        }
+
+        /* --- 2. 炫彩液态背景 (Aurora/Mesh Gradient) --- */
+        .liquid-background {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: -2;
+            background: 
+                radial-gradient(at 0% 0%, rgba(253, 16, 80, 0.4) 0px, transparent 50%),
+                radial-gradient(at 98% 1%, rgba(64, 140, 255, 0.4) 0px, transparent 50%),
+                radial-gradient(at 5% 95%, rgba(140, 64, 255, 0.4) 0px, transparent 50%),
+                radial-gradient(at 96% 96%, rgba(255, 200, 64, 0.3) 0px, transparent 50%),
+                radial-gradient(at 50% 50%, #000000 0px, transparent 80%);
+            filter: blur(80px) saturate(1.5);
+            animation: breathe 10s ease-in-out infinite alternate;
+        }
+        
+        @keyframes breathe {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(1.1); opacity: 1; }
+        }
+
+        /* --- 3. 玻璃态样式 (Glassmorphism) --- */
+        .glass {
+            background: rgba(30, 30, 30, 0.6);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        /* --- 4. 侧边栏 (UI修复核心：Flex布局控制) --- */
+        .sidebar {
+            position: fixed; left: 20px; top: 20px; bottom: 20px;
+            width: 68px; /* 收起时的宽度 */
+            border-radius: 24px;
+            display: flex; flex-direction: column; 
+            align-items: center; /* 关键：强制让内容水平居中 (解决图标跑偏) */
+            padding: 30px 0; 
+            z-index: 50; 
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+            overflow: hidden;
+        }
+        
+        /* 展开状态 */
+        .sidebar:hover { 
+            width: 220px; 
+            align-items: flex-start; /* 展开后改为左对齐 */
+            padding-left: 20px;
+            background: rgba(30, 30, 30, 0.9); 
+        }
+
+        /* Logo 区域 */
+        .logo-area {
+            width: 48px; height: 48px; flex-shrink: 0;
+            background: linear-gradient(135deg, #fd1050, #ff5e62);
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 20px; color: white;
+            margin-bottom: 40px; cursor: pointer; transition: 0.3s;
+        }
+        /* Logo展开逻辑 */
+        .sidebar:hover .logo-area { width: 180px; justify-content: flex-start; padding-left: 15px; }
+        
+        .logo-text { display: none; margin-left: 10px; font-size: 16px; white-space: nowrap; }
+        .sidebar:hover .logo-text { display: block; }
+
+        /* --- 菜单项 (核心修复) --- */
+        .nav-item {
+            display: flex; align-items: center; 
+            justify-content: center; /* 默认居中 */
+            width: 48px; height: 48px; flex-shrink: 0;
+            border-radius: 14px; margin-bottom: 12px; cursor: pointer;
+            color: rgba(255,255,255,0.6); transition: 0.2s;
+        }
+        
+        /* 展开时：变宽 + 左对齐 */
+        .sidebar:hover .nav-item { 
+            width: 180px; 
+            justify-content: flex-start; 
+            padding-left: 12px; 
+        }
+        
+        .nav-item:hover { background: rgba(255, 255, 255, 0.1); color: white; }
+        .nav-item.active { background: rgba(253, 16, 80, 0.15); color: #fd1050; border: 1px solid rgba(253, 16, 80, 0.3); }
+        
+        .nav-icon { font-size: 22px; display: flex; align-items: center; justify-content: center; }
+        
+        /* 文字标签 (关键：收起时彻底隐藏不占位) */
+        .nav-label { 
+            display: none; 
+            margin-left: 15px; font-weight: 500; font-size: 15px; white-space: nowrap; 
+        }
+        /* 展开时才显示 */
+        .sidebar:hover .nav-label { display: block; animation: fadeIn 0.3s; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* --- 5. 主内容区 --- */
+        .main-content {
+            position: fixed;
+            top: 20px; right: 20px; bottom: 20px;
+            left: 108px; /* 留出侧边栏空间 */
+            border-radius: 24px;
+            overflow: hidden;
+            z-index: 10;
+            transition: left 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        .sidebar:hover + .main-content { left: 260px; }
+
+        iframe {
+            width: 100%; height: 100%; border: none;
+            /* 滤镜：微调 Streamlit 颜色，使其更融合 */
+            filter: contrast(1.02) brightness(0.98); 
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="liquid-background"></div>
+
+    <nav class="sidebar glass">
+        <div class="logo-area" onclick="refreshIframe()">
+            <span>LB</span>
+            <span class="logo-text">小吕布量化 Pro</span>
+        </div>
+
+        <div class="nav-item active" onclick="selectTab(this, 'ai_chat')">
+            <span class="nav-icon">🤖</span>
+            <span class="nav-label">AI 战情室</span>
+        </div>
+        
+        <div class="nav-item" onclick="selectTab(this, 'battlefield')">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">实盘战场</span>
+        </div>
+        
+        <div class="nav-item" onclick="selectTab(this, 'backtest')">
+            <span class="nav-icon">⚡</span>
+            <span class="nav-label">深度回测</span>
+        </div>
+        
+        <div class="nav-item" onclick="selectTab(this, 'data_review')">
+            <span class="nav-icon">📂</span>
+            <span class="nav-label">数据复盘</span>
+        </div>
+
+        <div style="flex-grow: 1;"></div> <div class="nav-item">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">系统设置</span>
+        </div>
+    </nav>
+
+    <main class="main-content glass">
+        <iframe 
+            id="quantFrame"
+            src="https://lianghua-system---xlb-eyrzwdbv6phkgnhkp9goxe.streamlit.app/?embed=true&theme=dark&page=ai_chat"
+            allow="camera; microphone; clipboard-read; clipboard-write;"
+        ></iframe>
+    </main>
+
+    <script>
+        // 定义您的基础 URL
+        const baseUrl = "https://lianghua-system---xlb-eyrzwdbv6phkgnhkp9goxe.streamlit.app/";
+        
+        // 核心切换逻辑
+        function selectTab(element, pageName) {
+            // 1. UI 高亮切换
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            element.classList.add('active');
+            
+            // 2. Iframe 跳转 (带上 page 参数和时间戳防止缓存)
+            const iframe = document.getElementById('quantFrame');
+            const timestamp = new Date().getTime();
+            
+            // 构建新的 URL
+            iframe.src = `${baseUrl}?embed=true&theme=dark&page=${pageName}&t=${timestamp}`;
+        }
+
+        // 刷新页面
+        function refreshIframe() {
+            const iframe = document.getElementById('quantFrame');
+            iframe.src = iframe.src;
+        }
+    </script>
+</body>
+</html>
