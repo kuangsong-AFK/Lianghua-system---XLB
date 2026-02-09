@@ -1,7 +1,5 @@
-tushare
+streamlit
+openai
 pandas
 numpy
-scikit-learn
-matplotlib
-tensorflow
-xgboost
+tushare

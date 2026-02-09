@@ -16,48 +16,64 @@ st.set_page_config(
 )
 
 # ==========================================
-# 2. 注入“幽灵模式” CSS (配合外部 iOS 外壳)
+# 2. 注入“幽灵模式” CSS (强制透明核心)
 # ==========================================
 st.markdown("""
 <style>
-    /* 1. 让背景全透明 */
-    .stApp { background: transparent !important; }
+    /* 1. 【核弹级】强制背景全透明 (覆盖 Streamlit 默认黑底) */
+    [data-testid="stAppViewContainer"] {
+        background-color: transparent !important;
+        background: transparent !important;
+    }
 
-    /* 2. 隐藏原生组件 */
-    header[data-testid="stHeader"], [data-testid="stSidebar"], section[data-testid="stSidebar"] { display: none !important; }
+    /* 2. 让 .stApp 也透明 */
+    .stApp {
+        background-color: transparent !important;
+        background: transparent !important;
+    }
 
-    /* 3. 全局字体 */
+    /* 3. 隐藏原生顶部 Header */
+    header[data-testid="stHeader"] {
+        display: none !important;
+    }
+
+    /* 4. 隐藏原生侧边栏 */
+    [data-testid="stSidebar"], section[data-testid="stSidebar"] {
+        display: none !important;
+    }
+
+    /* 5. 全局字体优化 */
     * { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important; }
 
-    /* 4. 玻璃容器 */
+    /* 6. 玻璃容器 (稍微加重颜色，防止字看不清) */
     .glass-container {
-        background: rgba(30, 30, 30, 0.4);
+        background: rgba(30, 30, 30, 0.4); /* 30% 不透明度 */
         backdrop-filter: blur(12px);
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 16px; padding: 20px; margin-bottom: 20px;
     }
 
-    /* 5. 聊天气泡 */
+    /* 7. 聊天气泡美化 */
     div[data-testid="stChatMessageContent"] {
-        background: rgba(60, 60, 60, 0.4) !important;
+        background: rgba(50, 50, 50, 0.6) !important; /* 气泡稍微深一点 */
         backdrop-filter: blur(10px);
         border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 12px !important;
         color: #e0e0e0 !important;
     }
 
-    /* 6. 输入框 */
+    /* 8. 输入框美化 */
     .stTextInput > div > div, .stTextArea > div > div {
-        background-color: rgba(20, 20, 20, 0.3) !important;
+        background-color: rgba(30, 30, 30, 0.5) !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
         color: white !important;
     }
 
-    /* 7. 按钮 */
+    /* 9. 按钮美化 */
     .stButton > button {
         background: linear-gradient(135deg, rgba(253, 16, 80, 0.6), rgba(255, 94, 98, 0.6)) !important;
         color: white !important;
-        font-weight: 600 !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -69,7 +85,7 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
     st.session_state.messages.append({
         "role": "assistant",
-        "content": "主公，Kimi (Moonshot) 已就位！随时准备生成 Python 策略代码。⚔️"
+        "content": "主公，Kimi 已就位！随时准备生成 Python 策略代码。⚔️"
     })
 
 if "generated_code" not in st.session_state:
@@ -79,9 +95,8 @@ if "generated_code" not in st.session_state:
 # 4. 配置 Kimi AI (从 Secrets 读取)
 # ==========================================
 try:
-    # 这里的代码会自动去 Streamlit 后台找您刚才填的 Key，绝对安全！
     api_key = st.secrets.get("OPENAI_API_KEY", "")
-    base_url = "https://api.moonshot.cn/v1"  # Kimi 官方接口
+    base_url = "https://api.moonshot.cn/v1"
 
     if api_key:
         client = OpenAI(api_key=api_key, base_url=base_url)
@@ -93,7 +108,6 @@ except Exception:
 # ==========================================
 # 5. 核心逻辑：路由控制
 # ==========================================
-# 获取 URL 参数 ?page=xxx
 query_params = st.query_params
 current_page = query_params.get("page", "ai_chat")
 
@@ -101,18 +115,15 @@ current_page = query_params.get("page", "ai_chat")
 if current_page == "ai_chat":
     st.markdown("### 🤖 AI 战情室 (Kimi 驱动)")
 
-    # 1. 显示历史消息
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # 2. 用户输入
     if prompt := st.chat_input("主公请下令 (例如: 写一个双均线策略)..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # AI 回复
         with st.chat_message("assistant"):
             message_placeholder = st.empty()
 
@@ -121,7 +132,6 @@ if current_page == "ai_chat":
                 full_response = "请配置密钥。"
             else:
                 try:
-                    # 系统提示词：强制 Kimi 写 Python
                     system_prompt = """
                     你是一个量化交易专家。用户会让你写策略。
                     1. 必须生成 Python 代码，包含 run_strategy(data) 函数。
@@ -130,7 +140,7 @@ if current_page == "ai_chat":
                     """
 
                     stream = client.chat.completions.create(
-                        model="moonshot-v1-8k",  # 指定 Kimi 模型
+                        model="moonshot-v1-8k",
                         messages=[
                             {"role": "system", "content": system_prompt},
                             *st.session_state.messages
@@ -146,7 +156,6 @@ if current_page == "ai_chat":
 
                     message_placeholder.markdown(full_response)
 
-                    # 提取代码
                     code_match = re.search(r"```python(.*?)```", full_response, re.DOTALL)
                     if code_match:
                         st.session_state.generated_code = code_match.group(1).strip()
@@ -168,7 +177,6 @@ elif current_page == "battlefield":
         st.subheader("📡 策略代码")
         code_input = st.text_area("AI 生成代码", value=st.session_state.generated_code, height=300)
 
-        # 同步修改
         if code_input != st.session_state.generated_code:
             st.session_state.generated_code = code_input
 
@@ -180,14 +188,10 @@ elif current_page == "battlefield":
         if st.session_state.get("run_signal"):
             st.markdown('<div class="glass-container">', unsafe_allow_html=True)
             try:
-                # 模拟数据
                 dates = pd.date_range(end=pd.Timestamp.now(), periods=100)
                 data = pd.DataFrame({'close': np.random.randn(100).cumsum() + 100}, index=dates)
-
-                # 执行代码
                 local_vars = {}
                 exec(code_input, globals(), local_vars)
-
                 if 'run_strategy' in local_vars:
                     st.success("✅ 策略执行成功！")
                     st.line_chart(data['close'], color="#fd1050")
