@@ -3,9 +3,10 @@ import pandas as pd
 import numpy as np
 # from openai import OpenAI # 暂时注释，避免没有 key 报错
 import re
+import time
 
 # ==========================================
-# 1. 页面基础配置
+# 1. 页面配置 (布局全开)
 # ==========================================
 st.set_page_config(
     page_title="小吕布量化 Pro",
@@ -14,139 +15,202 @@ st.set_page_config(
 )
 
 # ==========================================
-# 2. 注入终极去白边 + 深邃黑 CSS
+# 2. 注入核弹级 CSS (透明 + 无边框 + 底部输入框优化)
 # ==========================================
 st.markdown("""
 <style>
-    /* 1. 全局重置：强制背景为深色，清除所有默认边距 */
-    html, body, [class*="ViewContainer"], [class*="stApp"] {
-        margin: 0 !important;
-        padding: 0 !important;
+    /* 1. 【核心】强制背景透明 (修正之前的错误) */
+    .stApp, [data-testid="stAppViewContainer"], header, .block-container {
         background: transparent !important;
-        background-color: #0e1117 !important; /* 设定一个纯粹的深黑底色 */
+        background-color: transparent !important;
     }
 
-    /* 2. 核心：清除 Streamlit 主容器的内边距，消灭白边 */
+    /* 2. 【核心】暴力清除所有白边 */
     .block-container {
-        padding: 0 !important;
+        padding-top: 0rem !important;
+        padding-bottom: 0rem !important;
+        padding-left: 0rem !important;
+        padding-right: 0rem !important;
         margin: 0 !important;
         max-width: 100% !important;
     }
 
-    /* 3. 隐藏所有干扰元素 (顶部栏、侧边栏、页脚、菜单) */
-    header[data-testid="stHeader"],
-    [data-testid="stSidebar"],
-    footer,
-    #MainMenu {
-        display: none !important;
-    }
+    /* 3. 隐藏干扰元素 */
+    header[data-testid="stHeader"] { display: none !important; }
+    [data-testid="stSidebar"] { display: none !important; }
+    footer { display: none !important; }
+    #MainMenu { display: none !important; }
 
-    /* 4. 重新定义“玻璃容器”：祛除白雾，采用深邃质感 */
-    .glass-container {
-        /* 使用深黑色高不透明度背景，代替原来的浅色半透明 */
-        background-color: rgba(20, 24, 32, 0.9) !important;
-        /* 降低模糊度，使视觉更清晰 */
-        backdrop-filter: blur(5px);
-        /* 使用极细的深色边框，增加精致感 */
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
-        border-radius: 12px;
-        padding: 20px;
-        /* 给容器之间留一点空隙，避免太拥挤 */
-        margin: 15px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-    }
-
-    /* 5. 全局字体强制为白色 */
-    .stMarkdown, .stText, h1, h2, h3, p, label, span, div {
+    /* 4. 全局字体白色 */
+    .stMarkdown, .stText, h1, h2, h3, h4, p, label, span, div {
         color: #ffffff !important;
     }
 
-    /* 6. 输入框美化：深色背景，融入主题 */
-    .stTextInput > div > div, .stTextArea > div > div {
-        background-color: rgba(30, 34, 42, 0.95) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        color: #ffffff !important;
-        border-radius: 8px;
+    /* 5. 玻璃容器 (去除雾蒙蒙，使用深色半透明) */
+    .glass-card {
+        background: rgba(20, 20, 20, 0.85); /* 深色背景，不发白 */
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px; 
+        padding: 20px; 
+        margin: 20px; /* 容器自己留点边，不贴屏幕 */
+        box-shadow: 0 4px 20px rgba(0,0,0,0.5);
     }
 
-    /* 7. 聊天气泡美化：深色背景 */
+    /* 6. 状态指示器样式 */
+    .status-box {
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        text-align: center;
+        font-weight: bold;
+        font-size: 18px;
+    }
+    .status-ready { background: rgba(39, 174, 96, 0.3); border: 1px solid #27ae60; color: #2ecc71 !important; }
+    .status-wait { background: rgba(230, 126, 34, 0.3); border: 1px solid #d35400; color: #f39c12 !important; }
+
+    /* 7. 输入框美化 */
+    .stTextInput > div > div {
+        background-color: rgba(0, 0, 0, 0.7) !important;
+        color: white !important;
+        border-radius: 20px !important;
+        border: 1px solid rgba(255,255,255,0.2) !important;
+    }
+
+    /* 8. 聊天气泡 */
     div[data-testid="stChatMessageContent"] {
-        background-color: rgba(30, 34, 42, 0.9) !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
-        color: #ffffff !important;
+        background-color: rgba(40, 44, 52, 0.9) !important;
         border-radius: 12px;
-    }
-
-    /* 8. 图表背景透明，融入深色容器 */
-    [data-testid="stVegaLiteChart"] {
-        background-color: transparent !important;
+        border: 1px solid rgba(255,255,255,0.05);
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. 初始化 Session State
+# 3. 初始化 Session
 # ==========================================
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "主公，视野已全开，白雾已散去！请下令。⚔️"}]
+    st.session_state.messages = [{"role": "assistant", "content": "主公，AI 战情室已就位！请下令生成策略。"}]
 if "generated_code" not in st.session_state:
-    st.session_state.generated_code = ""
+    st.session_state.generated_code = ""  # 存放生成的代码
+if "analysis_report" not in st.session_state:
+    st.session_state.analysis_report = None  # 存放回测结果
 
 # ==========================================
-# 4. 配置 AI (暂时注释，方便调试 UI)
-# ==========================================
-client = None
-# try:
-#     api_key = st.secrets.get("OPENAI_API_KEY", "")
-#     client = OpenAI(api_key=api_key, base_url="https://api.moonshot.cn/v1") if api_key else None
-# except: client = None
-
-# ==========================================
-# 5. 页面路由逻辑
+# 4. 路由逻辑
 # ==========================================
 query_params = st.query_params
-current_page = query_params.get("page", "battlefield")  # 默认先看实盘战场效果
+current_page = query_params.get("page", "ai_chat")
 
+# ------------------------------------------
+# 页面 1: 🤖 AI 战情室
+# ------------------------------------------
 if current_page == "ai_chat":
-    # 使用一个容器包裹，稍微留点边距，避免文字贴屏幕太近
-    with st.container():
-        st.markdown("<div style='margin: 20px;'>", unsafe_allow_html=True)
-        st.markdown("### 🤖 AI 战情室")
-        for msg in st.session_state.messages:
-            with st.chat_message(msg["role"]): st.markdown(msg["content"])
-        if prompt := st.chat_input("主公请下令..."):
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
-            with st.chat_message("assistant"):
-                if not client:
-                    # st.error("请配置 Secrets")
-                    response = "AI 模块暂未连接，请检查配置。"  # 模拟回复
-                    st.markdown(response)
-                else:
-                    # ... (AI 调用代码)
-                    pass
-            st.session_state.messages.append({"role": "assistant", "content": response})
-        st.markdown("</div>", unsafe_allow_html=True)
+    # 使用 container 包裹聊天记录，留出顶部空间
+    chat_container = st.container()
 
+    with chat_container:
+        st.markdown("<div style='padding: 20px;'>", unsafe_allow_html=True)  # 增加内边距
+        for msg in st.session_state.messages:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+        st.markdown("</div>", unsafe_allow_html=True)
+        # 增加一个巨大的空底，防止最后一条消息被输入框挡住
+        st.markdown("<div style='height: 100px;'></div>", unsafe_allow_html=True)
+
+    # 固定底部的输入框 (Streamlit 默认就是固定的)
+    if prompt := st.chat_input("主公请下令 (例如: 写一个双均线策略)..."):
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"): st.markdown(prompt)
+
+        with st.chat_message("assistant"):
+            # 模拟 AI 生成 (您后续接回 Kimi)
+            response = f"主公，正在生成关于【{prompt}】的量化策略..."
+            st.markdown(response)
+
+            # 模拟生成代码 (实际中这里是 AI 的输出)
+            fake_code = """
+def run_strategy(data):
+    return data['close'] > data['close'].rolling(20).mean()
+"""
+            st.session_state.generated_code = fake_code
+            st.toast("✅ 策略代码已生成并装填至实盘战场！", icon="🚀")
+
+            st.session_state.messages.append(
+                {"role": "assistant", "content": "策略代码已生成！请前往【实盘战场】下令出击。"})
+            # 强制刷新一下让 toast 显示
+            time.sleep(1)
+            st.rerun()
+
+# ------------------------------------------
+# 页面 2: 📊 实盘战场 (重构版)
+# ------------------------------------------
 elif current_page == "battlefield":
-    # 实盘战场布局
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        # 左侧代码区容器
-        st.markdown('<div class="glass-container">', unsafe_allow_html=True)
-        st.markdown("### 📜 策略代码")
-        st.text_area("代码编辑器", st.session_state.generated_code, height=300, label_visibility="collapsed")
-        st.button("🚀 执行策略", use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-    with col2:
-        # 右侧图表区容器
-        st.markdown('<div class="glass-container">', unsafe_allow_html=True)
-        st.markdown("### 📈 市场追踪")
-        # 模拟数据图表
-        chart_data = pd.DataFrame({
-            'Close Price': np.random.randn(100).cumsum() + 100,
-            'MA20': np.random.randn(100).cumsum() + 95
-        }, index=pd.date_range(end=pd.Timestamp.now(), periods=100))
-        st.line_chart(chart_data, color=["#fd1050", "#2196f3"])
-        st.markdown('</div>', unsafe_allow_html=True)
+    # 居中显示的大容器
+    col_spacer1, col_main, col_spacer2 = st.columns([1, 8, 1])
+
+    with col_main:
+        st.markdown("<div style='height: 50px;'></div>", unsafe_allow_html=True)  # 顶部留空
+
+        # 1. 状态显示区
+        if st.session_state.generated_code:
+            st.markdown("""
+            <div class="glass-card">
+                <div class="status-box status-ready">
+                    🟢 战术指令已就绪 (AI Strategy Loaded)
+                </div>
+                <div style="color: #ccc; font-size: 14px; margin-bottom: 10px;">
+                    AI 军师已完成策略部署，等待主公最后确认。
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # 2. 全军出击按钮
+            if st.button("🚀 全军出击 (Execute)", use_container_width=True, type="primary"):
+                with st.spinner("正在进行实盘数据演算..."):
+                    time.sleep(1.5)  # 模拟计算
+                    st.session_state.analysis_report = True
+                st.rerun()
+
+        else:
+            st.markdown("""
+            <div class="glass-card">
+                <div class="status-box status-wait">
+                    🟡 等待指令 (Waiting for Strategy)
+                </div>
+                <div style="color: #ccc;">
+                    请先前往 <b style="color:#fd1050">AI 战情室</b> 生成策略代码。
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # 3. 实盘分析战报 (执行后显示)
+        if st.session_state.get("analysis_report"):
+            st.markdown("""
+            <div class="glass-card">
+                <h3 style="border-bottom: 2px solid #fd1050; padding-bottom: 10px;">⚔️ 实盘分析战报</h3>
+                <p style="color: #aaa; margin-top: 10px;">策略执行完毕，最新市场数据如下：</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # 渲染图表 (在玻璃卡片内)
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            chart_data = pd.DataFrame({
+                'Close': np.random.randn(100).cumsum() + 100,
+                'Signal': np.random.randint(0, 2, 100) * 10
+            }, index=pd.date_range(end=pd.Timestamp.now(), periods=100))
+            st.line_chart(chart_data, color=["#fd1050", "#00ccff"])
+
+            cols = st.columns(3)
+            cols[0].metric("预期收益", "+12.5%", "2.1%")
+            cols[1].metric("最大回撤", "-3.2%", "0.5%")
+            cols[2].metric("夏普比率", "1.85", "0.1")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+# ------------------------------------------
+# 其他页面
+# ------------------------------------------
+elif current_page == "backtest":
+    st.info("⚡ 深度回测开发中...")
+elif current_page == "data_review":
+    st.info("📂 数据复盘开发中...")
