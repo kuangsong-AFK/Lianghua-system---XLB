@@ -47,7 +47,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1") if "sk-" in KIMI_API_KEY else None
+# 增加网络超时时间到 30 秒
+client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1",
+                timeout=30.0) if "sk-" in KIMI_API_KEY else None
 
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "主公，内置导航已连接。请下令！"}]
@@ -77,14 +79,19 @@ if current_page == "🤖 AI 战情室":
         st.session_state.messages.append({"role": "user", "content": prompt})
         st.rerun()
 
+    # 处理最新的用户输入
     if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user":
         with chat_container:
             with st.chat_message("assistant"):
-                message_placeholder = st.empty()
+                msg_box = st.empty()  # 绝对安全的作用域占位符
+
                 if not client:
-                    message_placeholder.error("🚨 API 连接失败！")
+                    msg_box.error("🚨 API 连接失败！请检查兵符。")
+                    st.session_state.messages.pop()  # 撤回用户输入
                 else:
                     try:
+                        msg_box.markdown("🧠 *军师正在疯狂查阅兵书 (正在请求 Kimi API...)*")
+
                         bt = "`" * 3
                         system_prompt = f"你是量化专家。请务必给出Python代码，且代码必须用 {bt}python 和 {bt} 包裹。"
 
@@ -93,27 +100,42 @@ if current_page == "🤖 AI 战情室":
                             messages=[{"role": "system", "content": system_prompt}] + st.session_state.messages,
                             stream=True
                         )
+
                         full_response = ""
                         for chunk in stream:
-                            if chunk.choices[0].delta.content:
-                                full_response += chunk.choices[0].delta.content
-                                message_placeholder.markdown(full_response + "▌")
-                        message_placeholder.markdown(full_response)
+                            if chunk.choices and len(chunk.choices) > 0:
+                                delta = chunk.choices[0].delta.content
+                                if delta:
+                                    full_response += delta
+                                    msg_box.markdown(full_response + "▌")
 
-                        code_pattern = bt + r"(?:python|Python)?\s*(.*?)" + bt
-                        code_match = re.search(code_pattern, full_response, re.DOTALL | re.IGNORECASE)
-
-                        if code_match:
-                            st.session_state.generated_code = code_match.group(1).strip()
-                            st.session_state.show_report = False
-                            st.toast("✅ 代码成功捕获！请前往左侧【实盘战场】查看。", icon="🚀")
+                        if not full_response:
+                            msg_box.error("🚨 军师沉默了。可能原因：API 额度耗尽或网络阻塞。")
+                            st.session_state.messages.pop()
                         else:
-                            st.warning("⚠️ Kimi 这次没按格式输出代码，请跟他说：'请重新只输出Python代码块'")
-                    except Exception as e:
-                        message_placeholder.error(f"API 异常: {e}")
+                            msg_box.markdown(full_response)
 
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
-                st.rerun()
+                            # 正则截取代码
+                            code_pattern = bt + r"(?:python|Python)?\s*(.*?)" + bt
+                            code_match = re.search(code_pattern, full_response, re.DOTALL | re.IGNORECASE)
+
+                            if code_match:
+                                st.session_state.generated_code = code_match.group(1).strip()
+                                st.session_state.show_report = False
+                                st.toast("✅ 代码成功捕获！请前往左侧【实盘战场】查看。", icon="🚀")
+                            else:
+                                st.warning("⚠️ Kimi 这次没按格式输出代码，请重新让他只输出代码。")
+
+                            # 成功获取回复才记入历史
+                            st.session_state.messages.append({"role": "assistant", "content": full_response})
+
+                    except Exception as e:
+                        # 完美捕获异常，并且安全调用 msg_box
+                        msg_box.error(f"📡 API 通讯异常: {e}")
+                        # 报错后自动撤回用户刚发的问题，避免死循环
+                        st.session_state.messages.pop()
+
+        st.rerun()
 
 # ==========================================
 # 📊 页面 2: 实盘战场
