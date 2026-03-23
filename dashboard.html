@@ -3,221 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>小吕布量化 · 终极透明指挥台</title>
+    <title>小吕布量化 · 极速恢复版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;500;700&display=swap" rel="stylesheet">
     
     <style>
-        /* --- 1. 全局设置 --- */
+        /* 1. 基础设置：紫色底色用于诊断 */
         body { 
             margin: 0; padding: 0; overflow: hidden; 
-            background-color: #000; 
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
-            color: #ffffff;
+            background: #1a0b2e; 
+            font-family: -apple-system, sans-serif; color: #fff; 
         }
 
-        /* --- 2. 在线视频背景 (墨流特效) --- */
+        /* 2. 视频背景 */
         #video-bg {
-            position: fixed;
-            right: 0; bottom: 0;
+            position: fixed; right: 0; bottom: 0;
             min-width: 100%; min-height: 100%;
             width: auto; height: auto;
-            z-index: -3; /* 最底层 */
-            object-fit: cover; /* 铺满屏幕 */
-            opacity: 0.9; /* 视频亮度 */
-        }
-        
-        /* 视频遮罩 (稍微压暗一点背景，防止文字看不清) */
-        .video-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.3); 
-            z-index: -2;
-            backdrop-filter: blur(0px); /* 如果觉得背景太花，可以把这里的 0px 改成 5px */
+            z-index: -3; object-fit: cover; opacity: 0.8; mix-blend-mode: screen;
         }
 
-        /* --- 3. 丝滑加载遮罩 --- */
-        #loader {
-            position: fixed; top: 0; left: 108px; right: 20px; bottom: 20px;
-            background: rgba(20, 20, 20, 0.6); 
-            backdrop-filter: blur(20px);
-            z-index: 100; 
-            border-radius: 24px;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            transition: opacity 0.4s ease-out, visibility 0.4s;
-            opacity: 0; visibility: hidden; pointer-events: none;
-        }
-        #loader.show { opacity: 1; visibility: visible; pointer-events: all; }
-        
-        /* 加载圈 */
-        .spinner {
-            width: 50px; height: 50px;
-            border: 3px solid rgba(253, 16, 80, 0.2);
-            border-radius: 50%;
-            border-top-color: #fd1050; 
-            animation: spin 1s cubic-bezier(0.55, 0.055, 0.675, 0.19) infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .loading-text { margin-top: 15px; font-size: 14px; color: #fd1050; letter-spacing: 2px; }
-
-        /* --- 4. 侧边栏 (磨砂玻璃) --- */
+        /* 3. 侧边栏 (Z-index 999 确保永远可见) */
         .sidebar {
-            position: fixed; left: 20px; top: 20px; bottom: 20px;
-            width: 68px; 
-            border-radius: 24px;
-            display: flex; flex-direction: column; align-items: center; padding: 30px 0;
-            z-index: 50; 
+            position: fixed; left: 20px; top: 20px; bottom: 20px; width: 68px; 
+            border-radius: 24px; display: flex; flex-direction: column; align-items: center; padding: 30px 0;
+            z-index: 999; /* 提高层级 */
             transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-            
-            background: rgba(30, 30, 30, 0.3); 
-            backdrop-filter: blur(25px) saturate(180%);
-            -webkit-backdrop-filter: blur(25px) saturate(180%);
+            background: rgba(30, 30, 30, 0.5); backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
         }
-        .sidebar:hover { 
-            width: 220px; align-items: flex-start; padding-left: 20px; 
-            background: rgba(30, 30, 30, 0.7); 
-        }
-
-        /* Logo */
-        .logo-area {
-            width: 48px; height: 48px; flex-shrink: 0;
-            background: linear-gradient(135deg, #fd1050, #ff5e62);
-            border-radius: 14px; display: flex; align-items: center; justify-content: center;
-            font-weight: 800; font-size: 20px; color: white; margin-bottom: 40px; cursor: pointer;
-            box-shadow: 0 4px 15px rgba(253, 16, 80, 0.4);
-            transition: 0.3s;
-        }
+        .sidebar:hover { width: 220px; align-items: flex-start; padding-left: 20px; background: rgba(30,30,30,0.95); }
+        
+        .logo-area { width: 48px; height: 48px; flex-shrink: 0; background: linear-gradient(135deg, #fd1050, #ff5e62); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; margin-bottom: 40px; cursor: pointer; }
         .sidebar:hover .logo-area { width: 180px; justify-content: flex-start; padding-left: 15px; }
         .logo-text { display: none; margin-left: 10px; font-size: 16px; white-space: nowrap; }
         .sidebar:hover .logo-text { display: block; }
 
-        /* 菜单项 */
-        .nav-item {
-            display: flex; align-items: center; justify-content: center;
-            width: 48px; height: 48px; flex-shrink: 0;
-            border-radius: 14px; margin-bottom: 12px; cursor: pointer;
-            color: rgba(255,255,255,0.7); transition: 0.2s;
-        }
+        .nav-item { display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; flex-shrink: 0; border-radius: 14px; margin-bottom: 12px; cursor: pointer; color: rgba(255,255,255,0.7); transition: 0.2s; }
         .sidebar:hover .nav-item { width: 180px; justify-content: flex-start; padding-left: 12px; }
-        .nav-item:hover { background: rgba(255, 255, 255, 0.15); color: white; transform: translateX(2px); }
-        .nav-item.active { background: rgba(253, 16, 80, 0.2); color: #fd1050; border: 1px solid rgba(253, 16, 80, 0.4); }
-        .nav-icon { font-size: 22px; display: flex; align-items: center; justify-content: center; }
-        .nav-label { display: none; margin-left: 15px; font-weight: 500; font-size: 15px; white-space: nowrap; }
+        .nav-item:hover { background: rgba(255,255,255,0.15); }
+        .nav-item.active { background: rgba(253,16,80,0.2); color: #fd1050; border: 1px solid rgba(253,16,80,0.4); }
+        .nav-icon { font-size: 22px; }
+        .nav-label { display: none; margin-left: 15px; font-weight: 500; font-size: 15px; }
         .sidebar:hover .nav-label { display: block; animation: fadeIn 0.4s; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* --- 5. 主内容区 (核心修改点) --- */
+        /* 4. 主内容区 (无边框) */
         .main-content {
-            position: fixed;
-            top: 20px; right: 20px; bottom: 20px;
-            left: 108px;
-            border-radius: 24px;
-            overflow: hidden;
-            z-index: 10;
-            transition: left 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-            
-            /* 🔥【关键】背景透明度设置为 20% (0.2) 🔥 */
-            background: rgba(0, 0, 0, 0.2); 
-            
-            /* 可选：如果您觉得太透看不清字，可以取消下面这行的注释，加一点模糊 */
-            /* backdrop-filter: blur(5px); */
+            position: fixed; 
+            top: 20px; right: 20px; bottom: 20px; left: 108px;
+            border-radius: 24px; overflow: hidden; z-index: 10;
+            background: rgba(0, 0, 0, 0.05); /* 极度透明 */
+            padding: 0; margin: 0;
         }
-        .sidebar:hover + .main-content { left: 260px; }
 
-        iframe {
-            width: 100%; height: 100%; border: none;
-            transition: opacity 0.3s;
+        /* 5. Iframe */
+        iframe { 
+            width: 100%; height: 100%; 
+            border: none; margin: 0; padding: 0; display: block;
+            background-color: transparent !important;
         }
     </style>
 </head>
 <body>
-
     <video autoplay muted loop playsinline id="video-bg">
-        <source src="https://videos.pexels.com/video-files/2646392/2646392-hd_1920_1080_30fps.mp4" type="video/mp4">
+        <source src="bg.mp4" type="video/mp4">
+        <source src="https://assets.mixkit.co/videos/preview/mixkit-stars-in-space-1610-large.mp4" type="video/mp4">
     </video>
 
-    <div class="video-overlay"></div>
-
-    <div id="loader">
-        <div class="spinner"></div>
-        <div class="loading-text">SYSTEM INITIALIZING...</div>
-    </div>
-
-    <nav class="sidebar glass">
-        <div class="logo-area" onclick="refreshIframe()">
-            <span>LB</span><span class="logo-text">小吕布量化 Pro</span>
-        </div>
-
-        <div class="nav-item active" onclick="selectTab(this, 'ai_chat')">
-            <span class="nav-icon">🤖</span><span class="nav-label">AI 战情室</span>
-        </div>
-        <div class="nav-item" onclick="selectTab(this, 'battlefield')">
-            <span class="nav-icon">📊</span><span class="nav-label">实盘战场</span>
-        </div>
-        <div class="nav-item" onclick="selectTab(this, 'backtest')">
-            <span class="nav-icon">⚡</span><span class="nav-label">深度回测</span>
-        </div>
-        <div class="nav-item" onclick="selectTab(this, 'data_review')">
-            <span class="nav-icon">📂</span><span class="nav-label">数据复盘</span>
-        </div>
-        
+    <nav class="sidebar">
+        <div class="logo-area" onclick="refreshIframe()"><span>LB</span><span class="logo-text">小吕布量化 Pro</span></div>
+        <div class="nav-item active" onclick="selectTab(this, 'ai_chat')"><span class="nav-icon">🤖</span><span class="nav-label">AI 战情室</span></div>
+        <div class="nav-item" onclick="selectTab(this, 'battlefield')"><span class="nav-icon">📊</span><span class="nav-label">实盘战场</span></div>
+        <div class="nav-item" onclick="selectTab(this, 'backtest')"><span class="nav-icon">⚡</span><span class="nav-label">深度回测</span></div>
+        <div class="nav-item" onclick="selectTab(this, 'data_review')"><span class="nav-icon">📂</span><span class="nav-label">数据复盘</span></div>
         <div style="flex-grow: 1;"></div>
-        
-        <div class="nav-item">
-            <span class="nav-icon">⚙️</span><span class="nav-label">系统设置</span>
-        </div>
+        <div class="nav-item"><span class="nav-icon">⚙️</span><span class="nav-label">系统设置</span></div>
     </nav>
 
     <main class="main-content">
         <iframe 
             id="quantFrame"
-            src="https://lianghua-system---xlb-eyrzwdbv6phkgnhkp9goxe.streamlit.app/?embed=true&theme=dark&page=ai_chat"
+            src="https://lianghua-system---xlb-eyrzwdbv6phkgnhkp9goxe.streamlit.app/?embed=true&page=ai_chat"
             allow="camera; microphone; clipboard-read; clipboard-write;"
-            onload="hideLoader()"
+            allowtransparency="true"
         ></iframe>
     </main>
 
     <script>
         const baseUrl = "https://lianghua-system---xlb-eyrzwdbv6phkgnhkp9goxe.streamlit.app/";
-        const loader = document.getElementById('loader');
         const iframe = document.getElementById('quantFrame');
 
         function selectTab(element, pageName) {
             if (element.classList.contains('active')) return;
-
-            // 1. UI 切换
-            document.querySelectorAll('.nav-item').forEach(item => {
-                item.classList.remove('active');
-            });
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
             element.classList.add('active');
             
-            // 2. 显示加载动画
-            showLoader();
-
-            // 3. 切换页面 (带时间戳)
-            const timestamp = new Date().getTime();
-            iframe.src = `${baseUrl}?embed=true&theme=dark&page=${pageName}&t=${timestamp}`;
+            // 切换时不再显示加载遮罩(因为删了)，直接切页面
+            iframe.src = `${baseUrl}?embed=true&page=${pageName}&t=${new Date().getTime()}`;
         }
-
-        function showLoader() {
-            loader.classList.add('show');
-            iframe.style.opacity = '0'; 
-        }
-
-        function hideLoader() {
-            setTimeout(() => {
-                loader.classList.remove('show');
-                iframe.style.opacity = '1'; 
-            }, 600);
-        }
-
-        function refreshIframe() {
-            showLoader();
-            iframe.src = iframe.src;
-        }
-        
-        showLoader();
+        function refreshIframe() { iframe.src = iframe.src; }
     </script>
 </body>
 </html>
