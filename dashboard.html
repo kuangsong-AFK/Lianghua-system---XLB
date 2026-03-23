@@ -3,65 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>小吕布量化 · 极速恢复版</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;500;700&display=swap" rel="stylesheet">
-    
+    <title>小吕布量化 · 终极星际指挥台</title>
     <style>
-        /* 1. 基础设置：紫色底色用于诊断 */
-        body { 
-            margin: 0; padding: 0; overflow: hidden; 
-            background: #1a0b2e; 
-            font-family: -apple-system, sans-serif; color: #fff; 
-        }
-
-        /* 2. 视频背景 */
+        body { margin: 0; padding: 0; overflow: hidden; background: #0e1117; }
+        
+        /* 仅保留视频背景 */
         #video-bg {
             position: fixed; right: 0; bottom: 0;
-            min-width: 100%; min-height: 100%;
-            width: auto; height: auto;
-            z-index: -3; object-fit: cover; opacity: 0.8; mix-blend-mode: screen;
+            min-width: 100%; min-height: 100%; width: auto; height: auto;
+            z-index: -3; object-fit: cover; opacity: 0.85; mix-blend-mode: screen;
         }
 
-        /* 3. 侧边栏 (Z-index 999 确保永远可见) */
-        .sidebar {
-            position: fixed; left: 20px; top: 20px; bottom: 20px; width: 68px; 
-            border-radius: 24px; display: flex; flex-direction: column; align-items: center; padding: 30px 0;
-            z-index: 999; /* 提高层级 */
-            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-            background: rgba(30, 30, 30, 0.5); backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .sidebar:hover { width: 220px; align-items: flex-start; padding-left: 20px; background: rgba(30,30,30,0.95); }
-        
-        .logo-area { width: 48px; height: 48px; flex-shrink: 0; background: linear-gradient(135deg, #fd1050, #ff5e62); border-radius: 14px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; margin-bottom: 40px; cursor: pointer; }
-        .sidebar:hover .logo-area { width: 180px; justify-content: flex-start; padding-left: 15px; }
-        .logo-text { display: none; margin-left: 10px; font-size: 16px; white-space: nowrap; }
-        .sidebar:hover .logo-text { display: block; }
-
-        .nav-item { display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; flex-shrink: 0; border-radius: 14px; margin-bottom: 12px; cursor: pointer; color: rgba(255,255,255,0.7); transition: 0.2s; }
-        .sidebar:hover .nav-item { width: 180px; justify-content: flex-start; padding-left: 12px; }
-        .nav-item:hover { background: rgba(255,255,255,0.15); }
-        .nav-item.active { background: rgba(253,16,80,0.2); color: #fd1050; border: 1px solid rgba(253,16,80,0.4); }
-        .nav-icon { font-size: 22px; }
-        .nav-label { display: none; margin-left: 15px; font-weight: 500; font-size: 15px; }
-        .sidebar:hover .nav-label { display: block; animation: fadeIn 0.4s; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-        /* 4. 主内容区 (无边框) */
-        .main-content {
-            position: fixed; 
-            top: 20px; right: 20px; bottom: 20px; left: 108px;
-            border-radius: 24px; overflow: hidden; z-index: 10;
-            background: rgba(0, 0, 0, 0.05); /* 极度透明 */
-            padding: 0; margin: 0;
-        }
-
-        /* 5. Iframe */
+        /* Iframe 铺满全屏，一切 UI 交给内部的 Python 渲染 */
         iframe { 
-            width: 100%; height: 100%; 
-            border: none; margin: 0; padding: 0; display: block;
-            background-color: transparent !important;
+            position: absolute; top: 0; left: 0; 
+            width: 100%; height: 100%; border: none; 
+            background-color: transparent !important; 
         }
     </style>
 </head>
@@ -71,38 +28,10 @@
         <source src="https://assets.mixkit.co/videos/preview/mixkit-stars-in-space-1610-large.mp4" type="video/mp4">
     </video>
 
-    <nav class="sidebar">
-        <div class="logo-area" onclick="refreshIframe()"><span>LB</span><span class="logo-text">小吕布量化 Pro</span></div>
-        <div class="nav-item active" onclick="selectTab(this, 'ai_chat')"><span class="nav-icon">🤖</span><span class="nav-label">AI 战情室</span></div>
-        <div class="nav-item" onclick="selectTab(this, 'battlefield')"><span class="nav-icon">📊</span><span class="nav-label">实盘战场</span></div>
-        <div class="nav-item" onclick="selectTab(this, 'backtest')"><span class="nav-icon">⚡</span><span class="nav-label">深度回测</span></div>
-        <div class="nav-item" onclick="selectTab(this, 'data_review')"><span class="nav-icon">📂</span><span class="nav-label">数据复盘</span></div>
-        <div style="flex-grow: 1;"></div>
-        <div class="nav-item"><span class="nav-icon">⚙️</span><span class="nav-label">系统设置</span></div>
-    </nav>
-
-    <main class="main-content">
-        <iframe 
-            id="quantFrame"
-            src="https://lianghua-system---xlb-eyrzwdbv6phkgnhkp9goxe.streamlit.app/?embed=true&page=ai_chat"
-            allow="camera; microphone; clipboard-read; clipboard-write;"
-            allowtransparency="true"
-        ></iframe>
-    </main>
-
-    <script>
-        const baseUrl = "https://lianghua-system---xlb-eyrzwdbv6phkgnhkp9goxe.streamlit.app/";
-        const iframe = document.getElementById('quantFrame');
-
-        function selectTab(element, pageName) {
-            if (element.classList.contains('active')) return;
-            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-            element.classList.add('active');
-            
-            // 切换时不再显示加载遮罩(因为删了)，直接切页面
-            iframe.src = `${baseUrl}?embed=true&page=${pageName}&t=${new Date().getTime()}`;
-        }
-        function refreshIframe() { iframe.src = iframe.src; }
-    </script>
+    <iframe 
+        src="https://lianghua-system---xlb-eyrzwdbv6phkgnhkp9goxe.streamlit.app/?embed=true"
+        allow="camera; microphone; clipboard-read; clipboard-write;"
+        allowtransparency="true">
+    </iframe>
 </body>
 </html>
