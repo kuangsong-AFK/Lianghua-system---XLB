@@ -1,25 +1,3 @@
-因为代码里面直接出现了 ** 连续的三个反引号（\`\`\`） ** ，您在点击右上角“复制代码”时，网页的
-Markdown
-解析器“自作聪明”地以为代码块在这里就结束了！这就导致您复制粘贴下来的代码被拦腰截断，少了一半的引号，从而引发了
-`unterminated
-string
-literal
-`（未闭合的字符串）报错。
-
-** ⚔️
-终极防截断之策： **
-
-末将已施展“偷天换日”之法：我用
-Python
-的字符串乘法（`bt = "\`" * 3
-`）动态拼出了这三个反引号。这样代码文本里就不会再出现连续的三个反引号，您的复制按钮就绝对不会再被卡断了！
-
-请主公 ** 再次全选覆盖 ** 您的
-`app.py`（这次保证能完整复制），然后
-Push
-上去：
-
-```python
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -69,8 +47,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-client = OpenAI(api_key=KIMI_API_KEY,
-                base_url="[https://api.moonshot.cn/v1](https://api.moonshot.cn/v1)") if "sk-" in KIMI_API_KEY else None
+client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1") if "sk-" in KIMI_API_KEY else None
 
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "主公，内置导航已连接。请下令！"}]
@@ -108,7 +85,6 @@ if current_page == "🤖 AI 战情室":
                     message_placeholder.error("🚨 API 连接失败！")
                 else:
                     try:
-                        # 🔥【核心修复】：用变量拼接反引号，彻底防止复制时代码被截断！
                         bt = "`" * 3
                         system_prompt = f"你是量化专家。请务必给出Python代码，且代码必须用 {bt}python 和 {bt} 包裹。"
 
@@ -124,7 +100,6 @@ if current_page == "🤖 AI 战情室":
                                 message_placeholder.markdown(full_response + "▌")
                         message_placeholder.markdown(full_response)
 
-                        # 🔥【核心修复】：正则也用变量拼接
                         code_pattern = bt + r"(?:python|Python)?\s*(.*?)" + bt
                         code_match = re.search(code_pattern, full_response, re.DOTALL | re.IGNORECASE)
 
