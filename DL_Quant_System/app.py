@@ -8,7 +8,7 @@ import tushare as ts
 import plotly.graph_objects as go
 
 # ==========================================
-# 1. 核心兵符 (Kimi & Tushare)
+# 1. 核心兵符
 # ==========================================
 st.set_page_config(page_title="小吕布量化 Pro", layout="wide", initial_sidebar_state="expanded")
 
@@ -38,6 +38,22 @@ if "messages" not in st.session_state:
 if "generated_code" not in st.session_state: st.session_state.generated_code = ""
 if "bt_result" not in st.session_state: st.session_state.bt_result = None
 
+
+# ==========================================
+# 工具函数：智能股票代码补全
+# ==========================================
+def format_ts_code(raw_code):
+    raw_code = str(raw_code).strip().upper()
+    if len(raw_code) == 6 and raw_code.isdigit():
+        if raw_code.startswith(('6', '9')):
+            return f"{raw_code}.SH"
+        elif raw_code.startswith(('0', '2', '3')):
+            return f"{raw_code}.SZ"
+        elif raw_code.startswith(('4', '8')):
+            return f"{raw_code}.BJ"
+    return raw_code
+
+
 with st.sidebar:
     st.markdown("## 👑 小吕布量化")
     st.markdown("---")
@@ -62,14 +78,11 @@ if page == "🤖 AI 战情室":
             with st.chat_message("assistant"):
                 msg_box = st.empty()
                 bt = "`" * 3
-                # 🔥 强化版提示词：加入了防止 pandas ambiguous 报错的严格军规
                 sys_prompt = f"""你是量化专家。请给出Python代码并用 {bt}python 和 {bt} 包裹。
 必须包含 `generate_signals(df)` 函数。
 输入 df 列名为: ['trade_date', 'open', 'high', 'low', 'close', 'vol']。
 在 df 中新增 'Signal' 列：1为买入，-1为卖出，0为观望。最后返回 df。
-⚠️ 【极度重要军规】：
-1. 在 pandas 计算多条件时，必须且只能使用 `&` (与) 和 `|` (或)，并给每个条件加括号！绝对禁止使用 `and` 或 `or`！
-2. 请使用 `.shift(1)` 引用前一日数据，避免用到未来函数。"""
+⚠️ 【极度重要军规】：在 pandas 计算多条件时，必须且只能使用 `&` (与) 和 `|` (或)，并给每个条件加括号！绝对禁止使用 `and` 或 `or`！"""
                 try:
                     msg_box.markdown("🧠 *军师正在推演战术逻辑...*")
                     stream = client.chat.completions.create(model="moonshot-v1-8k", messages=[{"role": "system",
@@ -95,24 +108,33 @@ if page == "🤖 AI 战情室":
 # 📊 实盘战场
 # ==========================================
 elif page == "📊 实盘战场":
-    st.markdown('<div class="glass-card"><h3>📊 实盘战场 (沙盒回测)</h3></div>', unsafe_allow_html=True)
+    st.markdown('<div class="glass-card"><h3>📊 实盘战场 (同花顺级图表)</h3></div>', unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 2.5])
 
     with col_l:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        ts_code = st.text_input("🎯 股票代码 (如: 000001.SZ)", value="000001.SZ")
+        # 优化 1：支持 6 位纯数字代码
+        raw_stock_code = st.text_input("🎯 股票代码 (输入6位数字，如: 000001)", value="000001")
+        ts_code = format_ts_code(raw_stock_code)
+
+        st.caption(f"🔧 自动识别为 Tushare 接口代码: `{ts_code}`")
 
         if st.session_state.generated_code:
             st.success("🟢 策略已装填")
             if st.button("🚀 执行策略并研判买卖点", use_container_width=True, type="primary"):
                 with st.spinner(f"正在调取 {ts_code} 真实历史战况..."):
                     try:
-                        data = pro.daily(ts_code=ts_code, start_date='20240101')
+                        data = pro.daily(ts_code=ts_code, start_date='20230101')
                         if data.empty:
                             st.error("未获取到数据，请检查代码。")
                         else:
                             data = data.sort_values('trade_date').reset_index(drop=True)
                             data['trade_date'] = pd.to_datetime(data['trade_date'])
+
+                            # 计算自带的技术指标 (均线)
+                            data['MA5'] = data['close'].rolling(window=5).mean()
+                            data['MA10'] = data['close'].rolling(window=10).mean()
+                            data['MA20'] = data['close'].rolling(window=20).mean()
 
                             l_vars = {}
                             exec(st.session_state.generated_code, globals(), l_vars)
@@ -125,7 +147,7 @@ elif page == "📊 实盘战场":
 
                             st.session_state.bt_result = {"df": data, "code": ts_code}
                     except Exception as e:
-                        st.error(f"逻辑错误: {e}")
+                        st.error(f"策略报错，请让军师修改: {e}")
         else:
             st.warning("🟡 暂无策略，请前往战情室。")
         st.markdown('</div>', unsafe_allow_html=True)
@@ -135,19 +157,42 @@ elif page == "📊 实盘战场":
             df = st.session_state.bt_result['df']
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
 
-            fig = go.Figure(data=[
-                go.Candlestick(x=df['trade_date'], open=df['open'], high=df['high'], low=df['low'], close=df['close'],
-                               name='K线')])
+            fig = go.Figure()
+
+            # 优化 2：同花顺级 A股红绿 K 线图
+            fig.add_trace(go.Candlestick(
+                x=df['trade_date'], open=df['open'], high=df['high'], low=df['low'], close=df['close'],
+                name='K线',
+                increasing_line_color='#FD1050', increasing_fillcolor='#FD1050',  # A股红涨
+                decreasing_line_color='#00FF00', decreasing_fillcolor='#00FF00'  # A股绿跌
+            ))
+
+            # 添加技术指标均线
+            fig.add_trace(go.Scatter(x=df['trade_date'], y=df['MA5'], line=dict(color='white', width=1), name='MA5'))
+            fig.add_trace(go.Scatter(x=df['trade_date'], y=df['MA10'], line=dict(color='yellow', width=1), name='MA10'))
+            fig.add_trace(
+                go.Scatter(x=df['trade_date'], y=df['MA20'], line=dict(color='magenta', width=1), name='MA20'))
 
             buys = df[df['Signal'] == 1]
             sells = df[df['Signal'] == -1]
-            fig.add_trace(go.Scatter(x=buys['trade_date'], y=buys['low'] * 0.98, mode='markers',
-                                     marker=dict(symbol='triangle-up', size=12, color='#00ff00'), name='买入点'))
-            fig.add_trace(go.Scatter(x=sells['trade_date'], y=sells['high'] * 1.02, mode='markers',
-                                     marker=dict(symbol='triangle-down', size=12, color='#ff0000'), name='卖出点'))
+            fig.add_trace(go.Scatter(x=buys['trade_date'], y=buys['low'] * 0.95, mode='markers',
+                                     marker=dict(symbol='triangle-up', size=14, color='#00FFFF',
+                                                 line=dict(width=1, color='white')), name='B点 (买)'))
+            fig.add_trace(go.Scatter(x=sells['trade_date'], y=sells['high'] * 1.05, mode='markers',
+                                     marker=dict(symbol='triangle-down', size=14, color='#FF00FF',
+                                                 line=dict(width=1, color='white')), name='S点 (卖)'))
 
-            fig.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                              margin=dict(l=0, r=0, t=0, b=0), xaxis_rangeslider_visible=False)
+            fig.update_layout(
+                template="plotly_dark",
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0.2)',
+                margin=dict(l=0, r=0, t=0, b=0), xaxis_rangeslider_visible=False,
+                hovermode="x unified",  # 丝滑的十字光标悬停
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
+            # 优化网格线
+            fig.update_xaxes(showgrid=False)
+            fig.update_yaxes(showgrid=True, gridcolor='rgba(255,255,255,0.1)')
+
             st.plotly_chart(fig, use_container_width=True)
 
             total_ret = (df['Cum_Prod'].iloc[-1] - 1) * 100
