@@ -3,3 +3,5 @@ openai
 pandas
 numpy
 tushare
+yfinance
+plotly
