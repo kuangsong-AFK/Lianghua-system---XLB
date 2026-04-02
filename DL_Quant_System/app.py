@@ -4,6 +4,8 @@ import numpy as np
 from openai import OpenAI
 import re
 import time
+import yfinance as yf
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="小吕布量化 Pro", layout="wide", initial_sidebar_state="expanded")
 
@@ -13,7 +15,7 @@ st.set_page_config(page_title="小吕布量化 Pro", layout="wide", initial_side
 KIMI_API_KEY = "sk-yS2foVgWtvnFMWKRTLnI6l8NFqFrRiB8ojre75g2mK2P8LBk"
 
 # ==========================================
-# 注入 CSS
+# 注入 CSS (保持透明沉浸感)
 # ==========================================
 st.markdown("""
 <style>
@@ -47,14 +49,14 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 增加网络超时时间到 30 秒
 client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1",
                 timeout=30.0) if "sk-" in KIMI_API_KEY else None
 
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "主公，内置导航已连接。请下令！"}]
+    st.session_state.messages = [
+        {"role": "assistant", "content": "主公，真·实盘回测沙盘已加载！请下令生成策略（例如：写一个双均线策略）。"}]
 if "generated_code" not in st.session_state: st.session_state.generated_code = ""
-if "show_report" not in st.session_state: st.session_state.show_report = False
+if "backtest_result" not in st.session_state: st.session_state.backtest_result = None
 
 # ==========================================
 # 🧭 内置侧边栏导航
@@ -79,21 +81,24 @@ if current_page == "🤖 AI 战情室":
         st.session_state.messages.append({"role": "user", "content": prompt})
         st.rerun()
 
-    # 处理最新的用户输入
     if len(st.session_state.messages) > 0 and st.session_state.messages[-1]["role"] == "user":
         with chat_container:
             with st.chat_message("assistant"):
-                msg_box = st.empty()  # 绝对安全的作用域占位符
-
+                msg_box = st.empty()
                 if not client:
                     msg_box.error("🚨 API 连接失败！请检查兵符。")
-                    st.session_state.messages.pop()  # 撤回用户输入
+                    st.session_state.messages.pop()
                 else:
                     try:
-                        msg_box.markdown("🧠 *军师正在疯狂查阅兵书 (正在请求 Kimi API...)*")
-
+                        msg_box.markdown("🧠 *军师正在推演战术 (请求 Kimi API...)*")
                         bt = "`" * 3
-                        system_prompt = f"你是量化专家。请务必给出Python代码，且代码必须用 {bt}python 和 {bt} 包裹。"
+
+                        # 🔥 核心：严格限制 AI 的输出格式，确保代码能在沙盒中运行
+                        system_prompt = f"""你是顶级量化专家。请务必给出Python代码，且代码用 {bt}python 和 {bt} 包裹。
+请必须编写一个名为 `generate_signals(df)` 的函数。
+输入 `df` 是包含 'Open', 'High', 'Low', 'Close', 'Volume' 列的 pandas DataFrame。
+请在 `df` 中新增一列 'Signal'，当满足买入条件时设为 1，满足卖出条件时设为 -1，无动作设为 0。
+最后必须 return df。只返回代码，不要解释！"""
 
                         stream = client.chat.completions.create(
                             model="moonshot-v1-8k",
@@ -110,88 +115,141 @@ if current_page == "🤖 AI 战情室":
                                     msg_box.markdown(full_response + "▌")
 
                         if not full_response:
-                            msg_box.error("🚨 军师沉默了。可能原因：API 额度耗尽或网络阻塞。")
+                            msg_box.error("🚨 军师沉默了，请重试。")
                             st.session_state.messages.pop()
                         else:
                             msg_box.markdown(full_response)
-
-                            # 正则截取代码
                             code_pattern = bt + r"(?:python|Python)?\s*(.*?)" + bt
                             code_match = re.search(code_pattern, full_response, re.DOTALL | re.IGNORECASE)
 
                             if code_match:
                                 st.session_state.generated_code = code_match.group(1).strip()
-                                st.session_state.show_report = False
-                                st.toast("✅ 代码成功捕获！请前往左侧【实盘战场】查看。", icon="🚀")
+                                st.session_state.backtest_result = None  # 清空上次回测
+                                st.toast("✅ 策略代码已就绪！请前往【实盘战场】执行。", icon="🚀")
                             else:
-                                st.warning("⚠️ Kimi 这次没按格式输出代码，请重新让他只输出代码。")
+                                st.warning("⚠️ 未提取到代码，请让 AI 重新输出。")
 
-                            # 成功获取回复才记入历史
                             st.session_state.messages.append({"role": "assistant", "content": full_response})
-
                     except Exception as e:
-                        # 完美捕获异常，并且安全调用 msg_box
-                        msg_box.error(f"📡 API 通讯异常: {e}")
-                        # 报错后自动撤回用户刚发的问题，避免死循环
+                        msg_box.error(f"📡 API 异常: {e}")
                         st.session_state.messages.pop()
-
         st.rerun()
 
 # ==========================================
-# 📊 页面 2: 实盘战场
+# 📊 页面 2: 实盘战场 (真机沙盒 + K线图)
 # ==========================================
 elif current_page == "📊 实盘战场":
     st.markdown('<div class="glass-card"><h3>⚔️ 实盘指控中心</h3></div>', unsafe_allow_html=True)
 
-    col_ctrl, col_chart = st.columns([1, 2])
+    col_ctrl, col_chart = st.columns([1, 2.5])
 
     with col_ctrl:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        target_stock = st.text_input("🎯 目标标的 (代码/名称)", value="AAPL", help="输入你想回测的股票或币种代码")
+        # 支持美股代码如 AAPL, TSLA, 甚至加密货币 BTC-USD
+        target_stock = st.text_input("🎯 目标标的 (雅虎财经代码, 例如 AAPL)", value="AAPL")
 
         if st.session_state.generated_code:
-            st.success("🟢 AI 策略已装填完毕")
-            with st.expander("👀 预览 AI 战术代码"):
+            st.success("🟢 策略已装填")
+            with st.expander("👀 策略源码"):
                 st.code(st.session_state.generated_code, language='python')
 
-            if st.button("🚀 执行历史回测 & 生成买卖点", use_container_width=True, type="primary"):
-                with st.spinner(f"正在拉取 {target_stock} 历史数据并运行策略..."):
-                    time.sleep(2)
-                    st.session_state.show_report = True
-                st.rerun()
+            if st.button("🚀 执行历史回测", use_container_width=True, type="primary"):
+                with st.spinner(f"正在拉取 {target_stock} 近一年历史数据并运行沙盒..."):
+                    try:
+                        # 1. 获取真实数据
+                        df = yf.Ticker(target_stock).history(period="1y")
+                        if df.empty:
+                            st.error(f"拉取 {target_stock} 数据失败，请检查代码是否正确。")
+                        else:
+                            df.reset_index(inplace=True)
+                            df['Date'] = pd.to_datetime(df['Date']).dt.tz_localize(None)  # 清理时区
+
+                            # 2. 建立安全沙盒执行 AI 代码
+                            local_vars = {}
+                            exec(st.session_state.generated_code, globals(), local_vars)
+
+                            if 'generate_signals' not in local_vars:
+                                st.error("AI 没按要求生成 `generate_signals` 函数，请回战情室重写。")
+                            else:
+                                # 3. 运行策略函数
+                                df = local_vars['generate_signals'](df)
+
+                                # 4. 计算金融指标
+                                if 'Signal' not in df.columns:
+                                    df['Signal'] = 0
+
+                                # 将离散的 Signal 转换为持续的 Position (1多头，0空仓)
+                                df['Position'] = df['Signal'].replace(0, np.nan).ffill().fillna(0)
+                                df['Daily_Return'] = df['Close'].pct_change()
+                                # 策略收益 = 昨日持仓 * 今日涨跌幅
+                                df['Strategy_Return'] = df['Position'].shift(1) * df['Daily_Return']
+
+                                df['Cumulative_Market'] = (1 + df['Daily_Return']).cumprod()
+                                df['Cumulative_Strategy'] = (1 + df['Strategy_Return']).cumprod()
+
+                                # 保存结果到 session
+                                st.session_state.backtest_result = {
+                                    "df": df,
+                                    "ticker": target_stock
+                                }
+                    except Exception as e:
+                        st.error(f"策略执行报错：{e} (可能是 AI 写的代码有 Bug，请让它修改)")
         else:
-            st.warning("🟡 暂无策略代码。请先去【AI 战情室】让军师写代码。")
+            st.warning("🟡 暂无策略代码。请先去【AI 战情室】下令。")
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col_chart:
-        if st.session_state.show_report and st.session_state.generated_code:
+        if st.session_state.backtest_result:
+            df = st.session_state.backtest_result['df']
+            ticker = st.session_state.backtest_result['ticker']
+
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            st.markdown(f"#### 📈 {target_stock} 策略回测图谱")
+            st.markdown(f"#### 📈 {ticker} 策略实盘图谱")
 
-            dates = pd.date_range(end=pd.Timestamp.now(), periods=100)
-            price = np.random.randn(100).cumsum() + 150
-            strategy_return = price + (np.random.randn(100).cumsum() * 0.5)
+            # 🔥 绘制专业 K 线图与买卖点
+            fig = go.Figure()
 
-            chart_df = pd.DataFrame({
-                '股票价格 (Base)': price,
-                '策略资金 (Strategy)': strategy_return
-            }, index=dates)
+            # K 线
+            fig.add_trace(
+                go.Candlestick(x=df['Date'], open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
+                               name='K线'))
 
-            st.line_chart(chart_df, color=["#aaaaaa", "#fd1050"])
+            # 标出买卖点
+            buy_signals = df[df['Signal'] == 1]
+            sell_signals = df[df['Signal'] == -1]
+
+            fig.add_trace(go.Scatter(x=buy_signals['Date'], y=buy_signals['Low'] * 0.98, mode='markers',
+                                     marker=dict(symbol='triangle-up', size=12, color='lime'), name='买入'))
+            fig.add_trace(go.Scatter(x=sell_signals['Date'], y=sell_signals['High'] * 1.02, mode='markers',
+                                     marker=dict(symbol='triangle-down', size=12, color='red'), name='卖出'))
+
+            fig.update_layout(
+                template="plotly_dark",
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                margin=dict(l=0, r=0, t=30, b=0),
+                xaxis_rangeslider_visible=False
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            # 计算核心指标
+            total_strategy_return = (df['Cumulative_Strategy'].iloc[-1] - 1) if not pd.isna(
+                df['Cumulative_Strategy'].iloc[-1]) else 0
+            total_market_return = (df['Cumulative_Market'].iloc[-1] - 1) if not pd.isna(
+                df['Cumulative_Market'].iloc[-1]) else 0
+
+            winning_days = len(df[df['Strategy_Return'] > 0])
+            trading_days = len(df[df['Strategy_Return'] != 0])
+            win_rate = winning_days / trading_days if trading_days > 0 else 0
+
+            roll_max = df['Cumulative_Strategy'].cummax()
+            drawdown = df['Cumulative_Strategy'] / roll_max - 1
+            max_drawdown = drawdown.min()
 
             c1, c2, c3 = st.columns(3)
-            c1.metric("策略总收益", "+24.5%", "+3.2% (跑赢基准)")
-            c2.metric("胜率", "65.2%", "安全")
-            c3.metric("最大回撤", "-8.4%", "可控")
-
-            with st.expander("📜 最近买卖点信号日志"):
-                log_df = pd.DataFrame({
-                    "日期": [dates[-1].strftime("%Y-%m-%d"), dates[-5].strftime("%Y-%m-%d"),
-                             dates[-12].strftime("%Y-%m-%d")],
-                    "动作": ["🟢 买入 (Buy)", "🔴 卖出 (Sell)", "🟢 买入 (Buy)"],
-                    "价格": [f"${price[-1]:.2f}", f"${price[-5]:.2f}", f"${price[-12]:.2f}"]
-                })
-                st.dataframe(log_df, use_container_width=True, hide_index=True)
+            c1.metric("策略总收益", f"{total_strategy_return * 100:.2f}%",
+                      f"{total_strategy_return - total_market_return:.2%}")
+            c2.metric("交易日胜率", f"{win_rate * 100:.2f}%")
+            c3.metric("最大回撤", f"{max_drawdown * 100:.2f}%")
 
             st.markdown('</div>', unsafe_allow_html=True)
 
