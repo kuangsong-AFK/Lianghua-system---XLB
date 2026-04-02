@@ -1,5 +1,5 @@
-streamlit
+tushare
+plotly
 openai
 pandas
 numpy
-tushare
