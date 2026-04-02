@@ -19,12 +19,18 @@ pro = ts.pro_api(TUSHARE_TOKEN)
 client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=30.0)
 
 # ==========================================
-# 2. 沉浸式 UI
+# 2. 沉浸式 UI (修复侧边栏封印 Bug)
 # ==========================================
 st.markdown("""
 <style>
+    /* 核心修复：不再暴力隐藏 header，而是让它透明，保留展开按钮！ */
     .stApp, [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 2rem !important; }
-    header[data-testid="stHeader"], footer { display: none !important; }
+
+    header[data-testid="stHeader"] { background: transparent !important; }
+    header[data-testid="stHeader"] * { color: rgba(255,255,255,0.6) !important; } /* 让展开按钮变成半透明白色，融入背景 */
+
+    footer { display: none !important; }
+
     .stMarkdown, .stText, p, h1, h2, h3, label, span { color: #ffffff !important; }
     [data-testid="stSidebar"] { background: rgba(20, 20, 20, 0.6) !important; backdrop-filter: blur(15px) !important; border-right: 1px solid rgba(255,255,255,0.1) !important; }
     .glass-card { background: rgba(20, 20, 20, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 25px; margin-bottom: 20px; }
@@ -113,7 +119,6 @@ elif page == "📊 实盘战场":
 
     with col_l:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        # 优化 1：支持 6 位纯数字代码
         raw_stock_code = st.text_input("🎯 股票代码 (输入6位数字，如: 000001)", value="000001")
         ts_code = format_ts_code(raw_stock_code)
 
@@ -131,7 +136,6 @@ elif page == "📊 实盘战场":
                             data = data.sort_values('trade_date').reset_index(drop=True)
                             data['trade_date'] = pd.to_datetime(data['trade_date'])
 
-                            # 计算自带的技术指标 (均线)
                             data['MA5'] = data['close'].rolling(window=5).mean()
                             data['MA10'] = data['close'].rolling(window=10).mean()
                             data['MA20'] = data['close'].rolling(window=20).mean()
@@ -159,15 +163,13 @@ elif page == "📊 实盘战场":
 
             fig = go.Figure()
 
-            # 优化 2：同花顺级 A股红绿 K 线图
             fig.add_trace(go.Candlestick(
                 x=df['trade_date'], open=df['open'], high=df['high'], low=df['low'], close=df['close'],
                 name='K线',
-                increasing_line_color='#FD1050', increasing_fillcolor='#FD1050',  # A股红涨
-                decreasing_line_color='#00FF00', decreasing_fillcolor='#00FF00'  # A股绿跌
+                increasing_line_color='#FD1050', increasing_fillcolor='#FD1050',
+                decreasing_line_color='#00FF00', decreasing_fillcolor='#00FF00'
             ))
 
-            # 添加技术指标均线
             fig.add_trace(go.Scatter(x=df['trade_date'], y=df['MA5'], line=dict(color='white', width=1), name='MA5'))
             fig.add_trace(go.Scatter(x=df['trade_date'], y=df['MA10'], line=dict(color='yellow', width=1), name='MA10'))
             fig.add_trace(
@@ -186,10 +188,9 @@ elif page == "📊 实盘战场":
                 template="plotly_dark",
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0.2)',
                 margin=dict(l=0, r=0, t=0, b=0), xaxis_rangeslider_visible=False,
-                hovermode="x unified",  # 丝滑的十字光标悬停
+                hovermode="x unified",
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
             )
-            # 优化网格线
             fig.update_xaxes(showgrid=False)
             fig.update_yaxes(showgrid=True, gridcolor='rgba(255,255,255,0.1)')
 
