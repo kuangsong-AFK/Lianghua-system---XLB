@@ -29,22 +29,26 @@ pro = ts.pro_api()
 client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=30.0)
 
 # ==========================================
-# 2. 沉浸式 UI & 🔥 动态流体暗黑主题 (CSS 动画)
+# 2. 沉浸式 UI & 🔥 强化版动态流体暗黑主题
 # ==========================================
 st.markdown("""
 <style>
-    /* 🔥 动态流体暗黑背景：利用 CSS 动画实现背景缓慢流动 */
-    @keyframes fluidFlow {
+    /* 🔥 强化版动态流体动画：确保在所有浏览器内核生效 */
+    @keyframes gradientBG {
         0% { background-position: 0% 50%; }
         50% { background-position: 100% 50%; }
         100% { background-position: 0% 50%; }
     }
 
-    .stApp, [data-testid="stAppViewContainer"], .block-container { 
-        /* 设置极暗的渐变色集合（深空黑、暗灰蓝、微弱的暗紫/暗青色） */
-        background: linear-gradient(-45deg, #020202, #0a0f1c, #111520, #0a0a0e) !important;
+    /* 强行绑定在最底层的 stApp 上，屏蔽其他容器的颜色干扰 */
+    .stApp {
+        background-image: linear-gradient(-45deg, #030614, #141b2d, #081224, #030614) !important;
         background-size: 400% 400% !important;
-        animation: fluidFlow 18s ease infinite !important; /* 18秒一个流动周期，平滑不晕眩 */
+        animation: gradientBG 15s ease infinite !important;
+    }
+
+    [data-testid="stAppViewContainer"], .block-container { 
+        background: transparent !important;
         padding-top: 2rem !important; 
     }
 
@@ -53,24 +57,21 @@ st.markdown("""
     footer { display: none !important; }
     .stMarkdown, .stText, p, h1, h2, h3, label, span, li { color: #e2e8f0 !important; }
 
-    /* 代码块与输入框优化，加入极客感 */
-    div[data-testid="stCodeBlock"], pre { background-color: rgba(10, 15, 25, 0.8) !important; border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 8px !important; backdrop-filter: blur(10px); }
+    div[data-testid="stCodeBlock"], pre { background-color: rgba(5, 10, 20, 0.85) !important; border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 8px !important; backdrop-filter: blur(10px); }
     code { color: #00ffcc !important; background-color: transparent !important; text-shadow: none !important; }
 
-    /* 侧边栏高透玻璃态，让背景流体隐约透过来 */
-    [data-testid="stSidebar"] { background: rgba(5, 8, 12, 0.5) !important; backdrop-filter: blur(20px) !important; border-right: 1px solid rgba(255,255,255,0.05) !important; }
+    [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.6) !important; backdrop-filter: blur(20px) !important; border-right: 1px solid rgba(255,255,255,0.05) !important; }
     [data-testid="stSidebarCollapseButton"] { display: none !important; }
 
-    /* 核心卡片悬浮效果 */
     .glass-card { 
-        background: rgba(15, 20, 28, 0.5); backdrop-filter: blur(15px); 
+        background: rgba(15, 20, 30, 0.5); backdrop-filter: blur(15px); 
         border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 25px; margin-bottom: 20px; 
         box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6); 
         transition: all 0.3s ease;
     }
     .glass-card:hover { border: 1px solid rgba(255, 255, 255, 0.15); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.9); }
 
-    .stTextInput > div > div, .stSelectbox > div > div, .stSlider > div > div > div > div { background-color: rgba(0,0,0,0.4) !important; color: white !important; border: 1px solid rgba(255,255,255,0.1) !important; }
+    .stTextInput > div > div, .stSelectbox > div > div, .stSlider > div > div > div > div { background-color: rgba(0,0,0,0.5) !important; color: white !important; border: 1px solid rgba(255,255,255,0.1) !important; }
     div[data-testid="stChatMessageContent"] { background-color: rgba(20, 25, 35, 0.7) !important; backdrop-filter: blur(10px); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
 </style>
 """, unsafe_allow_html=True)
@@ -157,7 +158,7 @@ elif page == "🤖 AI 策略引擎 (LLM)":
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"])
 
-    if prompt := st.chat_input("输入策略构思 (如: 基于均线的趋势跟踪策略)..."):
+    if prompt := st.chat_input("输入策略构思 (如: 追涨杀跌、MACD底背离)..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         log_thesis_data("请求LLM写策略", prompt)
         st.rerun()
@@ -169,7 +170,9 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                 bt = "`" * 3
                 sys_prompt = f"""你是量化专家。请给出Python代码并用 {bt}python 和 {bt} 包裹。
 必须包含 `generate_signals(df)` 函数。在 df 中新增 'Signal' 列：1为买入，-1为卖出，0为观望。最后返回 df。
-⚠️ 军规：多条件时必须使用 `&` 和 `|` 并加括号！禁用 `and/or`，禁止引入第三方库。"""
+⚠️ 军规：
+1. 多条件时必须使用 `&` 和 `|` 并加括号！禁用 `and/or`！
+2. DataFrame 的列名请直接使用首字母大写：'Open', 'High', 'Low', 'Close', 'Volume'。"""
                 try:
                     msg_box.markdown("🧠 *大模型正在解析意图并构建计算图...*")
                     stream = client.chat.completions.create(model="moonshot-v1-8k", messages=[{"role": "system",
@@ -193,7 +196,153 @@ elif page == "🤖 AI 策略引擎 (LLM)":
         st.rerun()
 
 # ==========================================
-# 🧠 页面 3: 深度学习时序预测
+# 📈 页面 3: 深度回测与图表 (🔥 注入AI容错装甲)
+# ==========================================
+elif page == "📈 深度回测与图表":
+    st.markdown('<div class="glass-card"><h3>📈 动态沙盒与多维可视化分析</h3></div>', unsafe_allow_html=True)
+    col_l, col_r = st.columns([1, 3])
+
+    with col_l:
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        raw_stock_code = st.text_input("🎯 回测标的 (输入6位代码，如: 000001)", value="000001")
+        ts_code = format_ts_code(raw_stock_code)
+
+        adj_mode = st.selectbox("⚖️ 价格复权处理", ["前复权 (推荐)", "后复权", "不复权 (原始价格)"])
+        adj_param = "qfq" if "前复权" in adj_mode else "hfq" if "后复权" in adj_mode else None
+        y_axis_mode = st.radio("📏 Y轴缩放模式", ["自适应 K线 (动态伸缩)", "绝对 K线 (全局定死)"])
+
+        if st.session_state.generated_code:
+            st.success("🟢 LLM 沙盒就绪")
+            if st.button("🚀 启动全量回测任务", use_container_width=True, type="primary"):
+                with st.spinner(f"正在聚合 {ts_code} 数据..."):
+                    try:
+                        data = ts.pro_bar(ts_code=ts_code, adj=adj_param, start_date='20230101')
+                        if data is None or data.empty:
+                            st.error("获取数据失败")
+                        else:
+                            data = data.sort_values('trade_date').reset_index(drop=True)
+                            data['trade_date'] = pd.to_datetime(data['trade_date'], format='%Y%m%d')
+
+                            # 🔥 AI 幻觉容错装甲：将小写列名映射一份大写列名给 AI 使用！
+                            data['Open'] = data['open']
+                            data['High'] = data['high']
+                            data['Low'] = data['low']
+                            data['Close'] = data['close']
+                            data['Volume'] = data['vol']
+
+                            # 计算自带指标
+                            data['MA5'] = data['close'].rolling(window=5).mean()
+                            data['MA20'] = data['close'].rolling(window=20).mean()
+
+                            exp1 = data['close'].ewm(span=12, adjust=False).mean()
+                            exp2 = data['close'].ewm(span=26, adjust=False).mean()
+                            data['MACD_DIFF'] = exp1 - exp2
+                            data['MACD_DEA'] = data['MACD_DIFF'].ewm(span=9, adjust=False).mean()
+                            data['MACD'] = (data['MACD_DIFF'] - data['MACD_DEA']) * 2
+
+                            low_list = data['low'].rolling(9, min_periods=1).min()
+                            high_list = data['high'].rolling(9, min_periods=1).max()
+                            rsv = (data['close'] - low_list) / (high_list - low_list + 1e-8) * 100
+                            data['K'] = rsv.ewm(com=2, adjust=False).mean()
+                            data['D'] = data['K'].ewm(com=2, adjust=False).mean()
+                            data['J'] = 3 * data['K'] - 2 * data['D']
+
+                            data['Color'] = np.where(data['close'] >= data['open'], '#FD1050', '#00FF00')
+
+                            # 核心执行沙盒
+                            l_vars = {}
+                            exec(st.session_state.generated_code, globals(), l_vars)
+                            data = l_vars['generate_signals'](data)
+
+                            # 结算逻辑
+                            data['Ret'] = data['close'].pct_change()
+                            data['Pos'] = data['Signal'].replace(0, np.nan).ffill().fillna(0)
+                            data['Strat_Ret'] = data['Pos'].shift(1) * data['Ret']
+                            data['Cum_Prod'] = (1 + data['Strat_Ret'].fillna(0)).cumprod()
+
+                            st.session_state.bt_result = {"df": data, "code": ts_code, "adj": adj_mode,
+                                                          "y_mode": y_axis_mode}
+                            log_thesis_data("回测成功", f"LLM策略标的:{ts_code}")
+                    except Exception as e:
+                        st.error(f"沙盒异常: {e} (可能是大模型策略逻辑有误)")
+                        log_thesis_data("沙盒异常", str(e))
+        else:
+            st.warning("🟡 LLM策略缓存为空。")
+
+        if st.session_state.bt_result:
+            df = st.session_state.bt_result['df']
+            st.markdown("---")
+            total_ret = (df['Cum_Prod'].iloc[-1] - 1)
+            annual_ret = (1 + total_ret) ** (252 / len(df)) - 1 if len(df) > 0 else 0
+            max_dd = ((df['Cum_Prod'] / df['Cum_Prod'].cummax() - 1).min())
+            st.metric("累计收益", f"{total_ret * 100:.2f}%")
+            st.metric("年化收益", f"{annual_ret * 100:.2f}%")
+            st.metric("最大回撤", f"{max_dd * 100:.2f}%")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col_r:
+        if st.session_state.bt_result:
+            df = st.session_state.bt_result['df']
+            st.markdown(
+                f'<div class="glass-card"><p style="text-align:center; color:#888;">{st.session_state.bt_result["code"]} | {st.session_state.bt_result["adj"]}</p>',
+                unsafe_allow_html=True)
+
+            fig = make_subplots(rows=4, cols=1, shared_xaxes=True, vertical_spacing=0.02,
+                                row_heights=[0.5, 0.15, 0.175, 0.175])
+            fig.add_trace(
+                go.Candlestick(x=df['trade_date'], open=df['open'], high=df['high'], low=df['low'], close=df['close'],
+                               name='K线', increasing_line_color='#FD1050', increasing_fillcolor='#FD1050',
+                               decreasing_line_color='#00FF00', decreasing_fillcolor='#00FF00'), row=1, col=1)
+            fig.add_trace(go.Scatter(x=df['trade_date'], y=df['MA5'], line=dict(color='yellow', width=1), name='MA5'),
+                          row=1, col=1)
+            fig.add_trace(
+                go.Scatter(x=df['trade_date'], y=df['MA20'], line=dict(color='magenta', width=1), name='MA20'), row=1,
+                col=1)
+
+            if 'Signal' in df.columns:
+                buys = df[df['Signal'] == 1]
+                sells = df[df['Signal'] == -1]
+                fig.add_trace(go.Scatter(x=buys['trade_date'], y=buys['low'] * 0.95, mode='markers',
+                                         marker=dict(symbol='triangle-up', size=14, color='#00FFFF',
+                                                     line=dict(width=1, color='white')), name='买入'), row=1, col=1)
+                fig.add_trace(go.Scatter(x=sells['trade_date'], y=sells['high'] * 1.05, mode='markers',
+                                         marker=dict(symbol='triangle-down', size=14, color='#FF00FF',
+                                                     line=dict(width=1, color='white')), name='卖出'), row=1, col=1)
+
+            fig.add_trace(go.Bar(x=df['trade_date'], y=df['vol'], marker_color=df['Color'], name='成交量'), row=2,
+                          col=1)
+            macd_colors = np.where(df['MACD'] >= 0, '#FD1050', '#00FF00')
+            fig.add_trace(go.Bar(x=df['trade_date'], y=df['MACD'], marker_color=macd_colors, name='MACD'), row=3, col=1)
+            fig.add_trace(
+                go.Scatter(x=df['trade_date'], y=df['MACD_DIFF'], line=dict(color='white', width=1), name='DIFF'),
+                row=3, col=1)
+            fig.add_trace(
+                go.Scatter(x=df['trade_date'], y=df['MACD_DEA'], line=dict(color='yellow', width=1), name='DEA'), row=3,
+                col=1)
+
+            fig.add_trace(go.Scatter(x=df['trade_date'], y=df['K'], line=dict(color='white', width=1), name='K'), row=4,
+                          col=1)
+            fig.add_trace(go.Scatter(x=df['trade_date'], y=df['D'], line=dict(color='yellow', width=1), name='D'),
+                          row=4, col=1)
+            fig.add_trace(go.Scatter(x=df['trade_date'], y=df['J'], line=dict(color='magenta', width=1), name='J'),
+                          row=4, col=1)
+
+            fig.update_layout(height=800, dragmode='pan', template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
+                              plot_bgcolor='rgba(0,0,0,0.2)', margin=dict(l=0, r=0, t=10, b=0),
+                              xaxis_rangeslider_visible=False, hovermode="x unified", showlegend=False)
+            fig.update_xaxes(tickformat="%Y年%m月", showgrid=False, zeroline=False)
+            if "绝对" in st.session_state.bt_result["y_mode"]:
+                fig.update_yaxes(range=[df['low'].min() * 0.95, df['high'].max() * 1.05], showgrid=True,
+                                 gridcolor='rgba(255,255,255,0.05)', row=1, col=1)
+            else:
+                fig.update_yaxes(autorange=True, showgrid=True, gridcolor='rgba(255,255,255,0.05)', row=1, col=1)
+
+            st.plotly_chart(fig, use_container_width=True,
+                            config={'scrollZoom': True, 'modeBarButtonsToRemove': ['lasso2d', 'select2d']})
+            st.markdown('</div>', unsafe_allow_html=True)
+
+# ==========================================
+# 🧠 页面 4: 深度学习时序预测
 # ==========================================
 elif page == "🧠 深度学习预测 (LSTM)":
     st.markdown(
@@ -354,140 +503,6 @@ elif page == "🧠 深度学习预测 (LSTM)":
 
             st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True,
                                                                    'modeBarButtonsToRemove': ['lasso2d', 'select2d']})
-            st.markdown('</div>', unsafe_allow_html=True)
-
-# ==========================================
-# 📈 页面 4: 深度回测与图表 (LLM)
-# ==========================================
-elif page == "📈 深度回测与图表":
-    st.markdown('<div class="glass-card"><h3>📈 动态沙盒与多维可视化分析</h3></div>', unsafe_allow_html=True)
-    col_l, col_r = st.columns([1, 3])
-
-    with col_l:
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        raw_stock_code = st.text_input("🎯 回测标的 (输入6位代码，如: 000001)", value="000001")
-        ts_code = format_ts_code(raw_stock_code)
-
-        adj_mode = st.selectbox("⚖️ 价格复权处理", ["前复权 (推荐)", "后复权", "不复权 (原始价格)"])
-        adj_param = "qfq" if "前复权" in adj_mode else "hfq" if "后复权" in adj_mode else None
-        y_axis_mode = st.radio("📏 Y轴缩放模式", ["自适应 K线 (动态伸缩)", "绝对 K线 (全局定死)"])
-
-        if st.session_state.generated_code:
-            st.success("🟢 LLM 沙盒就绪")
-            if st.button("🚀 启动全量回测任务", use_container_width=True, type="primary"):
-                with st.spinner(f"正在聚合 {ts_code} 数据..."):
-                    try:
-                        data = ts.pro_bar(ts_code=ts_code, adj=adj_param, start_date='20230101')
-                        if data is None or data.empty:
-                            st.error("获取数据失败")
-                        else:
-                            data = data.sort_values('trade_date').reset_index(drop=True)
-                            data['trade_date'] = pd.to_datetime(data['trade_date'], format='%Y%m%d')
-
-                            data['MA5'] = data['close'].rolling(window=5).mean()
-                            data['MA20'] = data['close'].rolling(window=20).mean()
-
-                            exp1 = data['close'].ewm(span=12, adjust=False).mean()
-                            exp2 = data['close'].ewm(span=26, adjust=False).mean()
-                            data['MACD_DIFF'] = exp1 - exp2
-                            data['MACD_DEA'] = data['MACD_DIFF'].ewm(span=9, adjust=False).mean()
-                            data['MACD'] = (data['MACD_DIFF'] - data['MACD_DEA']) * 2
-
-                            low_list = data['low'].rolling(9, min_periods=1).min()
-                            high_list = data['high'].rolling(9, min_periods=1).max()
-                            rsv = (data['close'] - low_list) / (high_list - low_list + 1e-8) * 100
-                            data['K'] = rsv.ewm(com=2, adjust=False).mean()
-                            data['D'] = data['K'].ewm(com=2, adjust=False).mean()
-                            data['J'] = 3 * data['K'] - 2 * data['D']
-
-                            data['Color'] = np.where(data['close'] >= data['open'], '#FD1050', '#00FF00')
-
-                            l_vars = {}
-                            exec(st.session_state.generated_code, globals(), l_vars)
-                            data = l_vars['generate_signals'](data)
-
-                            data['Ret'] = data['close'].pct_change()
-                            data['Pos'] = data['Signal'].replace(0, np.nan).ffill().fillna(0)
-                            data['Strat_Ret'] = data['Pos'].shift(1) * data['Ret']
-                            data['Cum_Prod'] = (1 + data['Strat_Ret'].fillna(0)).cumprod()
-
-                            st.session_state.bt_result = {"df": data, "code": ts_code, "adj": adj_mode,
-                                                          "y_mode": y_axis_mode}
-                            log_thesis_data("回测成功", f"LLM策略标的:{ts_code}")
-                    except Exception as e:
-                        st.error(f"沙盒异常: {e}")
-        else:
-            st.warning("🟡 LLM策略缓存为空。")
-
-        if st.session_state.bt_result:
-            df = st.session_state.bt_result['df']
-            st.markdown("---")
-            total_ret = (df['Cum_Prod'].iloc[-1] - 1)
-            annual_ret = (1 + total_ret) ** (252 / len(df)) - 1 if len(df) > 0 else 0
-            max_dd = ((df['Cum_Prod'] / df['Cum_Prod'].cummax() - 1).min())
-            st.metric("累计收益", f"{total_ret * 100:.2f}%")
-            st.metric("年化收益", f"{annual_ret * 100:.2f}%")
-            st.metric("最大回撤", f"{max_dd * 100:.2f}%")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with col_r:
-        if st.session_state.bt_result:
-            df = st.session_state.bt_result['df']
-            st.markdown(
-                f'<div class="glass-card"><p style="text-align:center; color:#888;">{st.session_state.bt_result["code"]} | {st.session_state.bt_result["adj"]}</p>',
-                unsafe_allow_html=True)
-
-            fig = make_subplots(rows=4, cols=1, shared_xaxes=True, vertical_spacing=0.02,
-                                row_heights=[0.5, 0.15, 0.175, 0.175])
-            fig.add_trace(
-                go.Candlestick(x=df['trade_date'], open=df['open'], high=df['high'], low=df['low'], close=df['close'],
-                               name='K线', increasing_line_color='#FD1050', increasing_fillcolor='#FD1050',
-                               decreasing_line_color='#00FF00', decreasing_fillcolor='#00FF00'), row=1, col=1)
-            fig.add_trace(go.Scatter(x=df['trade_date'], y=df['MA5'], line=dict(color='yellow', width=1), name='MA5'),
-                          row=1, col=1)
-            fig.add_trace(
-                go.Scatter(x=df['trade_date'], y=df['MA20'], line=dict(color='magenta', width=1), name='MA20'), row=1,
-                col=1)
-
-            buys = df[df['Signal'] == 1]
-            sells = df[df['Signal'] == -1]
-            fig.add_trace(go.Scatter(x=buys['trade_date'], y=buys['low'] * 0.95, mode='markers',
-                                     marker=dict(symbol='triangle-up', size=14, color='#00FFFF',
-                                                 line=dict(width=1, color='white')), name='买入'), row=1, col=1)
-            fig.add_trace(go.Scatter(x=sells['trade_date'], y=sells['high'] * 1.05, mode='markers',
-                                     marker=dict(symbol='triangle-down', size=14, color='#FF00FF',
-                                                 line=dict(width=1, color='white')), name='卖出'), row=1, col=1)
-
-            fig.add_trace(go.Bar(x=df['trade_date'], y=df['vol'], marker_color=df['Color'], name='成交量'), row=2,
-                          col=1)
-            macd_colors = np.where(df['MACD'] >= 0, '#FD1050', '#00FF00')
-            fig.add_trace(go.Bar(x=df['trade_date'], y=df['MACD'], marker_color=macd_colors, name='MACD'), row=3, col=1)
-            fig.add_trace(
-                go.Scatter(x=df['trade_date'], y=df['MACD_DIFF'], line=dict(color='white', width=1), name='DIFF'),
-                row=3, col=1)
-            fig.add_trace(
-                go.Scatter(x=df['trade_date'], y=df['MACD_DEA'], line=dict(color='yellow', width=1), name='DEA'), row=3,
-                col=1)
-
-            fig.add_trace(go.Scatter(x=df['trade_date'], y=df['K'], line=dict(color='white', width=1), name='K'), row=4,
-                          col=1)
-            fig.add_trace(go.Scatter(x=df['trade_date'], y=df['D'], line=dict(color='yellow', width=1), name='D'),
-                          row=4, col=1)
-            fig.add_trace(go.Scatter(x=df['trade_date'], y=df['J'], line=dict(color='magenta', width=1), name='J'),
-                          row=4, col=1)
-
-            fig.update_layout(height=800, dragmode='pan', template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
-                              plot_bgcolor='rgba(0,0,0,0.1)', margin=dict(l=0, r=0, t=10, b=0),
-                              xaxis_rangeslider_visible=False, hovermode="x unified", showlegend=False)
-            fig.update_xaxes(tickformat="%Y年%m月", showgrid=False, zeroline=False)
-            if "绝对" in st.session_state.bt_result["y_mode"]:
-                fig.update_yaxes(range=[df['low'].min() * 0.95, df['high'].max() * 1.05], showgrid=True,
-                                 gridcolor='rgba(255,255,255,0.05)', row=1, col=1)
-            else:
-                fig.update_yaxes(autorange=True, showgrid=True, gridcolor='rgba(255,255,255,0.05)', row=1, col=1)
-
-            st.plotly_chart(fig, use_container_width=True,
-                            config={'scrollZoom': True, 'modeBarButtonsToRemove': ['lasso2d', 'select2d']})
             st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
