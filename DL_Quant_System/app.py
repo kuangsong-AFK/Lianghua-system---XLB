@@ -47,8 +47,11 @@ LOG_FILE = "thesis_user_logs.csv"
 if not os.path.exists(LOG_FILE):
     pd.DataFrame(columns=["Timestamp", "UserID", "ActionType", "Details"]).to_csv(LOG_FILE, index=False)
 
-if "user_id" not in st.session_state:
-    st.session_state.user_id = f"User_{str(uuid.uuid4())[:6]}"  # 给每个访问网页的人发一个随机ID
+# 🔥 修复核心：先把所有的变量（账本）初始化好！
+if "user_id" not in st.session_state: st.session_state.user_id = f"User_{str(uuid.uuid4())[:6]}"
+if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
+if "generated_code" not in st.session_state: st.session_state.generated_code = ""
+if "bt_result" not in st.session_state: st.session_state.bt_result = None
 
 
 def log_thesis_data(action_type, details):
@@ -60,19 +63,16 @@ def log_thesis_data(action_type, details):
         "Details": str(details)
     }])
     new_row.to_csv(LOG_FILE, mode='a', header=False, index=False)
-    # 同时写入界面可见的日志流
+    # 因为上面已经确保 sys_logs 存在，这里 insert 绝对安全
     st.session_state.sys_logs.insert(0,
                                      f"[{datetime.now().strftime('%H:%M:%S')}] [{st.session_state.user_id}] {action_type}: {details}")
 
 
-# 初始化状态
+# 变量初始化好之后，再执行欢迎语和日志写入
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant",
                                   "content": f"主公，毕业答辩系统已初始化！您当前的测试身份编号为：**{st.session_state.user_id}**"}]
     log_thesis_data("系统访问", "新用户进入量化平台")
-if "generated_code" not in st.session_state: st.session_state.generated_code = ""
-if "bt_result" not in st.session_state: st.session_state.bt_result = None
-if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 
 
 def format_ts_code(raw_code):
@@ -186,18 +186,15 @@ elif page == "📈 深度回测与图表":
                             data = data.sort_values('trade_date').reset_index(drop=True)
                             data['trade_date'] = pd.to_datetime(data['trade_date'])
 
-                            # 1. 计算基础均线
                             data['MA5'] = data['close'].rolling(window=5).mean()
                             data['MA20'] = data['close'].rolling(window=20).mean()
 
-                            # 2. 计算 MACD
                             exp1 = data['close'].ewm(span=12, adjust=False).mean()
                             exp2 = data['close'].ewm(span=26, adjust=False).mean()
                             data['MACD_DIFF'] = exp1 - exp2
                             data['MACD_DEA'] = data['MACD_DIFF'].ewm(span=9, adjust=False).mean()
                             data['MACD'] = (data['MACD_DIFF'] - data['MACD_DEA']) * 2
 
-                            # 3. 计算 KDJ (东方财富常用指标)
                             low_list = data['low'].rolling(9, min_periods=1).min()
                             high_list = data['high'].rolling(9, min_periods=1).max()
                             rsv = (data['close'] - low_list) / (high_list - low_list + 1e-8) * 100
@@ -205,15 +202,12 @@ elif page == "📈 深度回测与图表":
                             data['D'] = data['K'].ewm(com=2, adjust=False).mean()
                             data['J'] = 3 * data['K'] - 2 * data['D']
 
-                            # K线颜色列
                             data['Color'] = np.where(data['close'] >= data['open'], '#FD1050', '#00FF00')
 
-                            # 执行沙盒
                             l_vars = {}
                             exec(st.session_state.generated_code, globals(), l_vars)
                             data = l_vars['generate_signals'](data)
 
-                            # 结算收益
                             data['Ret'] = data['close'].pct_change()
                             data['Pos'] = data['Signal'].replace(0, np.nan).ffill().fillna(0)
                             data['Strat_Ret'] = data['Pos'].shift(1) * data['Ret']
@@ -250,12 +244,10 @@ elif page == "📈 深度回测与图表":
             df = st.session_state.bt_result['df']
             st.markdown('<div class="glass-card" style="padding:10px;">', unsafe_allow_html=True)
 
-            # 🔥 东方财富级：4图联动 (K线 + 成交量 + MACD + KDJ)
             fig = make_subplots(rows=4, cols=1, shared_xaxes=True,
                                 vertical_spacing=0.02,
                                 row_heights=[0.5, 0.15, 0.175, 0.175])
 
-            # 主图: K线
             fig.add_trace(go.Candlestick(
                 x=df['trade_date'], open=df['open'], high=df['high'], low=df['low'], close=df['close'],
                 name='K线', increasing_line_color='#FD1050', increasing_fillcolor='#FD1050',
@@ -267,7 +259,6 @@ elif page == "📈 深度回测与图表":
                 go.Scatter(x=df['trade_date'], y=df['MA20'], line=dict(color='magenta', width=1), name='MA20'), row=1,
                 col=1)
 
-            # 买卖信号
             buys = df[df['Signal'] == 1]
             sells = df[df['Signal'] == -1]
             fig.add_trace(go.Scatter(x=buys['trade_date'], y=buys['low'] * 0.95, mode='markers',
@@ -277,11 +268,9 @@ elif page == "📈 深度回测与图表":
                                      marker=dict(symbol='triangle-down', size=14, color='#FF00FF',
                                                  line=dict(width=1, color='white')), name='卖出'), row=1, col=1)
 
-            # 副图1: 成交量 (贴在K线下方，符合东财习惯)
             fig.add_trace(go.Bar(x=df['trade_date'], y=df['vol'], marker_color=df['Color'], name='成交量'), row=2,
                           col=1)
 
-            # 副图2: MACD
             macd_colors = np.where(df['MACD'] >= 0, '#FD1050', '#00FF00')
             fig.add_trace(go.Bar(x=df['trade_date'], y=df['MACD'], marker_color=macd_colors, name='MACD'), row=3, col=1)
             fig.add_trace(
@@ -291,7 +280,6 @@ elif page == "📈 深度回测与图表":
                 go.Scatter(x=df['trade_date'], y=df['MACD_DEA'], line=dict(color='yellow', width=1), name='DEA'), row=3,
                 col=1)
 
-            # 副图3: KDJ
             fig.add_trace(go.Scatter(x=df['trade_date'], y=df['K'], line=dict(color='white', width=1), name='K'), row=4,
                           col=1)
             fig.add_trace(go.Scatter(x=df['trade_date'], y=df['D'], line=dict(color='yellow', width=1), name='D'),
@@ -299,9 +287,8 @@ elif page == "📈 深度回测与图表":
             fig.add_trace(go.Scatter(x=df['trade_date'], y=df['J'], line=dict(color='magenta', width=1), name='J'),
                           row=4, col=1)
 
-            # 🔥 彻底激活东方财富级交互体验：平移与滚轮缩放
             fig.update_layout(
-                height=800, dragmode='pan',  # 默认鼠标按住拖拽平移
+                height=800, dragmode='pan',
                 template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0.2)',
                 margin=dict(l=0, r=0, t=10, b=0), xaxis_rangeslider_visible=False,
                 hovermode="x unified", showlegend=False
@@ -309,7 +296,6 @@ elif page == "📈 深度回测与图表":
             fig.update_xaxes(showgrid=False, zeroline=False, rangeslider_visible=False)
             fig.update_yaxes(showgrid=True, gridcolor='rgba(255,255,255,0.05)', zeroline=False)
 
-            # config={'scrollZoom': True} 是实现滚轮丝滑缩放的核武器
             st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True,
                                                                    'modeBarButtonsToRemove': ['lasso2d', 'select2d']})
             st.markdown('</div>', unsafe_allow_html=True)
@@ -327,7 +313,6 @@ elif page == "🛡️ 论文数据与日志":
         st.write(
             "该报表自动记录了所有用户的历史访问、AI 策略请求和回测盈亏表现，您可以直接下载 CSV 用于论文的数据统计与图表制作。")
 
-        # 读取本地积累的 CSV 日志并提供下载
         if os.path.exists(LOG_FILE):
             log_df = pd.read_csv(LOG_FILE)
             csv = log_df.to_csv(index=False).encode('utf-8')
@@ -338,7 +323,7 @@ elif page == "🛡️ 论文数据与日志":
                 mime='text/csv',
                 type="primary"
             )
-            st.dataframe(log_df.tail(10), use_container_width=True)  # 预览最后10条
+            st.dataframe(log_df.tail(10), use_container_width=True)
         else:
             st.warning("暂无日志数据积累。")
 
