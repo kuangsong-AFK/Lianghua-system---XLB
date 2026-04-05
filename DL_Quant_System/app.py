@@ -121,7 +121,7 @@ if page == "🏠 系统总览":
         unsafe_allow_html=True)
 
 # ==========================================
-# 🤖 页面 2: AI 策略引擎 (传统模块保持不变)
+# 🤖 页面 2: AI 策略引擎 (LLM)
 # ==========================================
 elif page == "🤖 AI 策略引擎 (LLM)":
     st.markdown('<div class="glass-card"><h3>🤖 LLM 策略生成中枢</h3></div>', unsafe_allow_html=True)
@@ -166,7 +166,7 @@ elif page == "🤖 AI 策略引擎 (LLM)":
         st.rerun()
 
 # ==========================================
-# 🧠 页面 3: 深度学习时序预测 (🔥 毕业论文专属核武)
+# 🧠 页面 3: 深度学习时序预测 (🔥 同步K线视觉)
 # ==========================================
 elif page == "🧠 深度学习预测 (LSTM)":
     st.markdown(
@@ -187,27 +187,24 @@ elif page == "🧠 深度学习预测 (LSTM)":
         if st.button("🚀 启动深度学习训练与回测", use_container_width=True, type="primary"):
             with st.spinner("正在搭建计算图并启动 PyTorch 张量运算..."):
                 try:
-                    # 1. 数据准备
-                    df = pro.daily(ts_code=ts_code, start_date='20210101')
-                    if df.empty: raise ValueError("获取数据失败")
+                    # 获取复权数据以保证学术严谨性
+                    df = ts.pro_bar(ts_code=ts_code, adj='qfq', start_date='20210101')
+                    if df is None or df.empty: raise ValueError("获取数据失败")
                     df = df.sort_values('trade_date').reset_index(drop=True)
                     df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
 
                     log_thesis_data("启动DL训练", f"标的:{ts_code}, Epochs:{epochs}, SeqLen:{seq_length}")
 
-                    # 2. 特征工程 (归一化)
                     close_prices = df['close'].values.reshape(-1, 1)
                     scaler = MinMaxScaler(feature_range=(0, 1))
                     scaled_data = scaler.fit_transform(close_prices)
 
-                    # 3. 构建时序数据集
                     X, y = [], []
                     for i in range(seq_length, len(scaled_data)):
                         X.append(scaled_data[i - seq_length:i, 0])
                         y.append(scaled_data[i, 0])
                     X, y = np.array(X), np.array(y)
 
-                    # 划分训练集和测试集 (80%训练, 20%测试)
                     train_size = int(len(X) * 0.8)
                     X_train, y_train = torch.tensor(X[:train_size], dtype=torch.float32), torch.tensor(y[:train_size],
                                                                                                        dtype=torch.float32)
@@ -218,7 +215,6 @@ elif page == "🧠 深度学习预测 (LSTM)":
                     X_test = X_test.unsqueeze(-1)
 
 
-                    # 4. 定义 LSTM 神经网络
                     class LSTMPredictor(nn.Module):
                         def __init__(self, input_dim=1, hidden_dim=32, num_layers=2, output_dim=1):
                             super(LSTMPredictor, self).__init__()
@@ -234,7 +230,6 @@ elif page == "🧠 深度学习预测 (LSTM)":
                     criterion = nn.MSELoss()
                     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
-                    # 5. 训练模型可视化
                     log_box = st.empty()
                     progress_bar = st.progress(0)
 
@@ -251,28 +246,27 @@ elif page == "🧠 深度学习预测 (LSTM)":
                                 f"Epoch [{epoch + 1}/{epochs}], MSE Loss: {loss.item():.6f}\n正在反向传播更新权重...",
                                 language="bash")
                         progress_bar.progress((epoch + 1) / epochs)
-                        time.sleep(0.02)  # 模拟一点计算时间，提升演示效果
+                        time.sleep(0.02)
 
                     log_box.success("✅ 模型训练收敛完成！进入推理阶段...")
 
-                    # 6. 模型推理预测 (测试集)
                     model.eval()
                     with torch.no_grad():
                         test_predict = model(X_test).numpy()
 
-                    # 反归一化
                     predicted_prices = scaler.inverse_transform(test_predict)
-                    actual_prices = scaler.inverse_transform(y_test.numpy().reshape(-1, 1))
 
-                    # 7. 构建回测 DataFrame
-                    test_dates = df['trade_date'].iloc[train_size + seq_length:].values
+                    # 🔥 核心视觉修复：将 OHLC 四个维度重新拼装，用于画完整的 K 线
+                    start_idx = train_size + seq_length
                     test_df = pd.DataFrame({
-                        'trade_date': test_dates,
-                        'close': actual_prices.flatten(),
+                        'trade_date': df['trade_date'].iloc[start_idx:].values,
+                        'open': df['open'].iloc[start_idx:].values,
+                        'high': df['high'].iloc[start_idx:].values,
+                        'low': df['low'].iloc[start_idx:].values,
+                        'close': df['close'].iloc[start_idx:].values,
                         'Predicted': predicted_prices.flatten()
                     })
 
-                    # DL 交易逻辑：预测明天涨就买，预测跌就卖空（简化）
                     test_df['Signal'] = np.where(test_df['Predicted'] > test_df['close'].shift(1), 1, -1)
                     test_df['Ret'] = test_df['close'].pct_change()
                     test_df['Pos'] = test_df['Signal'].shift(1).fillna(0)
@@ -299,46 +293,54 @@ elif page == "🧠 深度学习预测 (LSTM)":
         if st.session_state.dl_result:
             df = st.session_state.dl_result['df']
             st.markdown(
-                f'<div class="glass-card"><h4 style="text-align:center;">{st.session_state.dl_result["code"]} - LSTM 预测价格 vs 真实价格曲线</h4>',
+                f'<div class="glass-card"><h4 style="text-align:center;">{st.session_state.dl_result["code"]} - LSTM 预测网络 vs 真实复权走势</h4>',
                 unsafe_allow_html=True)
 
             fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.7, 0.3])
 
-            # 主图：真实价格与 LSTM 预测价格曲线对比
-            fig.add_trace(go.Scatter(x=df['trade_date'], y=df['close'], name='真实收盘价 (Actual)',
-                                     line=dict(color='#00FF00', width=2)), row=1, col=1)
-            fig.add_trace(go.Scatter(x=df['trade_date'], y=df['Predicted'], name='LSTM 预测价 (Predicted)',
-                                     line=dict(color='#FD1050', width=2, dash='dot')), row=1, col=1)
+            # 🔥 采用与实盘沙盒完全一致的红绿 K 线
+            fig.add_trace(go.Candlestick(
+                x=df['trade_date'], open=df['open'], high=df['high'], low=df['low'], close=df['close'],
+                name='真实 K 线 (Actual)', increasing_line_color='#FD1050', increasing_fillcolor='#FD1050',
+                decreasing_line_color='#00FF00', decreasing_fillcolor='#00FF00'
+            ), row=1, col=1)
 
+            # 叠加 LSTM 预测虚线 (采用亮白色，对比度高)
+            fig.add_trace(go.Scatter(x=df['trade_date'], y=df['Predicted'], name='LSTM 预测价 (Predicted)',
+                                     line=dict(color='#ffffff', width=2, dash='dot')), row=1, col=1)
+
+            # 统一买卖点标记风格
             buys = df[df['Signal'] == 1]
             sells = df[df['Signal'] == -1]
-            fig.add_trace(go.Scatter(x=buys['trade_date'], y=buys['close'] * 0.98, mode='markers',
-                                     marker=dict(symbol='triangle-up', size=10, color='yellow'), name='AI 买入判定'),
-                          row=1, col=1)
-            fig.add_trace(go.Scatter(x=sells['trade_date'], y=sells['close'] * 1.02, mode='markers',
-                                     marker=dict(symbol='triangle-down', size=10, color='fuchsia'), name='AI 卖出判定'),
-                          row=1, col=1)
+            fig.add_trace(go.Scatter(x=buys['trade_date'], y=buys['low'] * 0.95, mode='markers',
+                                     marker=dict(symbol='triangle-up', size=14, color='#00FFFF',
+                                                 line=dict(width=1, color='white')), name='AI 买入判定'), row=1, col=1)
+            fig.add_trace(go.Scatter(x=sells['trade_date'], y=sells['high'] * 1.05, mode='markers',
+                                     marker=dict(symbol='triangle-down', size=14, color='#FF00FF',
+                                                 line=dict(width=1, color='white')), name='AI 卖出判定'), row=1, col=1)
 
-            # 副图：策略累计收益曲线
+            # 收益曲线
             fig.add_trace(go.Scatter(x=df['trade_date'], y=df['Cum_Prod'], name='LSTM 策略净值', fill='tozeroy',
                                      line=dict(color='#00ffcc')), row=2, col=1)
 
             fig.update_layout(
-                height=700, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0.2)',
+                height=700, dragmode='pan', template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0.2)',
                 margin=dict(l=0, r=0, t=10, b=0), hovermode="x unified",
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
             )
-            fig.update_xaxes(tickformat="%Y年%m月", showgrid=False)
-            fig.update_yaxes(showgrid=True, gridcolor='rgba(255,255,255,0.05)')
+            fig.update_xaxes(tickformat="%Y年%m月", showgrid=False, rangeslider_visible=False, zeroline=False)
+            fig.update_yaxes(showgrid=True, gridcolor='rgba(255,255,255,0.05)', zeroline=False)
 
-            st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
+            st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True,
+                                                                   'modeBarButtonsToRemove': ['lasso2d', 'select2d']})
             st.markdown('</div>', unsafe_allow_html=True)
 
             st.info(
-                "💡 **学术原理解析**：该模块将前 80% 时间段作为训练集供 LSTM 提取特征，后 20% 为测试集。上图中，**红色的虚线**代表神经网络的预判走势，当预判红线高于绿线时，系统发出买入信号。您可以将此截图放入论文《时序模型回测结果分析》章节。")
+                "💡 **学术原理解析**：本图完美还原了真实量化交易中的 K 线视角。**白色虚线**为 LSTM 时序网络对次日的走势预判。系统根据虚线的上下拐头生成买卖信号，从而实现纯 AI 驱动的量化博弈。")
 
 # ==========================================
-# 📈 页面 4: 深度回测与图表 (原LLM沙盒页面)
+# 📈 页面 4: 深度回测与图表 (LLM)
 # ==========================================
 elif page == "📈 深度回测与图表":
     st.markdown('<div class="glass-card"><h3>📈 动态沙盒与多维可视化分析</h3></div>', unsafe_allow_html=True)
