@@ -29,22 +29,22 @@ pro = ts.pro_api()
 client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=30.0)
 
 # ==========================================
-# 2. 沉浸式 UI & 🔥 强化版动态流体暗黑主题
+# 2. 沉浸式 UI & 🔥 强化液体流体动画
 # ==========================================
 st.markdown("""
 <style>
-    /* 🔥 强化版动态流体动画：确保在所有浏览器内核生效 */
-    @keyframes gradientBG {
+    /* 🔥 增强版液体流体动画：缩短周期至8秒，加入多维角度，增强流动感！ */
+    @keyframes fluidGradient {
         0% { background-position: 0% 50%; }
         50% { background-position: 100% 50%; }
         100% { background-position: 0% 50%; }
     }
 
-    /* 强行绑定在最底层的 stApp 上，屏蔽其他容器的颜色干扰 */
     .stApp {
-        background-image: linear-gradient(-45deg, #030614, #141b2d, #081224, #030614) !important;
-        background-size: 400% 400% !important;
-        animation: gradientBG 15s ease infinite !important;
+        /* 使用更高对比度的深海/暗星云色彩，增强液体翻涌的视觉差 */
+        background-image: linear-gradient(-45deg, #02040a, #0e172e, #050a15, #161224) !important;
+        background-size: 300% 300% !important;
+        animation: fluidGradient 8s ease-in-out infinite !important;
     }
 
     [data-testid="stAppViewContainer"], .block-container { 
@@ -77,7 +77,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. 毕业论文专用：多用户数据埋点系统
+# 3. 毕业论文专用：全域多用户错漏埋点系统
 # ==========================================
 LOG_FILE = "thesis_user_logs.csv"
 if not os.path.exists(LOG_FILE):
@@ -91,12 +91,15 @@ if "dl_result" not in st.session_state: st.session_state.dl_result = None
 
 
 def log_thesis_data(action_type, details):
+    # 将报错等异常日志加上特殊的 UI 标记，以便在终端里一眼看清
+    icon = "🔴" if "报错" in action_type or "异常" in action_type or "警告" in action_type else "🟢"
+    log_msg = f"{icon} [{datetime.now().strftime('%H:%M:%S')}] [{st.session_state.user_id}] {action_type}: {details}"
+
     new_row = pd.DataFrame(
         [{"Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "UserID": st.session_state.user_id,
           "ActionType": action_type, "Details": str(details)}])
     new_row.to_csv(LOG_FILE, mode='a', header=False, index=False)
-    st.session_state.sys_logs.insert(0,
-                                     f"[{datetime.now().strftime('%H:%M:%S')}] [{st.session_state.user_id}] {action_type}: {details}")
+    st.session_state.sys_logs.insert(0, log_msg)
 
 
 if "messages" not in st.session_state:
@@ -189,14 +192,19 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                     if code_match:
                         st.session_state.generated_code = code_match.group(1).strip()
                         st.toast("✅ LLM 策略编译成功！", icon="🚀")
-                        log_thesis_data("LLM生成成功", "代码已装填至沙盒")
+                        log_thesis_data("LLM生成成功", "代码提取并装填至沙盒")
+                    else:
+                        # 记录 AI 没按格式输出的异常
+                        log_thesis_data("系统异常-格式提取", "未能从大模型回复中提取出有效的Python代码块")
+
                     st.session_state.messages.append({"role": "assistant", "content": full_resp})
                 except Exception as e:
                     st.error(f"API 异常: {e}")
+                    log_thesis_data("系统报错-大模型通信", str(e))  # 🔥 全面接管报错记录
         st.rerun()
 
 # ==========================================
-# 📈 页面 3: 深度回测与图表 (🔥 注入AI容错装甲)
+# 📈 页面 3: 深度回测与图表 (LLM)
 # ==========================================
 elif page == "📈 深度回测与图表":
     st.markdown('<div class="glass-card"><h3>📈 动态沙盒与多维可视化分析</h3></div>', unsafe_allow_html=True)
@@ -218,12 +226,13 @@ elif page == "📈 深度回测与图表":
                     try:
                         data = ts.pro_bar(ts_code=ts_code, adj=adj_param, start_date='20230101')
                         if data is None or data.empty:
-                            st.error("获取数据失败")
+                            st.error("获取数据失败，请检查 Tushare 接口或标的代码！")
+                            log_thesis_data("系统警告-数据获取", f"标的 {ts_code} 请求的数据为空")  # 🔥 记录空数据警告
                         else:
                             data = data.sort_values('trade_date').reset_index(drop=True)
                             data['trade_date'] = pd.to_datetime(data['trade_date'], format='%Y%m%d')
 
-                            # 🔥 AI 幻觉容错装甲：将小写列名映射一份大写列名给 AI 使用！
+                            # AI 幻觉容错装甲
                             data['Open'] = data['open']
                             data['High'] = data['high']
                             data['Low'] = data['low']
@@ -262,10 +271,10 @@ elif page == "📈 深度回测与图表":
 
                             st.session_state.bt_result = {"df": data, "code": ts_code, "adj": adj_mode,
                                                           "y_mode": y_axis_mode}
-                            log_thesis_data("回测成功", f"LLM策略标的:{ts_code}")
+                            log_thesis_data("回测成功", f"LLM策略执行成功, 标的:{ts_code}, 行数:{len(data)}")
                     except Exception as e:
                         st.error(f"沙盒异常: {e} (可能是大模型策略逻辑有误)")
-                        log_thesis_data("沙盒异常", str(e))
+                        log_thesis_data("系统报错-沙盒执行", f"沙盒崩溃, 详细错误: {e}")  # 🔥 记录沙盒语法或逻辑崩溃
         else:
             st.warning("🟡 LLM策略缓存为空。")
 
@@ -363,7 +372,10 @@ elif page == "🧠 深度学习预测 (LSTM)":
             with st.spinner("正在搭建计算图并启动 PyTorch 张量运算..."):
                 try:
                     df = ts.pro_bar(ts_code=ts_code, adj='qfq', start_date='20210101')
-                    if df is None or df.empty: raise ValueError("获取数据失败")
+                    if df is None or df.empty:
+                        log_thesis_data("系统警告-DL数据", f"获取不到标的 {ts_code} 的数据")  # 🔥 记录空数据警告
+                        raise ValueError("获取数据失败")
+
                     df = df.sort_values('trade_date').reset_index(drop=True)
                     df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
 
@@ -447,11 +459,11 @@ elif page == "🧠 深度学习预测 (LSTM)":
                     test_df['Cum_Prod'] = (1 + test_df['Strat_Ret'].fillna(0)).cumprod()
 
                     st.session_state.dl_result = {"df": test_df, "code": ts_code}
-                    log_thesis_data("DL训练结束", f"Loss收敛至: {loss.item():.6f}")
+                    log_thesis_data("DL训练成功结束", f"Loss收敛至: {loss.item():.6f}")
 
                 except Exception as e:
                     st.error(f"深度学习引擎异常: {e}")
-                    log_thesis_data("DL崩溃", str(e))
+                    log_thesis_data("系统报错-DL引擎", f"神经网络运算或维度出错: {e}")  # 🔥 记录模型张量等深层报错
         st.markdown("</div>", unsafe_allow_html=True)
 
         if st.session_state.dl_result:
@@ -515,15 +527,17 @@ elif page == "🛡️ 论文数据与日志":
     col_dl1, col_dl2 = st.columns([1, 1])
     with col_dl1:
         st.markdown("#### 📥 毕业论文实验数据源")
+        st.write("该系统已开启**全局异常拦截**。无论是 API 通信中断、数据拉取为空，还是沙盒编译崩溃，都将无死角记录至 CSV。")
         if os.path.exists(LOG_FILE):
             log_df = pd.read_csv(LOG_FILE)
             csv = log_df.to_csv(index=False).encode('utf-8')
-            st.download_button(label="📁 一键下载论文原始报表", data=csv, file_name='thesis_user_logs.csv',
+            st.download_button(label="📁 一键下载论文原始报表 (附报错埋点)", data=csv, file_name='thesis_user_logs.csv',
                                mime='text/csv', type="primary")
             st.dataframe(log_df.tail(10), use_container_width=True)
         else:
             st.warning("暂无日志数据。")
     with col_dl2:
-        st.markdown("#### ⏱️ 实时终端")
+        st.markdown("#### ⏱️ 实时监控终端")
+        # 实时终端现在会带上 🔴 (报错) 或 🟢 (正常) 的直观图标
         st.text_area("Terminal", value="\n".join(st.session_state.sys_logs), height=300)
     st.markdown('</div>', unsafe_allow_html=True)
