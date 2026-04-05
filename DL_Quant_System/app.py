@@ -19,49 +19,34 @@ st.set_page_config(page_title="小吕布量化 Pro - 毕业设计版", layout="w
 KIMI_API_KEY = "sk-yS2foVgWtvnFMWKRTLnI6l8NFqFrRiB8ojre75g2mK2P8LBk"
 TUSHARE_TOKEN = "ba486af7606bc2f6018f1d592251a49674132225f59d37b3473d676e"
 
-pro = ts.pro_api(TUSHARE_TOKEN)
+# 🔥 修复复权核心：必须全局注册 token，才能调用 ts.pro_bar
+ts.set_token(TUSHARE_TOKEN)
+pro = ts.pro_api()
 client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=30.0)
 
 # ==========================================
-# 2. 沉浸式 UI & 强制暗黑主题 (修复白屏与代码块白底Bug)
+# 2. 沉浸式 UI & 强制暗黑主题
 # ==========================================
 st.markdown("""
 <style>
-    /* 全局强制暗黑背景 */
     .stApp, [data-testid="stAppViewContainer"], .block-container { 
         background-color: #0e1117 !important; 
         background-image: radial-gradient(circle at 50% 0%, #1f2633 0%, #0e1117 75%) !important;
         padding-top: 2rem !important; 
     }
-
     header[data-testid="stHeader"] { background: transparent !important; }
     header[data-testid="stHeader"] * { color: rgba(255,255,255,0.6) !important; }
     footer { display: none !important; }
-
-    /* 全局字体设为白色 */
     .stMarkdown, .stText, p, h1, h2, h3, label, span, li { color: #ffffff !important; }
 
-    /* 🔥 核心修复：强行把代码块涂黑，文字改成骇客绿，彻底解决白屏隐身问题！ */
-    div[data-testid="stCodeBlock"], pre {
-        background-color: #0d1117 !important; /* 极深黑色背景 */
-        border: 1px solid rgba(255,255,255,0.1) !important;
-        border-radius: 8px !important;
-    }
-    code {
-        color: #00ffcc !important; /* 极客青绿色代码 */
-        background-color: transparent !important;
-        text-shadow: none !important;
-    }
+    div[data-testid="stCodeBlock"], pre { background-color: #0d1117 !important; border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 8px !important; }
+    code { color: #00ffcc !important; background-color: transparent !important; text-shadow: none !important; }
 
     [data-testid="stSidebar"] { background: rgba(14, 17, 23, 0.9) !important; border-right: 1px solid rgba(255,255,255,0.1) !important; }
     [data-testid="stSidebarCollapseButton"] { display: none !important; }
 
-    .glass-card { 
-        background: rgba(20, 24, 30, 0.7); backdrop-filter: blur(12px); 
-        border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 25px; margin-bottom: 20px; 
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5); 
-    }
-    .stTextInput > div > div { background-color: rgba(0,0,0,0.6) !important; color: white !important; border: 1px solid rgba(255,255,255,0.2); }
+    .glass-card { background: rgba(20, 24, 30, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 25px; margin-bottom: 20px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5); }
+    .stTextInput > div > div, .stSelectbox > div > div { background-color: rgba(0,0,0,0.6) !important; color: white !important; border: 1px solid rgba(255,255,255,0.2); }
     div[data-testid="stChatMessageContent"] { background-color: rgba(30, 35, 45, 0.9) !important; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); }
 </style>
 """, unsafe_allow_html=True)
@@ -80,12 +65,9 @@ if "bt_result" not in st.session_state: st.session_state.bt_result = None
 
 
 def log_thesis_data(action_type, details):
-    new_row = pd.DataFrame([{
-        "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "UserID": st.session_state.user_id,
-        "ActionType": action_type,
-        "Details": str(details)
-    }])
+    new_row = pd.DataFrame(
+        [{"Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "UserID": st.session_state.user_id,
+          "ActionType": action_type, "Details": str(details)}])
     new_row.to_csv(LOG_FILE, mode='a', header=False, index=False)
     st.session_state.sys_logs.insert(0,
                                      f"[{datetime.now().strftime('%H:%M:%S')}] [{st.session_state.user_id}] {action_type}: {details}")
@@ -129,10 +111,10 @@ if page == "🏠 系统总览":
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("当前活跃测试用户", st.session_state.user_id, "埋点监控中")
     col2.metric("AI 大脑", "Moonshot-v1-8k", "API 正常")
-    col3.metric("数据源节点", "Tushare Pro", "延时 < 50ms")
+    col3.metric("数据源节点", "Tushare Pro", "支持前复权/后复权")
     col4.metric("策略缓存数", "1" if st.session_state.generated_code else "0", "动态沙盒")
     st.markdown(
-        '<div class="glass-card"><h4>⚙️ 系统架构图 (论文配图参考)</h4><ul><li><b>感知层</b>: 用户自然语言输入 (Streamlit UI)</li><li><b>认知层</b>: Moonshot LLM 大模型解析意图，生成 Pandas 矢量化交易逻辑</li><li><b>数据层</b>: Tushare 金融大数据接口，获取 A 股/ETF 真实 K 线与财务数据</li><li><b>执行层</b>: Python 动态沙盒 <code>exec()</code> 执行策略，生成交易信号向量 (1, 0, -1)</li><li><b>表现层</b>: Plotly 交互式可视化，输出夏普比率、最大回撤等学术级归因指标</li></ul></div>',
+        '<div class="glass-card"><h4>⚙️ 系统架构图 (论文配图参考)</h4><ul><li><b>感知层</b>: 用户自然语言输入 (Streamlit UI)</li><li><b>认知层</b>: Moonshot LLM 大模型解析意图，生成 Pandas 矢量化交易逻辑</li><li><b>数据层</b>: Tushare 金融大数据接口，获取 A 股真实 K 线与复权因子</li><li><b>执行层</b>: Python 动态沙盒 <code>exec()</code> 执行策略，生成交易信号向量</li><li><b>表现层</b>: Plotly 交互式可视化，支持自适应缩放与同花顺级指标叠加</li></ul></div>',
         unsafe_allow_html=True)
 
 # ==========================================
@@ -158,7 +140,9 @@ elif page == "🤖 AI 策略引擎":
                 sys_prompt = f"""你是量化专家。请给出Python代码并用 {bt}python 和 {bt} 包裹。
 必须包含 `generate_signals(df)` 函数。输入 df 列名为: ['trade_date', 'open', 'high', 'low', 'close', 'vol']。
 在 df 中新增 'Signal' 列：1为买入，-1为卖出，0为观望。最后返回 df。
-⚠️ 【学术级军规】：在 pandas 计算多条件时，必须且只能使用 `&` (与) 和 `|` (或)，并给每个条件加括号！绝对禁止使用 `and` 或 `or`！禁止引入未知的第三方库。"""
+⚠️ 【学术级军规】：
+1. 在 pandas 计算多条件时，必须且只能使用 `&` (与) 和 `|` (或)，并给每个条件加括号！绝对禁止使用 `and` 或 `or`！
+2. 传入的 df 已根据用户设置进行了【复权处理】，策略不需要考虑除权除息造成的跳空断层，直接运用纯粹的价格计算逻辑即可。禁止引入第三方库。"""
                 try:
                     msg_box.markdown("🧠 *大模型正在解析意图并构建计算图...*")
                     stream = client.chat.completions.create(model="moonshot-v1-8k", messages=[{"role": "system",
@@ -193,20 +177,28 @@ elif page == "📈 深度回测与图表":
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         raw_stock_code = st.text_input("🎯 回测标的 (输入6位代码，如: 000001)", value="000001")
         ts_code = format_ts_code(raw_stock_code)
-        st.caption(f"🔗 Tushare API 映射: `{ts_code}`")
+
+        # 🔥 新增：复权与坐标轴控制系统
+        adj_mode = st.selectbox("⚖️ 价格复权处理", ["前复权 (推荐)", "后复权", "不复权 (原始价格)"])
+        adj_param = "qfq" if "前复权" in adj_mode else "hfq" if "后复权" in adj_mode else None
+        y_axis_mode = st.radio("📏 Y轴缩放模式", ["自适应 K线 (动态伸缩)", "绝对 K线 (全局定死)"], horizontal=False)
+
+        st.caption(f"🔗 API 映射: `{ts_code}` | 复权: `{adj_param}`")
 
         if st.session_state.generated_code:
             st.success("🟢 沙盒引擎就绪")
             if st.button("🚀 启动全量回测任务", use_container_width=True, type="primary"):
-                with st.spinner(f"正在调取 {ts_code} 数据..."):
+                with st.spinner(f"正在聚合 {ts_code} 真实复权数据..."):
                     try:
-                        data = pro.daily(ts_code=ts_code, start_date='20230101')
-                        if data.empty:
-                            st.error("未获取到数据！")
+                        # 🔥 修复核心：使用 ts.pro_bar 自动获取复权数据
+                        data = ts.pro_bar(ts_code=ts_code, adj=adj_param, start_date='20230101')
+                        if data is None or data.empty:
+                            st.error("未获取到数据！可能是 Tushare 积分不足或代码错误。")
                             log_thesis_data("回测失败", f"标的 {ts_code} 无数据")
                         else:
                             data = data.sort_values('trade_date').reset_index(drop=True)
-                            data['trade_date'] = pd.to_datetime(data['trade_date'])
+                            # 格式化日期为 pandas datetime
+                            data['trade_date'] = pd.to_datetime(data['trade_date'], format='%Y%m%d')
 
                             data['MA5'] = data['close'].rolling(window=5).mean()
                             data['MA20'] = data['close'].rolling(window=20).mean()
@@ -235,13 +227,14 @@ elif page == "📈 深度回测与图表":
                             data['Strat_Ret'] = data['Pos'].shift(1) * data['Ret']
                             data['Cum_Prod'] = (1 + data['Strat_Ret'].fillna(0)).cumprod()
 
-                            st.session_state.bt_result = {"df": data, "code": ts_code}
+                            st.session_state.bt_result = {"df": data, "code": ts_code, "adj": adj_mode,
+                                                          "y_mode": y_axis_mode}
 
                             total_ret = (data['Cum_Prod'].iloc[-1] - 1) * 100
-                            log_thesis_data("回测成功", f"标的:{ts_code}, 收益率:{total_ret:.2f}%, 行数:{len(data)}")
+                            log_thesis_data("回测成功", f"标的:{ts_code}, 复权:{adj_param}, 收益率:{total_ret:.2f}%")
                     except Exception as e:
                         st.error(f"沙盒执行异常: {e}")
-                        log_thesis_data("沙盒崩毁", f"执行策略时报错: {e}")
+                        log_thesis_data("沙盒崩毁", f"报错: {e}")
         else:
             st.warning("🟡 策略缓存为空，请先由 AI 生成策略。")
 
@@ -264,10 +257,12 @@ elif page == "📈 深度回测与图表":
     with col_r:
         if st.session_state.bt_result:
             df = st.session_state.bt_result['df']
-            st.markdown('<div class="glass-card" style="padding:10px;">', unsafe_allow_html=True)
+            current_y_mode = st.session_state.bt_result['y_mode']
+            st.markdown(
+                f'<div class="glass-card" style="padding:10px;"><p style="text-align:center; color:#888;">正在查看: {st.session_state.bt_result["code"]} | {st.session_state.bt_result["adj"]}</p>',
+                unsafe_allow_html=True)
 
-            fig = make_subplots(rows=4, cols=1, shared_xaxes=True,
-                                vertical_spacing=0.02,
+            fig = make_subplots(rows=4, cols=1, shared_xaxes=True, vertical_spacing=0.02,
                                 row_heights=[0.5, 0.15, 0.175, 0.175])
 
             fig.add_trace(go.Candlestick(
@@ -309,14 +304,34 @@ elif page == "📈 深度回测与图表":
             fig.add_trace(go.Scatter(x=df['trade_date'], y=df['J'], line=dict(color='magenta', width=1), name='J'),
                           row=4, col=1)
 
+            # 🔥 坐标轴高级格式化
             fig.update_layout(
                 height=800, dragmode='pan',
                 template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0.2)',
                 margin=dict(l=0, r=0, t=10, b=0), xaxis_rangeslider_visible=False,
                 hovermode="x unified", showlegend=False
             )
-            fig.update_xaxes(showgrid=False, zeroline=False, rangeslider_visible=False)
-            fig.update_yaxes(showgrid=True, gridcolor='rgba(255,255,255,0.05)', zeroline=False)
+
+            # 🔥 修复中文日期：在坐标轴刻度和悬停光标上强制应用中文年月日
+            fig.update_xaxes(
+                tickformat="%Y年%m月",  # 底部坐标轴显示：年-月
+                hoverformat="%Y年%m月%d日",  # 鼠标悬停显示：年-月-日
+                showgrid=False, zeroline=False, rangeslider_visible=False
+            )
+
+            # 🔥 修复自适应/绝对 K线
+            if "绝对" in current_y_mode:
+                # 锁定全局最高和最低，哪怕缩小画面，Y轴的范围也不会变
+                fig.update_yaxes(range=[df['low'].min() * 0.95, df['high'].max() * 1.05], showgrid=True,
+                                 gridcolor='rgba(255,255,255,0.05)', zeroline=False, row=1, col=1)
+            else:
+                # Plotly 原生自适应模式 (可通过图表右上角工具栏的 Autoscale 按钮随时对齐)
+                fig.update_yaxes(autorange=True, showgrid=True, gridcolor='rgba(255,255,255,0.05)', zeroline=False,
+                                 row=1, col=1)
+
+            fig.update_yaxes(showgrid=True, gridcolor='rgba(255,255,255,0.05)', zeroline=False, row=2, col=1)
+            fig.update_yaxes(showgrid=True, gridcolor='rgba(255,255,255,0.05)', zeroline=False, row=3, col=1)
+            fig.update_yaxes(showgrid=True, gridcolor='rgba(255,255,255,0.05)', zeroline=False, row=4, col=1)
 
             st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True,
                                                                    'modeBarButtonsToRemove': ['lasso2d', 'select2d']})
@@ -338,13 +353,8 @@ elif page == "🛡️ 论文数据与日志":
         if os.path.exists(LOG_FILE):
             log_df = pd.read_csv(LOG_FILE)
             csv = log_df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📁 一键下载论文原始报表 (user_logs.csv)",
-                data=csv,
-                file_name='thesis_user_logs.csv',
-                mime='text/csv',
-                type="primary"
-            )
+            st.download_button(label="📁 一键下载论文原始报表 (user_logs.csv)", data=csv,
+                               file_name='thesis_user_logs.csv', mime='text/csv', type="primary")
             st.dataframe(log_df.tail(10), use_container_width=True)
         else:
             st.warning("暂无日志数据积累。")
