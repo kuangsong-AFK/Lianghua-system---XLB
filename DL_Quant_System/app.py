@@ -23,20 +23,31 @@ pro = ts.pro_api(TUSHARE_TOKEN)
 client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=30.0)
 
 # ==========================================
-# 2. 沉浸式 UI & CSS 锁定
+# 2. 沉浸式 UI & 强制暗黑主题 (修复白屏Bug)
 # ==========================================
 st.markdown("""
 <style>
-    .stApp, [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 2rem !important; }
+    /* 🔥 核心修复：取消全透明，焊死极具科幻感的高级暗黑渐变背景！ */
+    .stApp, [data-testid="stAppViewContainer"], .block-container { 
+        background-color: #0e1117 !important; 
+        background-image: radial-gradient(circle at 50% 0%, #1f2633 0%, #0e1117 75%) !important;
+        padding-top: 2rem !important; 
+    }
+
     header[data-testid="stHeader"] { background: transparent !important; }
     header[data-testid="stHeader"] * { color: rgba(255,255,255,0.6) !important; }
     footer { display: none !important; }
     .stMarkdown, .stText, p, h1, h2, h3, label, span, li { color: #ffffff !important; }
-    [data-testid="stSidebar"] { background: rgba(20, 20, 20, 0.6) !important; backdrop-filter: blur(15px) !important; border-right: 1px solid rgba(255,255,255,0.1) !important; }
+    [data-testid="stSidebar"] { background: rgba(14, 17, 23, 0.9) !important; border-right: 1px solid rgba(255,255,255,0.1) !important; }
     [data-testid="stSidebarCollapseButton"] { display: none !important; }
-    .glass-card { background: rgba(20, 20, 20, 0.75); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 25px; margin-bottom: 20px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
-    .stTextInput > div > div { background-color: rgba(0,0,0,0.7) !important; color: white !important; border: 1px solid rgba(255,255,255,0.2); }
-    div[data-testid="stChatMessageContent"] { background-color: rgba(40,44,52,0.9) !important; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); }
+
+    .glass-card { 
+        background: rgba(20, 24, 30, 0.7); backdrop-filter: blur(12px); 
+        border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 25px; margin-bottom: 20px; 
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5); 
+    }
+    .stTextInput > div > div { background-color: rgba(0,0,0,0.6) !important; color: white !important; border: 1px solid rgba(255,255,255,0.2); }
+    div[data-testid="stChatMessageContent"] { background-color: rgba(30, 35, 45, 0.9) !important; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); }
 </style>
 """, unsafe_allow_html=True)
 
@@ -47,7 +58,6 @@ LOG_FILE = "thesis_user_logs.csv"
 if not os.path.exists(LOG_FILE):
     pd.DataFrame(columns=["Timestamp", "UserID", "ActionType", "Details"]).to_csv(LOG_FILE, index=False)
 
-# 🔥 修复核心：先把所有的变量（账本）初始化好！
 if "user_id" not in st.session_state: st.session_state.user_id = f"User_{str(uuid.uuid4())[:6]}"
 if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 if "generated_code" not in st.session_state: st.session_state.generated_code = ""
@@ -55,7 +65,6 @@ if "bt_result" not in st.session_state: st.session_state.bt_result = None
 
 
 def log_thesis_data(action_type, details):
-    """记录用户行为到本地 CSV，用于毕业论文数据导出"""
     new_row = pd.DataFrame([{
         "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "UserID": st.session_state.user_id,
@@ -63,15 +72,13 @@ def log_thesis_data(action_type, details):
         "Details": str(details)
     }])
     new_row.to_csv(LOG_FILE, mode='a', header=False, index=False)
-    # 因为上面已经确保 sys_logs 存在，这里 insert 绝对安全
     st.session_state.sys_logs.insert(0,
                                      f"[{datetime.now().strftime('%H:%M:%S')}] [{st.session_state.user_id}] {action_type}: {details}")
 
 
-# 变量初始化好之后，再执行欢迎语和日志写入
 if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant",
-                                  "content": f"主公，毕业答辩系统已初始化！您当前的测试身份编号为：**{st.session_state.user_id}**"}]
+    st.session_state.messages = [
+        {"role": "assistant", "content": f"主公，系统已初始化！您的测试编号为：**{st.session_state.user_id}**"}]
     log_thesis_data("系统访问", "新用户进入量化平台")
 
 
@@ -161,7 +168,7 @@ elif page == "🤖 AI 策略引擎":
         st.rerun()
 
 # ==========================================
-# 📈 深度回测与图表 (东方财富级交互)
+# 📈 深度回测与图表
 # ==========================================
 elif page == "📈 深度回测与图表":
     st.markdown('<div class="glass-card"><h3>📈 动态沙盒与多维可视化分析</h3></div>', unsafe_allow_html=True)
