@@ -6,6 +6,7 @@ import re
 import time
 import tushare as ts
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from datetime import datetime
 
 # ==========================================
@@ -37,7 +38,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 状态管理
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {"role": "assistant", "content": "主公，毕业答辩系统已初始化！请使用 AI 引擎生成您的论证策略。"}]
@@ -63,44 +63,28 @@ def format_ts_code(raw_code):
     return raw_code
 
 
-# ==========================================
-# 3. 侧边栏：学术级模块划分
-# ==========================================
 with st.sidebar:
     st.markdown("## 🎓 量化交易引擎 Pro")
     st.caption("基于 LLM 与 Tushare 的智能回测系统")
     st.markdown("---")
-    page = st.radio("系统导航", [
-        "🏠 系统总览 (Dashboard)",
-        "🤖 AI 策略引擎",
-        "📈 深度回测与归因",
-        "🛡️ 风控与日志系统"
-    ], label_visibility="collapsed")
+    page = st.radio("系统导航", ["🏠 系统总览 (Dashboard)", "🤖 AI 策略引擎", "📈 深度回测与归因", "🛡️ 风控与日志系统"],
+                    label_visibility="collapsed")
 
 # ==========================================
-# 🏠 页面 1: 系统总览 (答辩演示绝佳门面)
+# 🏠 页面 1: 系统总览
 # ==========================================
 if page == "🏠 系统总览 (Dashboard)":
     st.markdown(
         '<div class="glass-card"><h2>🏠 智能量化交易决策系统</h2><p>基于大语言模型 (LLM) 的代码生成与动态回测架构</p></div>',
         unsafe_allow_html=True)
-
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("系统运行状态", "🟢 正常运转", "Online")
     col2.metric("AI 大脑", "Moonshot-v1-8k", "API 正常")
     col3.metric("数据源节点", "Tushare Pro", "延时 < 50ms")
     col4.metric("策略缓存数", "1" if st.session_state.generated_code else "0", "动态沙盒")
-
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    st.markdown("#### ⚙️ 系统架构图 (论文配图参考)")
-    st.markdown("""
-    * **感知层**: 用户自然语言输入 (Streamlit UI)
-    * **认知层**: Moonshot LLM 大模型解析意图，生成 Pandas 矢量化交易逻辑
-    * **数据层**: Tushare 金融大数据接口，获取 A 股/ETF 真实 K 线与财务数据
-    * **执行层**: Python 动态沙盒 `exec()` 执行策略，生成交易信号向量 (1, 0, -1)
-    * **表现层**: Plotly 交互式可视化，输出夏普比率、最大回撤等学术级归因指标
-    """)
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="glass-card"><h4>⚙️ 系统架构图 (论文配图参考)</h4><ul><li><b>感知层</b>: 用户自然语言输入 (Streamlit UI)</li><li><b>认知层</b>: Moonshot LLM 大模型解析意图，生成 Pandas 矢量化交易逻辑</li><li><b>数据层</b>: Tushare 金融大数据接口，获取 A 股/ETF 真实 K 线与财务数据</li><li><b>执行层</b>: Python 动态沙盒 <code>exec()</code> 执行策略，生成交易信号向量 (1, 0, -1)</li><li><b>表现层</b>: Plotly 交互式可视化，输出夏普比率、最大回撤等学术级归因指标</li></ul></div>',
+        unsafe_allow_html=True)
 
 # ==========================================
 # 🤖 页面 2: AI 策略引擎
@@ -112,7 +96,7 @@ elif page == "🤖 AI 策略引擎":
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"])
 
-    if prompt := st.chat_input("输入策略构思 (如: 基于MACD和KDJ指标的共振交易策略)..."):
+    if prompt := st.chat_input("输入策略构思 (如: 基于均线的趋势跟踪策略)..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         add_log(f"用户下达新策略指令: {prompt[:20]}...")
         st.rerun()
@@ -150,11 +134,11 @@ elif page == "🤖 AI 策略引擎":
         st.rerun()
 
 # ==========================================
-# 📈 页面 3: 深度回测与归因
+# 📈 页面 3: 深度回测与归因 (🔥 同花顺级多图联动)
 # ==========================================
 elif page == "📈 深度回测与归因":
-    st.markdown('<div class="glass-card"><h3>📈 动态沙盒与回测引擎</h3></div>', unsafe_allow_html=True)
-    col_l, col_r = st.columns([1, 2.5])
+    st.markdown('<div class="glass-card"><h3>📈 动态沙盒与多维可视化分析</h3></div>', unsafe_allow_html=True)
+    col_l, col_r = st.columns([1, 3])
 
     with col_l:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
@@ -168,23 +152,33 @@ elif page == "📈 深度回测与归因":
             if st.button("🚀 启动全量回测任务", use_container_width=True, type="primary"):
                 with st.spinner(f"正在调取 {ts_code} 历史数据并注入策略沙盒..."):
                     try:
-                        data = pro.daily(ts_code=ts_code, start_date='20220101')
+                        data = pro.daily(ts_code=ts_code, start_date='20230101')
                         if data.empty:
                             st.error("未获取到数据！")
                         else:
                             data = data.sort_values('trade_date').reset_index(drop=True)
                             data['trade_date'] = pd.to_datetime(data['trade_date'])
 
-                            # 学术研究常用的基础均线预加载
+                            # 1. 计算基础均线
                             data['MA5'] = data['close'].rolling(window=5).mean()
                             data['MA20'] = data['close'].rolling(window=20).mean()
 
-                            # 沙盒执行
+                            # 2. 原生 Pandas 计算 MACD 指标
+                            exp1 = data['close'].ewm(span=12, adjust=False).mean()
+                            exp2 = data['close'].ewm(span=26, adjust=False).mean()
+                            data['MACD_DIFF'] = exp1 - exp2
+                            data['MACD_DEA'] = data['MACD_DIFF'].ewm(span=9, adjust=False).mean()
+                            data['MACD'] = (data['MACD_DIFF'] - data['MACD_DEA']) * 2
+
+                            # 3. 计算 K线颜色的辅助列 (用于成交量柱状图变色)
+                            data['Color'] = np.where(data['close'] >= data['open'], '#FD1050', '#00FF00')  # 红涨绿跌
+
+                            # 4. 执行 AI 沙盒策略
                             l_vars = {}
                             exec(st.session_state.generated_code, globals(), l_vars)
                             data = l_vars['generate_signals'](data)
 
-                            # 严谨的收益率计算
+                            # 5. 结算收益
                             data['Ret'] = data['close'].pct_change()
                             data['Pos'] = data['Signal'].replace(0, np.nan).ffill().fillna(0)
                             data['Strat_Ret'] = data['Pos'].shift(1) * data['Ret']
@@ -197,6 +191,23 @@ elif page == "📈 深度回测与归因":
                         add_log(f"策略执行报错: {e}")
         else:
             st.warning("🟡 策略缓存为空，请先由 AI 生成策略。")
+
+        # 核心指标放左边下面，腾出空间给大图
+        if st.session_state.bt_result:
+            df = st.session_state.bt_result['df']
+            st.markdown("---")
+            total_ret = (df['Cum_Prod'].iloc[-1] - 1)
+            annual_ret = (1 + total_ret) ** (252 / len(df)) - 1 if len(df) > 0 else 0
+            max_dd = ((df['Cum_Prod'] / df['Cum_Prod'].cummax() - 1).min())
+            daily_returns = df['Strat_Ret'].dropna()
+            sharpe_ratio = ((daily_returns.mean() - 0.03 / 252) / daily_returns.std()) * np.sqrt(252) if len(
+                daily_returns) > 0 and daily_returns.std() != 0 else 0
+
+            st.metric("累计收益", f"{total_ret * 100:.2f}%")
+            st.metric("年化收益", f"{annual_ret * 100:.2f}%")
+            st.metric("最大回撤", f"{max_dd * 100:.2f}%")
+            st.metric("夏普比率", f"{sharpe_ratio:.2f}")
+
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col_r:
@@ -204,52 +215,64 @@ elif page == "📈 深度回测与归因":
             df = st.session_state.bt_result['df']
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
 
-            # K线绘图
-            fig = go.Figure()
+            # 🔥 核心进化：使用 make_subplots 构建三图联动布局
+            fig = make_subplots(rows=3, cols=1, shared_xaxes=True,
+                                vertical_spacing=0.03,
+                                row_heights=[0.6, 0.2, 0.2])  # 主图占60%，两个副图各占20%
+
+            # --- Row 1: 主图 (K线 + 均线 + 买卖信号) ---
             fig.add_trace(go.Candlestick(
                 x=df['trade_date'], open=df['open'], high=df['high'], low=df['low'], close=df['close'],
                 name='K线', increasing_line_color='#FD1050', increasing_fillcolor='#FD1050',
                 decreasing_line_color='#00FF00', decreasing_fillcolor='#00FF00'
-            ))
-            fig.add_trace(go.Scatter(x=df['trade_date'], y=df['MA5'], line=dict(color='white', width=1), name='MA5'))
+            ), row=1, col=1)
+
+            fig.add_trace(go.Scatter(x=df['trade_date'], y=df['MA5'], line=dict(color='yellow', width=1), name='MA5'),
+                          row=1, col=1)
             fig.add_trace(
-                go.Scatter(x=df['trade_date'], y=df['MA20'], line=dict(color='magenta', width=1), name='MA20'))
+                go.Scatter(x=df['trade_date'], y=df['MA20'], line=dict(color='magenta', width=1), name='MA20'), row=1,
+                col=1)
 
             buys = df[df['Signal'] == 1]
             sells = df[df['Signal'] == -1]
             fig.add_trace(go.Scatter(x=buys['trade_date'], y=buys['low'] * 0.95, mode='markers',
                                      marker=dict(symbol='triangle-up', size=14, color='#00FFFF',
-                                                 line=dict(width=1, color='white')), name='买入信号'))
+                                                 line=dict(width=1, color='white')), name='买入'), row=1, col=1)
             fig.add_trace(go.Scatter(x=sells['trade_date'], y=sells['high'] * 1.05, mode='markers',
                                      marker=dict(symbol='triangle-down', size=14, color='#FF00FF',
-                                                 line=dict(width=1, color='white')), name='卖出信号'))
+                                                 line=dict(width=1, color='white')), name='卖出'), row=1, col=1)
 
-            fig.update_layout(template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0.2)',
-                              margin=dict(l=0, r=0, t=0, b=0), xaxis_rangeslider_visible=False, hovermode="x unified",
-                              legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-            fig.update_xaxes(showgrid=False)
-            fig.update_yaxes(showgrid=True, gridcolor='rgba(255,255,255,0.1)')
+            # --- Row 2: 副图 1 (MACD) ---
+            # MACD 柱状图 (红绿区分)
+            macd_colors = np.where(df['MACD'] >= 0, '#FD1050', '#00FF00')
+            fig.add_trace(go.Bar(x=df['trade_date'], y=df['MACD'], marker_color=macd_colors, name='MACD'), row=2, col=1)
+            fig.add_trace(
+                go.Scatter(x=df['trade_date'], y=df['MACD_DIFF'], line=dict(color='white', width=1), name='DIFF'),
+                row=2, col=1)
+            fig.add_trace(
+                go.Scatter(x=df['trade_date'], y=df['MACD_DEA'], line=dict(color='yellow', width=1), name='DEA'), row=2,
+                col=1)
+
+            # --- Row 3: 副图 2 (成交量 Volume) ---
+            fig.add_trace(go.Bar(x=df['trade_date'], y=df['vol'], marker_color=df['Color'], name='成交量'), row=3,
+                          col=1)
+
+            # --- 统一布局设置 (同花顺暗色风格) ---
+            fig.update_layout(
+                height=700,  # 增加整体图表高度
+                template="plotly_dark",
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0.2)',
+                margin=dict(l=0, r=0, t=10, b=0),
+                xaxis_rangeslider_visible=False,
+                hovermode="x unified",
+                showlegend=False  # 隐藏庞大的图例，保持画面干净
+            )
+
+            # 隐藏 X 轴的滑动条和刻度线，使得图表贴合紧密
+            fig.update_xaxes(showgrid=False, zeroline=False, rangeslider_visible=False)
+            fig.update_yaxes(showgrid=True, gridcolor='rgba(255,255,255,0.05)', zeroline=False)
+
             st.plotly_chart(fig, use_container_width=True)
-
-            # 🔥 学术级归因指标计算
-            total_ret = (df['Cum_Prod'].iloc[-1] - 1)
-            trading_days = len(df)
-            annual_ret = (1 + total_ret) ** (252 / trading_days) - 1 if trading_days > 0 else 0
-            max_dd = ((df['Cum_Prod'] / df['Cum_Prod'].cummax() - 1).min())
-
-            # 计算夏普比率 (假设无风险利率为 3%)
-            daily_returns = df['Strat_Ret'].dropna()
-            if len(daily_returns) > 0 and daily_returns.std() != 0:
-                sharpe_ratio = ((daily_returns.mean() - 0.03 / 252) / daily_returns.std()) * np.sqrt(252)
-            else:
-                sharpe_ratio = 0
-
-            st.markdown("#### 📊 核心评价指标 (Evaluation Metrics)")
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("累计收益率", f"{total_ret * 100:.2f}%")
-            c2.metric("年化收益率", f"{annual_ret * 100:.2f}%")
-            c3.metric("最大回撤", f"{max_dd * 100:.2f}%")
-            c4.metric("夏普比率 (Sharpe)", f"{sharpe_ratio:.2f}")
             st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
