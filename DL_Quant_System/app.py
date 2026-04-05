@@ -29,22 +29,49 @@ pro = ts.pro_api()
 client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=30.0)
 
 # ==========================================
-# 2. 沉浸式 UI & 强制暗黑主题
+# 2. 沉浸式 UI & 🔥 动态流体暗黑主题 (CSS 动画)
 # ==========================================
 st.markdown("""
 <style>
-    .stApp, [data-testid="stAppViewContainer"], .block-container { background-color: #0e1117 !important; background-image: radial-gradient(circle at 50% 0%, #1f2633 0%, #0e1117 75%) !important; padding-top: 2rem !important; }
+    /* 🔥 动态流体暗黑背景：利用 CSS 动画实现背景缓慢流动 */
+    @keyframes fluidFlow {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    .stApp, [data-testid="stAppViewContainer"], .block-container { 
+        /* 设置极暗的渐变色集合（深空黑、暗灰蓝、微弱的暗紫/暗青色） */
+        background: linear-gradient(-45deg, #020202, #0a0f1c, #111520, #0a0a0e) !important;
+        background-size: 400% 400% !important;
+        animation: fluidFlow 18s ease infinite !important; /* 18秒一个流动周期，平滑不晕眩 */
+        padding-top: 2rem !important; 
+    }
+
     header[data-testid="stHeader"] { background: transparent !important; }
     header[data-testid="stHeader"] * { color: rgba(255,255,255,0.6) !important; }
     footer { display: none !important; }
-    .stMarkdown, .stText, p, h1, h2, h3, label, span, li { color: #ffffff !important; }
-    div[data-testid="stCodeBlock"], pre { background-color: #0d1117 !important; border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 8px !important; }
+    .stMarkdown, .stText, p, h1, h2, h3, label, span, li { color: #e2e8f0 !important; }
+
+    /* 代码块与输入框优化，加入极客感 */
+    div[data-testid="stCodeBlock"], pre { background-color: rgba(10, 15, 25, 0.8) !important; border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 8px !important; backdrop-filter: blur(10px); }
     code { color: #00ffcc !important; background-color: transparent !important; text-shadow: none !important; }
-    [data-testid="stSidebar"] { background: rgba(14, 17, 23, 0.9) !important; border-right: 1px solid rgba(255,255,255,0.1) !important; }
+
+    /* 侧边栏高透玻璃态，让背景流体隐约透过来 */
+    [data-testid="stSidebar"] { background: rgba(5, 8, 12, 0.5) !important; backdrop-filter: blur(20px) !important; border-right: 1px solid rgba(255,255,255,0.05) !important; }
     [data-testid="stSidebarCollapseButton"] { display: none !important; }
-    .glass-card { background: rgba(20, 24, 30, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 25px; margin-bottom: 20px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5); }
-    .stTextInput > div > div, .stSelectbox > div > div, .stSlider > div > div > div > div { background-color: rgba(0,0,0,0.6) !important; color: white !important; }
-    div[data-testid="stChatMessageContent"] { background-color: rgba(30, 35, 45, 0.9) !important; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); }
+
+    /* 核心卡片悬浮效果 */
+    .glass-card { 
+        background: rgba(15, 20, 28, 0.5); backdrop-filter: blur(15px); 
+        border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 25px; margin-bottom: 20px; 
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6); 
+        transition: all 0.3s ease;
+    }
+    .glass-card:hover { border: 1px solid rgba(255, 255, 255, 0.15); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.9); }
+
+    .stTextInput > div > div, .stSelectbox > div > div, .stSlider > div > div > div > div { background-color: rgba(0,0,0,0.4) !important; color: white !important; border: 1px solid rgba(255,255,255,0.1) !important; }
+    div[data-testid="stChatMessageContent"] { background-color: rgba(20, 25, 35, 0.7) !important; backdrop-filter: blur(10px); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
 </style>
 """, unsafe_allow_html=True)
 
@@ -166,7 +193,7 @@ elif page == "🤖 AI 策略引擎 (LLM)":
         st.rerun()
 
 # ==========================================
-# 🧠 页面 3: 深度学习时序预测 (🔥 同步K线视觉)
+# 🧠 页面 3: 深度学习时序预测
 # ==========================================
 elif page == "🧠 深度学习预测 (LSTM)":
     st.markdown(
@@ -180,14 +207,12 @@ elif page == "🧠 深度学习预测 (LSTM)":
         raw_stock_code = st.text_input("🎯 训练标的 (如: 000001)", value="000001")
         ts_code = format_ts_code(raw_stock_code)
 
-        seq_length = st.slider("📏 时间滑窗长度 (Seq_Len)", min_value=5, max_value=60, value=20,
-                               help="使用过去多少天的数据来预测明天")
+        seq_length = st.slider("📏 时间滑窗长度 (Seq_Len)", min_value=5, max_value=60, value=20)
         epochs = st.slider("🔄 训练迭代轮数 (Epochs)", min_value=10, max_value=100, value=30, step=10)
 
         if st.button("🚀 启动深度学习训练与回测", use_container_width=True, type="primary"):
             with st.spinner("正在搭建计算图并启动 PyTorch 张量运算..."):
                 try:
-                    # 获取复权数据以保证学术严谨性
                     df = ts.pro_bar(ts_code=ts_code, adj='qfq', start_date='20210101')
                     if df is None or df.empty: raise ValueError("获取数据失败")
                     df = df.sort_values('trade_date').reset_index(drop=True)
@@ -256,7 +281,6 @@ elif page == "🧠 深度学习预测 (LSTM)":
 
                     predicted_prices = scaler.inverse_transform(test_predict)
 
-                    # 🔥 核心视觉修复：将 OHLC 四个维度重新拼装，用于画完整的 K 线
                     start_idx = train_size + seq_length
                     test_df = pd.DataFrame({
                         'trade_date': df['trade_date'].iloc[start_idx:].values,
@@ -298,34 +322,30 @@ elif page == "🧠 深度学习预测 (LSTM)":
 
             fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.7, 0.3])
 
-            # 🔥 采用与实盘沙盒完全一致的红绿 K 线
             fig.add_trace(go.Candlestick(
                 x=df['trade_date'], open=df['open'], high=df['high'], low=df['low'], close=df['close'],
-                name='真实 K 线 (Actual)', increasing_line_color='#FD1050', increasing_fillcolor='#FD1050',
+                name='真实 K 线', increasing_line_color='#FD1050', increasing_fillcolor='#FD1050',
                 decreasing_line_color='#00FF00', decreasing_fillcolor='#00FF00'
             ), row=1, col=1)
 
-            # 叠加 LSTM 预测虚线 (采用亮白色，对比度高)
-            fig.add_trace(go.Scatter(x=df['trade_date'], y=df['Predicted'], name='LSTM 预测价 (Predicted)',
+            fig.add_trace(go.Scatter(x=df['trade_date'], y=df['Predicted'], name='LSTM 预测价',
                                      line=dict(color='#ffffff', width=2, dash='dot')), row=1, col=1)
 
-            # 统一买卖点标记风格
             buys = df[df['Signal'] == 1]
             sells = df[df['Signal'] == -1]
             fig.add_trace(go.Scatter(x=buys['trade_date'], y=buys['low'] * 0.95, mode='markers',
                                      marker=dict(symbol='triangle-up', size=14, color='#00FFFF',
-                                                 line=dict(width=1, color='white')), name='AI 买入判定'), row=1, col=1)
+                                                 line=dict(width=1, color='white')), name='AI 买入'), row=1, col=1)
             fig.add_trace(go.Scatter(x=sells['trade_date'], y=sells['high'] * 1.05, mode='markers',
                                      marker=dict(symbol='triangle-down', size=14, color='#FF00FF',
-                                                 line=dict(width=1, color='white')), name='AI 卖出判定'), row=1, col=1)
+                                                 line=dict(width=1, color='white')), name='AI 卖出'), row=1, col=1)
 
-            # 收益曲线
-            fig.add_trace(go.Scatter(x=df['trade_date'], y=df['Cum_Prod'], name='LSTM 策略净值', fill='tozeroy',
+            fig.add_trace(go.Scatter(x=df['trade_date'], y=df['Cum_Prod'], name='策略净值', fill='tozeroy',
                                      line=dict(color='#00ffcc')), row=2, col=1)
 
             fig.update_layout(
                 height=700, dragmode='pan', template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0.2)',
+                plot_bgcolor='rgba(0,0,0,0.1)',
                 margin=dict(l=0, r=0, t=10, b=0), hovermode="x unified",
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
             )
@@ -335,9 +355,6 @@ elif page == "🧠 深度学习预测 (LSTM)":
             st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True,
                                                                    'modeBarButtonsToRemove': ['lasso2d', 'select2d']})
             st.markdown('</div>', unsafe_allow_html=True)
-
-            st.info(
-                "💡 **学术原理解析**：本图完美还原了真实量化交易中的 K 线视角。**白色虚线**为 LSTM 时序网络对次日的走势预判。系统根据虚线的上下拐头生成买卖信号，从而实现纯 AI 驱动的量化博弈。")
 
 # ==========================================
 # 📈 页面 4: 深度回测与图表 (LLM)
@@ -460,7 +477,7 @@ elif page == "📈 深度回测与图表":
                           row=4, col=1)
 
             fig.update_layout(height=800, dragmode='pan', template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
-                              plot_bgcolor='rgba(0,0,0,0.2)', margin=dict(l=0, r=0, t=10, b=0),
+                              plot_bgcolor='rgba(0,0,0,0.1)', margin=dict(l=0, r=0, t=10, b=0),
                               xaxis_rangeslider_visible=False, hovermode="x unified", showlegend=False)
             fig.update_xaxes(tickformat="%Y年%m月", showgrid=False, zeroline=False)
             if "绝对" in st.session_state.bt_result["y_mode"]:
