@@ -23,11 +23,11 @@ pro = ts.pro_api(TUSHARE_TOKEN)
 client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=30.0)
 
 # ==========================================
-# 2. 沉浸式 UI & 强制暗黑主题 (修复白屏Bug)
+# 2. 沉浸式 UI & 强制暗黑主题 (修复白屏与代码块白底Bug)
 # ==========================================
 st.markdown("""
 <style>
-    /* 🔥 核心修复：取消全透明，焊死极具科幻感的高级暗黑渐变背景！ */
+    /* 全局强制暗黑背景 */
     .stApp, [data-testid="stAppViewContainer"], .block-container { 
         background-color: #0e1117 !important; 
         background-image: radial-gradient(circle at 50% 0%, #1f2633 0%, #0e1117 75%) !important;
@@ -37,7 +37,22 @@ st.markdown("""
     header[data-testid="stHeader"] { background: transparent !important; }
     header[data-testid="stHeader"] * { color: rgba(255,255,255,0.6) !important; }
     footer { display: none !important; }
+
+    /* 全局字体设为白色 */
     .stMarkdown, .stText, p, h1, h2, h3, label, span, li { color: #ffffff !important; }
+
+    /* 🔥 核心修复：强行把代码块涂黑，文字改成骇客绿，彻底解决白屏隐身问题！ */
+    div[data-testid="stCodeBlock"], pre {
+        background-color: #0d1117 !important; /* 极深黑色背景 */
+        border: 1px solid rgba(255,255,255,0.1) !important;
+        border-radius: 8px !important;
+    }
+    code {
+        color: #00ffcc !important; /* 极客青绿色代码 */
+        background-color: transparent !important;
+        text-shadow: none !important;
+    }
+
     [data-testid="stSidebar"] { background: rgba(14, 17, 23, 0.9) !important; border-right: 1px solid rgba(255,255,255,0.1) !important; }
     [data-testid="stSidebarCollapseButton"] { display: none !important; }
 
