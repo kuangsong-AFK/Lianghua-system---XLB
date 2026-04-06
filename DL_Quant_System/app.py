@@ -29,22 +29,27 @@ pro = ts.pro_api()
 client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=30.0)
 
 # ==========================================
-# 2. 沉浸式 UI & 🔥 强化液体流体动画
+# 2. 沉浸式 UI & 🔥 终极深海流体动画
 # ==========================================
 st.markdown("""
 <style>
-    /* 🔥 增强版液体流体动画：缩短周期至8秒，加入多维角度，增强流动感！ */
+    /* 🔥 终极液态流体动画：加入多维角度与对角线运动，模拟深海漩涡与潮汐！ */
     @keyframes fluidGradient {
         0% { background-position: 0% 50%; }
+        25% { background-position: 50% 100%; }
         50% { background-position: 100% 50%; }
+        75% { background-position: 50% 0%; }
         100% { background-position: 0% 50%; }
     }
 
+    /* 强行绑定在最底层的 stApp 上 */
     .stApp {
-        /* 使用更高对比度的深海/暗星云色彩，增强液体翻涌的视觉差 */
-        background-image: linear-gradient(-45deg, #02040a, #0e172e, #050a15, #161224) !important;
-        background-size: 300% 300% !important;
-        animation: fluidGradient 8s ease-in-out infinite !important;
+        /* 增加高对比度色值（深海蓝 #111d3d 与 暗星云色 #1d2b4f），制造强烈的色彩碰撞流动感 */
+        background-image: linear-gradient(132deg, #02040a, #111d3d, #030614, #1d2b4f, #081224) !important;
+        /* 将背景尺寸拉大至 400%，制造巨浪色块滑过屏幕的液态拉伸感 */
+        background-size: 400% 400% !important;
+        /* 12秒呼吸周期，配合 ease-in-out 让流动更具张力 */
+        animation: fluidGradient 12s ease-in-out infinite !important;
     }
 
     [data-testid="stAppViewContainer"], .block-container { 
@@ -91,7 +96,6 @@ if "dl_result" not in st.session_state: st.session_state.dl_result = None
 
 
 def log_thesis_data(action_type, details):
-    # 将报错等异常日志加上特殊的 UI 标记，以便在终端里一眼看清
     icon = "🔴" if "报错" in action_type or "异常" in action_type or "警告" in action_type else "🟢"
     log_msg = f"{icon} [{datetime.now().strftime('%H:%M:%S')}] [{st.session_state.user_id}] {action_type}: {details}"
 
@@ -194,17 +198,16 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                         st.toast("✅ LLM 策略编译成功！", icon="🚀")
                         log_thesis_data("LLM生成成功", "代码提取并装填至沙盒")
                     else:
-                        # 记录 AI 没按格式输出的异常
                         log_thesis_data("系统异常-格式提取", "未能从大模型回复中提取出有效的Python代码块")
 
                     st.session_state.messages.append({"role": "assistant", "content": full_resp})
                 except Exception as e:
                     st.error(f"API 异常: {e}")
-                    log_thesis_data("系统报错-大模型通信", str(e))  # 🔥 全面接管报错记录
+                    log_thesis_data("系统报错-大模型通信", str(e))
         st.rerun()
 
 # ==========================================
-# 📈 页面 3: 深度回测与图表 (LLM)
+# 📈 页面 3: 深度回测与图表
 # ==========================================
 elif page == "📈 深度回测与图表":
     st.markdown('<div class="glass-card"><h3>📈 动态沙盒与多维可视化分析</h3></div>', unsafe_allow_html=True)
@@ -227,19 +230,17 @@ elif page == "📈 深度回测与图表":
                         data = ts.pro_bar(ts_code=ts_code, adj=adj_param, start_date='20230101')
                         if data is None or data.empty:
                             st.error("获取数据失败，请检查 Tushare 接口或标的代码！")
-                            log_thesis_data("系统警告-数据获取", f"标的 {ts_code} 请求的数据为空")  # 🔥 记录空数据警告
+                            log_thesis_data("系统警告-数据获取", f"标的 {ts_code} 请求的数据为空")
                         else:
                             data = data.sort_values('trade_date').reset_index(drop=True)
                             data['trade_date'] = pd.to_datetime(data['trade_date'], format='%Y%m%d')
 
-                            # AI 幻觉容错装甲
                             data['Open'] = data['open']
                             data['High'] = data['high']
                             data['Low'] = data['low']
                             data['Close'] = data['close']
                             data['Volume'] = data['vol']
 
-                            # 计算自带指标
                             data['MA5'] = data['close'].rolling(window=5).mean()
                             data['MA20'] = data['close'].rolling(window=20).mean()
 
@@ -258,12 +259,10 @@ elif page == "📈 深度回测与图表":
 
                             data['Color'] = np.where(data['close'] >= data['open'], '#FD1050', '#00FF00')
 
-                            # 核心执行沙盒
                             l_vars = {}
                             exec(st.session_state.generated_code, globals(), l_vars)
                             data = l_vars['generate_signals'](data)
 
-                            # 结算逻辑
                             data['Ret'] = data['close'].pct_change()
                             data['Pos'] = data['Signal'].replace(0, np.nan).ffill().fillna(0)
                             data['Strat_Ret'] = data['Pos'].shift(1) * data['Ret']
@@ -274,7 +273,7 @@ elif page == "📈 深度回测与图表":
                             log_thesis_data("回测成功", f"LLM策略执行成功, 标的:{ts_code}, 行数:{len(data)}")
                     except Exception as e:
                         st.error(f"沙盒异常: {e} (可能是大模型策略逻辑有误)")
-                        log_thesis_data("系统报错-沙盒执行", f"沙盒崩溃, 详细错误: {e}")  # 🔥 记录沙盒语法或逻辑崩溃
+                        log_thesis_data("系统报错-沙盒执行", f"沙盒崩溃, 详细错误: {e}")
         else:
             st.warning("🟡 LLM策略缓存为空。")
 
@@ -373,7 +372,7 @@ elif page == "🧠 深度学习预测 (LSTM)":
                 try:
                     df = ts.pro_bar(ts_code=ts_code, adj='qfq', start_date='20210101')
                     if df is None or df.empty:
-                        log_thesis_data("系统警告-DL数据", f"获取不到标的 {ts_code} 的数据")  # 🔥 记录空数据警告
+                        log_thesis_data("系统警告-DL数据", f"获取不到标的 {ts_code} 的数据")
                         raise ValueError("获取数据失败")
 
                     df = df.sort_values('trade_date').reset_index(drop=True)
@@ -463,7 +462,7 @@ elif page == "🧠 深度学习预测 (LSTM)":
 
                 except Exception as e:
                     st.error(f"深度学习引擎异常: {e}")
-                    log_thesis_data("系统报错-DL引擎", f"神经网络运算或维度出错: {e}")  # 🔥 记录模型张量等深层报错
+                    log_thesis_data("系统报错-DL引擎", f"神经网络运算出错: {e}")
         st.markdown("</div>", unsafe_allow_html=True)
 
         if st.session_state.dl_result:
@@ -538,6 +537,5 @@ elif page == "🛡️ 论文数据与日志":
             st.warning("暂无日志数据。")
     with col_dl2:
         st.markdown("#### ⏱️ 实时监控终端")
-        # 实时终端现在会带上 🔴 (报错) 或 🟢 (正常) 的直观图标
         st.text_area("Terminal", value="\n".join(st.session_state.sys_logs), height=300)
     st.markdown('</div>', unsafe_allow_html=True)
