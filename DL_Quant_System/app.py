@@ -29,11 +29,11 @@ pro = ts.pro_api()
 client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=30.0)
 
 # ==========================================
-# 2. 沉浸式 UI & 🔥 终极深海流体动画
+# 2. 沉浸式 UI & APP化侧边栏大改造
 # ==========================================
 st.markdown("""
 <style>
-    /* 🔥 终极液态流体动画：加入多维角度与对角线运动，模拟深海漩涡与潮汐！ */
+    /* 🔥 深海流体动画 (维持极致流动感) */
     @keyframes fluidGradient {
         0% { background-position: 0% 50%; }
         25% { background-position: 50% 100%; }
@@ -41,52 +41,84 @@ st.markdown("""
         75% { background-position: 50% 0%; }
         100% { background-position: 0% 50%; }
     }
-
-    /* 强行绑定在最底层的 stApp 上 */
     .stApp {
-        /* 增加高对比度色值（深海蓝 #111d3d 与 暗星云色 #1d2b4f），制造强烈的色彩碰撞流动感 */
         background-image: linear-gradient(132deg, #02040a, #111d3d, #030614, #1d2b4f, #081224) !important;
-        /* 将背景尺寸拉大至 400%，制造巨浪色块滑过屏幕的液态拉伸感 */
         background-size: 400% 400% !important;
-        /* 12秒呼吸周期，配合 ease-in-out 让流动更具张力 */
         animation: fluidGradient 12s ease-in-out infinite !important;
     }
 
-    [data-testid="stAppViewContainer"], .block-container { 
-        background: transparent !important;
-        padding-top: 2rem !important; 
-    }
-
+    [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 2rem !important; }
     header[data-testid="stHeader"] { background: transparent !important; }
     header[data-testid="stHeader"] * { color: rgba(255,255,255,0.6) !important; }
     footer { display: none !important; }
     .stMarkdown, .stText, p, h1, h2, h3, label, span, li { color: #e2e8f0 !important; }
 
-    div[data-testid="stCodeBlock"], pre { background-color: rgba(5, 10, 20, 0.85) !important; border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 8px !important; backdrop-filter: blur(10px); }
-    code { color: #00ffcc !important; background-color: transparent !important; text-shadow: none !important; }
-
-    [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.6) !important; backdrop-filter: blur(20px) !important; border-right: 1px solid rgba(255,255,255,0.05) !important; }
-    [data-testid="stSidebarCollapseButton"] { display: none !important; }
-
-    .glass-card { 
-        background: rgba(15, 20, 30, 0.5); backdrop-filter: blur(15px); 
-        border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 25px; margin-bottom: 20px; 
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6); 
+    /* --------------------------------------------------- */
+    /* 🚀 侧边栏按钮色块化改造 (解决像前进按钮的 Bug) */
+    /* --------------------------------------------------- */
+    [data-testid="stSidebarCollapseButton"] {
+        display: flex !important; /* 解除封印，恢复显示 */
+        background-color: rgba(0, 255, 204, 0.15) !important; /* 骇客绿背景色块 */
+        border: 1px solid rgba(0, 255, 204, 0.6) !important;
+        border-radius: 8px !important;
+        box-shadow: 0 0 12px rgba(0, 255, 204, 0.3) !important;
+        margin-top: 15px !important;
+        margin-left: 10px !important;
         transition: all 0.3s ease;
     }
-    .glass-card:hover { border: 1px solid rgba(255, 255, 255, 0.15); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.9); }
+    [data-testid="stSidebarCollapseButton"]:hover {
+        background-color: rgba(0, 255, 204, 0.4) !important;
+        box-shadow: 0 0 20px rgba(0, 255, 204, 0.6) !important;
+    }
+    [data-testid="stSidebarCollapseButton"] svg { color: #00ffcc !important; } /* 图标染成绿色 */
 
+    /* --------------------------------------------------- */
+    /* 🚀 侧边栏列表 APP 化改造 (隐藏圆圈，变成悬浮卡片) */
+    /* --------------------------------------------------- */
+    [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.6) !important; backdrop-filter: blur(20px) !important; border-right: 1px solid rgba(255,255,255,0.05) !important; }
+
+    .stRadio [role="radiogroup"] { gap: 12px; } /* 增加选项间距 */
+    .stRadio [role="radio"] { display: none !important; } /* 彻底隐藏原生单选框的小圆圈 */
+
+    .stRadio label {
+        background: linear-gradient(90deg, rgba(20, 30, 45, 0.6), rgba(10, 15, 25, 0.4)) !important;
+        padding: 14px 20px !important;
+        border-radius: 12px !important;
+        border-left: 4px solid transparent !important;
+        border-top: 1px solid rgba(255,255,255,0.05) !important;
+        border-right: 1px solid rgba(255,255,255,0.05) !important;
+        border-bottom: 1px solid rgba(255,255,255,0.05) !important;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2) !important;
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+        cursor: pointer !important;
+        width: 100% !important;
+    }
+    .stRadio label:hover {
+        transform: translateX(8px) !important; /* 鼠标悬停时整体向右滑动浮出 */
+        border-left: 4px solid #00ffcc !important; /* 左侧亮起绿色光条 */
+        background: linear-gradient(90deg, rgba(0, 255, 204, 0.15), rgba(10, 15, 25, 0.8)) !important;
+        box-shadow: 0 8px 25px rgba(0, 255, 204, 0.2) !important;
+    }
+
+    div[data-testid="stCodeBlock"], pre { background-color: rgba(5, 10, 20, 0.85) !important; border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 8px !important; backdrop-filter: blur(10px); }
+    code { color: #00ffcc !important; background-color: transparent !important; text-shadow: none !important; }
+    .glass-card { background: rgba(15, 20, 30, 0.5); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; padding: 25px; margin-bottom: 20px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6); transition: all 0.3s ease; }
+    .glass-card:hover { border: 1px solid rgba(255, 255, 255, 0.15); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.9); }
     .stTextInput > div > div, .stSelectbox > div > div, .stSlider > div > div > div > div { background-color: rgba(0,0,0,0.5) !important; color: white !important; border: 1px solid rgba(255,255,255,0.1) !important; }
     div[data-testid="stChatMessageContent"] { background-color: rgba(20, 25, 35, 0.7) !important; backdrop-filter: blur(10px); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. 毕业论文专用：全域多用户错漏埋点系统
+# 3. 🔥 毕业论文专用：企业级多维度日志容灾底座
 # ==========================================
-LOG_FILE = "thesis_user_logs.csv"
-if not os.path.exists(LOG_FILE):
-    pd.DataFrame(columns=["Timestamp", "UserID", "ActionType", "Details"]).to_csv(LOG_FILE, index=False)
+LOG_DIR = "user_logs"
+os.makedirs(LOG_DIR, exist_ok=True)  # 自动创建一个专门的文件夹存日志
+GLOBAL_LOG_FILE = os.path.join(LOG_DIR, "global_master_log.csv")  # 总账本
+
+# 初始化全局总账本
+if not os.path.exists(GLOBAL_LOG_FILE):
+    pd.DataFrame(columns=["Timestamp", "UserID", "ActionType", "Details"]).to_csv(GLOBAL_LOG_FILE, index=False)
 
 if "user_id" not in st.session_state: st.session_state.user_id = f"User_{str(uuid.uuid4())[:6]}"
 if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
@@ -97,13 +129,24 @@ if "dl_result" not in st.session_state: st.session_state.dl_result = None
 
 def log_thesis_data(action_type, details):
     icon = "🔴" if "报错" in action_type or "异常" in action_type or "警告" in action_type else "🟢"
-    log_msg = f"{icon} [{datetime.now().strftime('%H:%M:%S')}] [{st.session_state.user_id}] {action_type}: {details}"
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    user_id = st.session_state.user_id
+    log_msg = f"{icon} [{timestamp}] [{user_id}] {action_type}: {details}"
+
+    # 1. 更新前端界面内存
+    st.session_state.sys_logs.insert(0, log_msg)
 
     new_row = pd.DataFrame(
-        [{"Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "UserID": st.session_state.user_id,
-          "ActionType": action_type, "Details": str(details)}])
-    new_row.to_csv(LOG_FILE, mode='a', header=False, index=False)
-    st.session_state.sys_logs.insert(0, log_msg)
+        [{"Timestamp": timestamp, "UserID": user_id, "ActionType": action_type, "Details": str(details)}])
+
+    # 2. 写入全局总账本 (永不覆盖，无限追加模式 mode='a')
+    new_row.to_csv(GLOBAL_LOG_FILE, mode='a', header=False, index=False)
+
+    # 3. 写入当前用户的独立小账本
+    user_log_file = os.path.join(LOG_DIR, f"log_{user_id}.csv")
+    if not os.path.exists(user_log_file):
+        pd.DataFrame(columns=["Timestamp", "UserID", "ActionType", "Details"]).to_csv(user_log_file, index=False)
+    new_row.to_csv(user_log_file, mode='a', header=False, index=False)
 
 
 if "messages" not in st.session_state:
@@ -129,7 +172,7 @@ def format_ts_code(raw_code):
 # ==========================================
 with st.sidebar:
     st.markdown("## 🎓 量化交易引擎 Pro")
-    st.caption(f"测试用户: {st.session_state.user_id}")
+    st.caption(f"当前连线: {st.session_state.user_id}")
     st.markdown("---")
     page = st.radio("系统导航", [
         "🏠 系统总览",
@@ -517,25 +560,41 @@ elif page == "🧠 深度学习预测 (LSTM)":
             st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
-# 🛡️ 页面 5: 论文数据与日志
+# 🛡️ 页面 5: 论文数据与日志容灾底座
 # ==========================================
 elif page == "🛡️ 论文数据与日志":
-    st.markdown('<div class="glass-card"><h3>🛡️ 多并发用户记录与日志提取</h3></div>', unsafe_allow_html=True)
+    st.markdown('<div class="glass-card"><h3>🛡️ 多维容灾日志与数据下载中心</h3></div>', unsafe_allow_html=True)
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
 
-    col_dl1, col_dl2 = st.columns([1, 1])
+    st.write(
+        "已启用 **多路复用容灾架构**。用户产生的所有交互指令、回测表现、接口异常和代码崩溃等日志，将以“全局总库”和“独立用户小库”双通道永久落盘，拒绝数据覆盖遗失。")
+
+    col_dl1, col_dl2 = st.columns([1, 1.2])
     with col_dl1:
-        st.markdown("#### 📥 毕业论文实验数据源")
-        st.write("该系统已开启**全局异常拦截**。无论是 API 通信中断、数据拉取为空，还是沙盒编译崩溃，都将无死角记录至 CSV。")
-        if os.path.exists(LOG_FILE):
-            log_df = pd.read_csv(LOG_FILE)
-            csv = log_df.to_csv(index=False).encode('utf-8')
-            st.download_button(label="📁 一键下载论文原始报表 (附报错埋点)", data=csv, file_name='thesis_user_logs.csv',
-                               mime='text/csv', type="primary")
-            st.dataframe(log_df.tail(10), use_container_width=True)
+        st.markdown("#### 📥 论文实验报表库 (CSV)")
+
+        # 1. 供导师审查的：全局大盘日志
+        if os.path.exists(GLOBAL_LOG_FILE):
+            global_df = pd.read_csv(GLOBAL_LOG_FILE)
+            csv_global = global_df.to_csv(index=False).encode('utf-8')
+            st.download_button(label="📁 下载总服务器全局日志 (Master_Log)", data=csv_global,
+                               file_name='Master_Global_Logs.csv', mime='text/csv', type="primary")
         else:
-            st.warning("暂无日志数据。")
+            st.warning("暂无全局日志。")
+
+        # 2. 供特定用户追踪的：专属个人日志
+        user_log_file = os.path.join(LOG_DIR, f"log_{st.session_state.user_id}.csv")
+        if os.path.exists(user_log_file):
+            user_df = pd.read_csv(user_log_file)
+            csv_user = user_df.to_csv(index=False).encode('utf-8')
+            st.download_button(label="🗂️ 下载您的专属独立追踪日志", data=csv_user,
+                               file_name=f'{st.session_state.user_id}_Logs.csv', mime='text/csv')
+
+            st.markdown("---")
+            st.caption(f"👀 您 ({st.session_state.user_id}) 的近期历史记录片段：")
+            st.dataframe(user_df.tail(5), use_container_width=True)
+
     with col_dl2:
-        st.markdown("#### ⏱️ 实时监控终端")
-        st.text_area("Terminal", value="\n".join(st.session_state.sys_logs), height=300)
+        st.markdown("#### ⏱️ 服务器实时监控终端 (Terminal)")
+        st.text_area("Live Terminal Stream", value="\n".join(st.session_state.sys_logs), height=350)
     st.markdown('</div>', unsafe_allow_html=True)
