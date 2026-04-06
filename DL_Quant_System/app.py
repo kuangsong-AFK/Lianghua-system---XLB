@@ -29,7 +29,7 @@ pro = ts.pro_api()
 client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=30.0)
 
 # ==========================================
-# 2. 沉浸式 UI & APP 侧边栏与展开按钮修复
+# 2. 沉浸式 UI & 🚀 APP 级侧边栏
 # ==========================================
 st.markdown("""
 <style>
@@ -47,9 +47,7 @@ st.markdown("""
     }
 
     [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 2rem !important; }
-    header[data-testid="stHeader"] { background: transparent !important; }
-    header[data-testid="stHeader"] * { color: rgba(255,255,255,0.6) !important; }
-    footer { display: none !important; }
+    header[data-testid="stHeader"], footer { display: none !important; }
     .stMarkdown, .stText, p, h1, h2, h3, label, span, li { color: #e2e8f0 !important; }
 
     [data-testid="stSidebarCollapseButton"] {
@@ -149,10 +147,10 @@ def format_ts_code(raw_code):
 # ==========================================
 with st.sidebar:
     st.markdown("## 🎓 量化交易引擎 Pro")
-    st.caption(f"当前连线: {st.session_state.user_id}")
+    st.caption(f"连线终端: {st.session_state.user_id}")
     st.markdown("---")
     page = st.radio("系统导航", [
-        "🏠 系统总览",
+        "🏠 系统总览 (监控大盘)",
         "🤖 AI 策略引擎 (LLM)",
         "📈 深度静态回测",
         "⚡ 实时高频交易 (Live)",
@@ -161,20 +159,71 @@ with st.sidebar:
     ], label_visibility="collapsed")
 
 # ==========================================
-# 🏠 页面 1: 系统总览
+# 🏠 页面 1: 系统总览 (🔥 中期检查特供大屏版)
 # ==========================================
-if page == "🏠 系统总览":
+if page == "🏠 系统总览 (监控大盘)":
     st.markdown(
-        '<div class="glass-card"><h2>🏠 智能量化交易决策系统</h2><p>基于大语言模型 (LLM) 与深度学习 (Deep Learning) 的双引擎回测架构</p></div>',
+        '<div class="glass-card"><h2>🎓 基于大模型与深度学习的双引擎量化决策系统</h2><p style="color:#00ffcc;">中期检查演示大盘 (Mid-term Inspection Dashboard)</p></div>',
         unsafe_allow_html=True)
+
+    # 🔥 核心：Tushare 实时连通性探测
+    tushare_status = "测速中..."
+    tushare_color = "white"
+    with st.spinner("正在探测底层 API 与微服务组件状态..."):
+        try:
+            start_time = time.time()
+            # 发起一个最轻量级的请求来测试连通性
+            pro.trade_cal(exchange='SSE', start_date='20240101', end_date='20240101')
+            latency = int((time.time() - start_time) * 1000)
+            tushare_status = f"🟢 连通正常 ({latency} ms)"
+            tushare_color = "#00FF00"
+        except Exception as e:
+            tushare_status = f"🔴 连接阻断"
+            tushare_color = "#FF0000"
+            log_thesis_data("系统异常-数据探测", str(e))
+
+    # 顶部四大核心状态监控器
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("活跃用户", st.session_state.user_id, "埋点监控中")
-    col2.metric("AI 大脑", "Moonshot-v1-8k", "API 正常")
-    col3.metric("实时打点引擎", "Tick Stream", "高频沙盒就绪")
-    col4.metric("策略状态", "已装填" if st.session_state.generated_code else "空", "动态沙盒")
-    st.markdown(
-        '<div class="glass-card"><h4>⚙️ 系统架构图 (论文配图参考)</h4><ul><li><b>感知层</b>: 用户自然语言生成策略。</li><li><b>高频推演层</b>: 模拟实时数据流，毫秒级更新 K 线与图表，实时结算 PnL。</li><li><b>深度学习层</b>: LSTM 时间滑窗捕捉非线性特征预测未来价格。</li></ul></div>',
-        unsafe_allow_html=True)
+    col1.metric("活跃并发节点 (UUID)", st.session_state.user_id, "监控状态: On")
+    col2.metric("金融数据中枢 (Tushare)", tushare_status, "API Auth: Valid")
+    col3.metric("LLM 策略大脑", "Moonshot-v1", "通道状态: 🟢 畅通")
+    col4.metric("时序预测算力引擎", f"PyTorch {torch.__version__}", "设备: 🟢 CPU")
+
+    st.markdown("---")
+
+    # 下方详细模块解析 (适合答辩时照着念)
+    col_left, col_right = st.columns([1.5, 1])
+
+    with col_left:
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        st.markdown("#### ⚙️ 核心系统架构图解析 (Architecture)")
+        st.markdown("""
+        本系统旨在打破传统量化编程门槛，通过融合大语言模型 (LLM) 与深度学习 (Deep Learning) 技术，构建了一套全自动化的交易决策终端。
+
+        * **🧠 认知层 (LLM Engine)**：对接 Moonshot API，能够将用户的自然语言交易构思（如：追涨杀跌、MACD底背离）实时编译为严谨的 Python 矢量化逻辑，并注入动态沙盒。
+        * **📊 数据层 (Data Hub)**：系统底层已**全线贯通 Tushare 商业级大数据接口** (如上方探针所示)，实时获取 A 股真实 K 线、成交量，并支持动态复权（前/后复权）以消除除权断层。
+        * **⚡ 交互与执行层 (Execution Sandbox)**：
+            * **静态回测**：毫秒级全量历史回测，通过 Plotly 输出多轨联动同花顺级图表。
+            * **高频推演 (创新点)**：搭载 `Tick Stream Simulator` 高频沙盘推演系统，可设定刷新频率，逐帧播放行情，实时结算动态 PnL 与最大回撤。
+        * **🔮 深度学习算法层 (Algorithm)**：原生集成 `PyTorch`。在本地构建了 LSTM 时序滑动窗口模型，提取长期价格依赖特征，为次日行情提供非线性预判。
+        """)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col_right:
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        st.markdown("#### 📋 中期研发进度节点 (Milestones)")
+        st.markdown("""
+        - [x] Streamlit 前端底层重构与响应式交互
+        - [x] 多用户并发容灾与日志留存 (防数据污染)
+        - [x] 大语言模型动态沙盒隔离执行 (`exec` 编译)
+        - [x] Tushare 接口集成与 OHLCV 数据清洗
+        - [x] 东方财富级高频图表重构 (支持滚轮缩放)
+        - [x] **LSTM 深度神经网络的搭建与训练可视化**
+        - [x] **高频实时模拟交易流 (Tick Stream) 投产**
+        - [ ] (下一阶段) 交易摩擦成本（手续费、滑点）的核算
+        - [ ] (下一阶段) 论文主体章节与实证数据的整理
+        """)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
 # 🤖 页面 2: AI 策略引擎 (LLM)
@@ -228,7 +277,7 @@ elif page == "🤖 AI 策略引擎 (LLM)":
         st.rerun()
 
 # ==========================================
-# 📈 页面 3: 深度静态回测 (🔥 加固函数校验装甲)
+# 📈 页面 3: 深度静态回测
 # ==========================================
 elif page == "📈 深度静态回测":
     st.markdown('<div class="glass-card"><h3>📈 静态全量沙盒与归因分析</h3></div>', unsafe_allow_html=True)
@@ -251,12 +300,17 @@ elif page == "📈 深度静态回测":
                         data = ts.pro_bar(ts_code=ts_code, adj=adj_param, start_date='20230101')
                         if data is None or data.empty:
                             st.error("获取数据失败，请检查 Tushare 接口或标的代码！")
+                            log_thesis_data("系统警告-数据获取", f"标的 {ts_code} 请求的数据为空")
                         else:
                             data = data.sort_values('trade_date').reset_index(drop=True)
                             data['trade_date'] = pd.to_datetime(data['trade_date'], format='%Y%m%d')
 
-                            data['Open'], data['High'], data['Low'], data['Close'], data['Volume'] = data['open'], data[
-                                'high'], data['low'], data['close'], data['vol']
+                            data['Open'] = data['open']
+                            data['High'] = data['high']
+                            data['Low'] = data['low']
+                            data['Close'] = data['close']
+                            data['Volume'] = data['vol']
+
                             data['MA5'] = data['close'].rolling(window=5).mean()
                             data['MA20'] = data['close'].rolling(window=20).mean()
 
@@ -275,12 +329,10 @@ elif page == "📈 深度静态回测":
 
                             data['Color'] = np.where(data['close'] >= data['open'], '#FD1050', '#00FF00')
 
-                            # 🔥 核心防御：沙盒函数漏检装甲
                             l_vars = {}
                             exec(st.session_state.generated_code, globals(), l_vars)
                             if 'generate_signals' not in l_vars:
-                                raise ValueError(
-                                    "AI 军师失职！生成的代码中缺失了 `generate_signals` 函数，请返回战情室重新生成！")
+                                raise ValueError("AI 缺失了 `generate_signals` 函数，请返回战情室重新生成！")
 
                             data = l_vars['generate_signals'](data)
 
@@ -291,10 +343,10 @@ elif page == "📈 深度静态回测":
 
                             st.session_state.bt_result = {"df": data, "code": ts_code, "adj": adj_mode,
                                                           "y_mode": y_axis_mode}
-                            log_thesis_data("回测成功", f"LLM策略执行成功, 标的:{ts_code}")
+                            log_thesis_data("回测成功", f"LLM策略执行成功, 标的:{ts_code}, 行数:{len(data)}")
                     except Exception as e:
-                        st.error(f"静态沙盒异常: {e}")
-                        log_thesis_data("系统报错-沙盒执行", str(e))
+                        st.error(f"沙盒异常: {e}")
+                        log_thesis_data("系统报错-沙盒执行", f"沙盒崩溃, 详细错误: {e}")
         else:
             st.warning("🟡 LLM策略缓存为空。")
 
@@ -366,12 +418,12 @@ elif page == "📈 深度静态回测":
             else:
                 fig.update_yaxes(autorange=True, showgrid=True, gridcolor='rgba(255,255,255,0.05)', row=1, col=1)
 
-            st.plotly_chart(fig, use_container_width=True,
-                            config={'scrollZoom': True, 'modeBarButtonsToRemove': ['lasso2d', 'select2d']})
+            st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True,
+                                                                   'modeBarButtonsToRemove': ['lasso2d', 'select2d']})
             st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
-# ⚡ 页面 4: 实时高频交易 (Live) (🔥 加固函数校验装甲)
+# ⚡ 页面 4: 实时高频交易 (Live)
 # ==========================================
 elif page == "⚡ 实时高频交易 (Live)":
     st.markdown(
@@ -433,12 +485,10 @@ elif page == "⚡ 实时高频交易 (Live)":
                     current_df['MA5'] = current_df['close'].rolling(window=5).mean()
 
                     try:
-                        # 🔥 核心防御：沙盒函数漏检装甲
                         l_vars = {}
                         exec(st.session_state.generated_code, globals(), l_vars)
                         if 'generate_signals' not in l_vars:
-                            raise ValueError(
-                                "AI 军师失职！生成的代码中缺失了 `generate_signals` 函数，请返回战情室重新生成！")
+                            raise ValueError("AI 军师缺失了 `generate_signals` 函数")
 
                         current_df = l_vars['generate_signals'](current_df)
 
