@@ -29,7 +29,7 @@ pro = ts.pro_api()
 client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=30.0)
 
 # ==========================================
-# 2. 沉浸式 UI & 🚀 APP 级侧边栏
+# 2. 沉浸式 UI & 🚀 彻底修复侧边栏 Bug
 # ==========================================
 st.markdown("""
 <style>
@@ -47,9 +47,15 @@ st.markdown("""
     }
 
     [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 2rem !important; }
-    header[data-testid="stHeader"], footer { display: none !important; }
+
+    /* 🔥 核心修复：绝对不能用 display:none 隐藏 header，否则展开按钮就没了！改为透明！ */
+    header[data-testid="stHeader"] { background: transparent !important; pointer-events: none !important; }
+    header[data-testid="stHeader"] * { color: rgba(255,255,255,0.6) !important; pointer-events: auto !important; }
+    footer { display: none !important; }
+
     .stMarkdown, .stText, p, h1, h2, h3, label, span, li { color: #e2e8f0 !important; }
 
+    /* 收起按钮 */
     [data-testid="stSidebarCollapseButton"] {
         display: flex !important; background-color: rgba(0, 255, 204, 0.15) !important; 
         border: 1px solid rgba(0, 255, 204, 0.6) !important; border-radius: 8px !important;
@@ -59,6 +65,7 @@ st.markdown("""
     [data-testid="stSidebarCollapseButton"]:hover { background-color: rgba(0, 255, 204, 0.4) !important; box-shadow: 0 0 20px rgba(0, 255, 204, 0.6) !important; }
     [data-testid="stSidebarCollapseButton"] svg { color: #00ffcc !important; }
 
+    /* 🔥 展开按钮 (保住它的命) */
     [data-testid="collapsedControl"] {
         display: flex !important; background-color: rgba(0, 255, 204, 0.15) !important; 
         border: 1px solid rgba(0, 255, 204, 0.6) !important; border-radius: 8px !important;
@@ -159,20 +166,18 @@ with st.sidebar:
     ], label_visibility="collapsed")
 
 # ==========================================
-# 🏠 页面 1: 系统总览 (🔥 中期检查特供大屏版)
+# 🏠 页面 1: 系统总览 (监控大盘)
 # ==========================================
 if page == "🏠 系统总览 (监控大盘)":
     st.markdown(
         '<div class="glass-card"><h2>🎓 基于大模型与深度学习的双引擎量化决策系统</h2><p style="color:#00ffcc;">中期检查演示大盘 (Mid-term Inspection Dashboard)</p></div>',
         unsafe_allow_html=True)
 
-    # 🔥 核心：Tushare 实时连通性探测
     tushare_status = "测速中..."
     tushare_color = "white"
     with st.spinner("正在探测底层 API 与微服务组件状态..."):
         try:
             start_time = time.time()
-            # 发起一个最轻量级的请求来测试连通性
             pro.trade_cal(exchange='SSE', start_date='20240101', end_date='20240101')
             latency = int((time.time() - start_time) * 1000)
             tushare_status = f"🟢 连通正常 ({latency} ms)"
@@ -182,7 +187,6 @@ if page == "🏠 系统总览 (监控大盘)":
             tushare_color = "#FF0000"
             log_thesis_data("系统异常-数据探测", str(e))
 
-    # 顶部四大核心状态监控器
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("活跃并发节点 (UUID)", st.session_state.user_id, "监控状态: On")
     col2.metric("金融数据中枢 (Tushare)", tushare_status, "API Auth: Valid")
@@ -191,7 +195,6 @@ if page == "🏠 系统总览 (监控大盘)":
 
     st.markdown("---")
 
-    # 下方详细模块解析 (适合答辩时照着念)
     col_left, col_right = st.columns([1.5, 1])
 
     with col_left:
