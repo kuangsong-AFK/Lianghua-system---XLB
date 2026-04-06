@@ -29,7 +29,7 @@ pro = ts.pro_api()
 client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=30.0)
 
 # ==========================================
-# 2. 沉浸式 UI & 🚀 彻底修复侧边栏 Bug
+# 2. 沉浸式 UI & 🚀 定海神针级：侧边栏无死角修复
 # ==========================================
 st.markdown("""
 <style>
@@ -48,14 +48,13 @@ st.markdown("""
 
     [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 2rem !important; }
 
-    /* 🔥 核心修复：绝对不能用 display:none 隐藏 header，否则展开按钮就没了！改为透明！ */
-    header[data-testid="stHeader"] { background: transparent !important; pointer-events: none !important; }
-    header[data-testid="stHeader"] * { color: rgba(255,255,255,0.6) !important; pointer-events: auto !important; }
+    /* 仅仅让 Header 透明，不再禁用点击事件，防止误伤内部按钮 */
+    header[data-testid="stHeader"] { background: transparent !important; }
     footer { display: none !important; }
 
     .stMarkdown, .stText, p, h1, h2, h3, label, span, li { color: #e2e8f0 !important; }
 
-    /* 收起按钮 */
+    /* 收起按钮 (侧边栏内部) */
     [data-testid="stSidebarCollapseButton"] {
         display: flex !important; background-color: rgba(0, 255, 204, 0.15) !important; 
         border: 1px solid rgba(0, 255, 204, 0.6) !important; border-radius: 8px !important;
@@ -65,15 +64,33 @@ st.markdown("""
     [data-testid="stSidebarCollapseButton"]:hover { background-color: rgba(0, 255, 204, 0.4) !important; box-shadow: 0 0 20px rgba(0, 255, 204, 0.6) !important; }
     [data-testid="stSidebarCollapseButton"] svg { color: #00ffcc !important; }
 
-    /* 🔥 展开按钮 (保住它的命) */
+    /* 🔥 核心修复：展开按钮 (侧边栏收起后)。强行绝对定位，钉在屏幕左上角！ */
     [data-testid="collapsedControl"] {
-        display: flex !important; background-color: rgba(0, 255, 204, 0.15) !important; 
-        border: 1px solid rgba(0, 255, 204, 0.6) !important; border-radius: 8px !important;
-        box-shadow: 0 0 12px rgba(0, 255, 204, 0.3) !important; margin-top: 15px !important; margin-left: 15px !important;
-        transition: all 0.3s ease; z-index: 999999 !important;
+        display: flex !important; 
+        position: fixed !important;  /* 强行剥离文档流，钉死在屏幕上 */
+        top: 15px !important; 
+        left: 15px !important;
+        background-color: rgba(0, 255, 204, 0.2) !important; 
+        border: 1px solid rgba(0, 255, 204, 0.8) !important; 
+        border-radius: 8px !important;
+        box-shadow: 0 0 15px rgba(0, 255, 204, 0.5) !important; 
+        z-index: 999999 !important; /* 拥有最高层级，神挡杀神 */
+        padding: 5px !important;
+        pointer-events: auto !important; /* 强制接收点击信号 */
+        cursor: pointer !important;
+        transition: all 0.3s ease;
     }
-    [data-testid="collapsedControl"]:hover { background-color: rgba(0, 255, 204, 0.4) !important; box-shadow: 0 0 20px rgba(0, 255, 204, 0.6) !important; }
-    [data-testid="collapsedControl"] svg { color: #00ffcc !important; }
+    [data-testid="collapsedControl"]:hover { 
+        background-color: rgba(0, 255, 204, 0.5) !important; 
+        box-shadow: 0 0 25px rgba(0, 255, 204, 0.9) !important; 
+        transform: scale(1.1) !important; /* 鼠标放上去会微微变大 */
+    }
+    [data-testid="collapsedControl"] svg { 
+        color: #00ffcc !important; 
+        fill: #00ffcc !important;
+        width: 24px !important;
+        height: 24px !important;
+    }
 
     [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.6) !important; backdrop-filter: blur(20px) !important; border-right: 1px solid rgba(255,255,255,0.05) !important; }
     div[role="radiogroup"] > label > div:first-child { display: none !important; }
