@@ -29,10 +29,11 @@ pro = ts.pro_api()
 client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=30.0)
 
 # ==========================================
-# 2. 沉浸式 UI & 🚀 完美 APP 侧边栏改造
+# 2. 沉浸式 UI & 🚀 完美 APP 侧边栏与展开按钮修复
 # ==========================================
 st.markdown("""
 <style>
+    /* 深海流体动画 */
     @keyframes fluidGradient {
         0% { background-position: 0% 50%; }
         25% { background-position: 50% 100%; }
@@ -47,9 +48,18 @@ st.markdown("""
     }
 
     [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 2rem !important; }
-    header[data-testid="stHeader"], footer { display: none !important; }
+
+    /* 🔥 核心修复：Header 不能 display:none，否则展开按钮会消失！改为全透明！ */
+    header[data-testid="stHeader"] { background: transparent !important; }
+    header[data-testid="stHeader"] * { color: rgba(255,255,255,0.6) !important; }
+    footer { display: none !important; }
+
     .stMarkdown, .stText, p, h1, h2, h3, label, span, li { color: #e2e8f0 !important; }
 
+    /* --------------------------------------------------- */
+    /* 🚀 侧边栏 收起/展开 按钮联合装甲化 */
+    /* --------------------------------------------------- */
+    /* 收起按钮 (Sidebar内部) */
     [data-testid="stSidebarCollapseButton"] {
         display: flex !important; 
         background-color: rgba(0, 255, 204, 0.15) !important; 
@@ -62,6 +72,23 @@ st.markdown("""
     [data-testid="stSidebarCollapseButton"]:hover { background-color: rgba(0, 255, 204, 0.4) !important; box-shadow: 0 0 20px rgba(0, 255, 204, 0.6) !important; }
     [data-testid="stSidebarCollapseButton"] svg { color: #00ffcc !important; }
 
+    /* 🔥 展开按钮 (Header内部) - 让它跟收缩按钮长得一样酷炫！ */
+    [data-testid="collapsedControl"] {
+        display: flex !important; 
+        background-color: rgba(0, 255, 204, 0.15) !important; 
+        border: 1px solid rgba(0, 255, 204, 0.6) !important;
+        border-radius: 8px !important;
+        box-shadow: 0 0 12px rgba(0, 255, 204, 0.3) !important;
+        margin-top: 15px !important; margin-left: 15px !important;
+        transition: all 0.3s ease;
+        z-index: 999999 !important; /* 强制浮在最上层 */
+    }
+    [data-testid="collapsedControl"]:hover { background-color: rgba(0, 255, 204, 0.4) !important; box-shadow: 0 0 20px rgba(0, 255, 204, 0.6) !important; }
+    [data-testid="collapsedControl"] svg { color: #00ffcc !important; }
+
+    /* --------------------------------------------------- */
+    /* 🚀 侧边栏 APP 列表改造 */
+    /* --------------------------------------------------- */
     [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.6) !important; backdrop-filter: blur(20px) !important; border-right: 1px solid rgba(255,255,255,0.05) !important; }
     div[role="radiogroup"] > label > div:first-child { display: none !important; }
     div[role="radiogroup"] > label {
@@ -220,7 +247,7 @@ elif page == "🤖 AI 策略引擎 (LLM)":
         st.rerun()
 
 # ==========================================
-# 📈 页面 3: 深度静态回测 (🔥 完全恢复东方财富丝滑自适应)
+# 📈 页面 3: 深度静态回测
 # ==========================================
 elif page == "📈 深度静态回测":
     st.markdown('<div class="glass-card"><h3>📈 静态全量沙盒与归因分析</h3></div>', unsafe_allow_html=True)
@@ -233,8 +260,6 @@ elif page == "📈 深度静态回测":
 
         adj_mode = st.selectbox("⚖️ 价格复权处理", ["前复权 (推荐)", "后复权", "不复权"])
         adj_param = "qfq" if "前复权" in adj_mode else "hfq" if "后复权" in adj_mode else None
-
-        # 🔥 加回 Y 轴控制开关
         y_axis_mode = st.radio("📏 Y轴缩放模式", ["自适应 K线 (动态伸缩)", "绝对 K线 (全局定死)"])
 
         if st.session_state.generated_code:
@@ -327,20 +352,17 @@ elif page == "📈 深度静态回测":
             fig.add_trace(go.Scatter(x=df['trade_date'], y=df['J'], line=dict(color='magenta', width=1), name='J'),
                           row=4, col=1)
 
-            # 🔥 修复：加入 dragmode='pan' 实现拖拽平移
             fig.update_layout(height=800, dragmode='pan', template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
                               plot_bgcolor='rgba(0,0,0,0.2)', margin=dict(l=0, r=0, t=10, b=0),
                               xaxis_rangeslider_visible=False, hovermode="x unified", showlegend=False)
             fig.update_xaxes(tickformat="%Y年%m月", showgrid=False, zeroline=False)
 
-            # 🔥 修复：重新植入 Y 轴自适应判定
             if "绝对" in st.session_state.bt_result["y_mode"]:
                 fig.update_yaxes(range=[df['low'].min() * 0.95, df['high'].max() * 1.05], showgrid=True,
                                  gridcolor='rgba(255,255,255,0.05)', row=1, col=1)
             else:
                 fig.update_yaxes(autorange=True, showgrid=True, gridcolor='rgba(255,255,255,0.05)', row=1, col=1)
 
-            # 🔥 修复：加入 config={'scrollZoom': True} 实现丝滑滚轮缩放
             st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True, 'displayModeBar': True,
                                                                    'modeBarButtonsToRemove': ['lasso2d', 'select2d']})
             st.markdown('</div>', unsafe_allow_html=True)
@@ -455,16 +477,13 @@ elif page == "⚡ 实时高频交易 (Live)":
                         fig.add_trace(go.Scatter(x=current_df['trade_date'], y=current_df['Cum_Prod'], name='实时净值',
                                                  fill='tozeroy', line=dict(color='#00ffcc')), row=2, col=1)
 
-                        # 🔥 修复：加入 dragmode='pan'
                         fig.update_layout(height=500, dragmode='pan', template="plotly_dark",
                                           paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0.2)',
                                           margin=dict(l=0, r=0, t=10, b=0), xaxis_rangeslider_visible=False,
                                           showlegend=False)
                         fig.update_xaxes(showgrid=False, zeroline=False)
-                        # 🔥 修复：强制 Y 轴自适应
                         fig.update_yaxes(autorange=True, showgrid=True, gridcolor='rgba(255,255,255,0.05)')
 
-                        # 🔥 修复：加入 config={'scrollZoom': True}
                         chart_ph.plotly_chart(fig, use_container_width=True, key=f"live_{i}",
                                               config={'scrollZoom': True, 'displayModeBar': True,
                                                       'modeBarButtonsToRemove': ['lasso2d', 'select2d']})
@@ -482,7 +501,7 @@ elif page == "⚡ 实时高频交易 (Live)":
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
-# 🧠 页面 5: 深度学习预测 (LSTM) - 🔥 满血复活版
+# 🧠 页面 5: 深度学习预测 (LSTM)
 # ==========================================
 elif page == "🧠 深度学习预测 (LSTM)":
     st.markdown(
