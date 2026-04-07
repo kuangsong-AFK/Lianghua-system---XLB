@@ -170,7 +170,7 @@ if page == "🏠 系统总览 (监控中控)":
                     '✅ <b>信号剥离防崩机制</b>: 100% 根除崩溃熔断。</div>', unsafe_allow_html=True)
 
 # ==========================================
-# 🤖 页面 2: AI 策略引擎 (🔥 深度思考与模型选择升级)
+# 🤖 页面 2: AI 策略引擎 (LLM)
 # ==========================================
 elif page == "🤖 AI 策略引擎 (LLM)":
     if "messages" not in st.session_state: st.session_state.messages = []
@@ -179,7 +179,6 @@ elif page == "🤖 AI 策略引擎 (LLM)":
         '<div class="glass-card"><h3 style="margin-bottom:0;">🤖 LLM 策略战情室</h3><p style="color:#888;">最新生成的策略将作为“当前最高军令”同步至全系统。</p></div>',
         unsafe_allow_html=True)
 
-    # 🔥 新增：AI 参谋微操面板
     with st.container():
         st.markdown(
             '<div style="background:rgba(20,30,45,0.5); padding:15px; border-radius:12px; margin-bottom:15px; border:1px solid rgba(0,255,204,0.3);">',
@@ -208,11 +207,11 @@ elif page == "🤖 AI 策略引擎 (LLM)":
             with st.chat_message("assistant"):
                 msg_box = st.empty()
 
-                # 动态构建系统 Prompt
-                sys_p = "你是一名严谨的量化专家。\n1.拒绝任何与金融量化无关的闲聊。\n2.生成的代码必须包含 def generate_signals(df): 并返回 df。\n3.列名务必大写：'Open', 'High', 'Low', 'Close', 'Volume'。"
+                # 🔥 动态构建系统 Prompt，补充绝对禁止本地读取文件的铁律
+                sys_p = "你是一名严谨的量化专家。\n1.拒绝任何与金融量化无关的闲聊。\n2.生成的代码必须包含 def generate_signals(df): 并返回 df。\n3.列名务必大写：'Open', 'High', 'Low', 'Close', 'Volume'。\n4.绝对禁止使用 pd.read_csv 读取本地文件，必须直接处理传入的 df！"
 
                 if enable_deep_think:
-                    sys_p += "\n4.【深度思考已开启】：在输出代码前，请先用中文进行分步逻辑推演（思路链），详细阐明数学公式、技术指标的定义以及触发买卖信号的边界条件，确保推演绝对严密后，再输出完整的 Python 代码。"
+                    sys_p += "\n5.【深度思考已开启】：在输出代码前，请先用中文进行分步逻辑推演（思路链），详细阐明数学公式、技术指标的定义以及触发买卖信号的边界条件，确保推演绝对严密后，再输出完整的 Python 代码。"
 
                 api_temperature = 0.3 if enable_deep_think else 0.7  # 深度思考时降低温度，提升严谨性
 
