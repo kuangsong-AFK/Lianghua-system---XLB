@@ -10,6 +10,7 @@ from plotly.subplots import make_subplots
 from datetime import datetime
 import os
 import uuid
+import math
 
 # 🔥 深度学习学术库
 import torch
@@ -19,7 +20,7 @@ from sklearn.preprocessing import MinMaxScaler
 # ==========================================
 # 1. 初始化与核心兵符
 # ==========================================
-st.set_page_config(page_title="小吕布量化 Pro - 毕设版 V32", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="小吕布量化 Pro - 毕设版", layout="wide", initial_sidebar_state="expanded")
 
 KIMI_API_KEY = "sk-yS2foVgWtvnFMWKRTLnI6l8NFqFrRiB8ojre75g2mK2P8LBk"
 TUSHARE_TOKEN = "ba486af7606bc2f6018f1d592251a49674132225f59d37b3473d676e"
@@ -30,7 +31,6 @@ client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", tim
 
 if "user_id" not in st.session_state: st.session_state.user_id = f"User_{str(uuid.uuid4())[:6]}"
 if "generated_code" not in st.session_state: st.session_state.generated_code = ""
-# 🔥 新增：策略白话解析的全局缓存
 if "strategy_explanation" not in st.session_state: st.session_state.strategy_explanation = "💡 暂无策略解析，请先前往 AI 战情室生成策略。"
 if "dl_result" not in st.session_state: st.session_state.dl_result = None
 if "bt_result" not in st.session_state: st.session_state.bt_result = None
@@ -72,7 +72,6 @@ st.markdown("""
     .glass-card { background: rgba(20, 28, 45, 0.65); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
     .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; }
 
-    /* 🔥 针对折叠框的 UI 优化，使其更契合暗黑风格 */
     [data-testid="stExpander"] { background: rgba(15, 20, 30, 0.6) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 12px !important; backdrop-filter: blur(10px); margin-bottom: 15px !important; }
     [data-testid="stExpander"] summary { color: #00ffcc !important; font-weight: bold; }
     [data-testid="stExpander"] div[role="region"] { padding: 15px; color: #e2e8f0; line-height: 1.6; }
@@ -89,6 +88,25 @@ def apply_dual_column_armor(df):
         if low in df.columns and up not in df.columns: df[up] = df[low]
         if up in df.columns and low not in df.columns: df[low] = df[up]
     return df
+
+
+def execute_safely(code, df):
+    safe_code = code.replace("pd.np", "np")
+    sandbox_env = {"pd": pd, "np": np, "math": math}
+    l_vars = {}
+    exec(safe_code, sandbox_env, l_vars)
+
+    func_to_call = None
+    if 'generate_signals' in l_vars and callable(l_vars['generate_signals']):
+        func_to_call = l_vars['generate_signals']
+    else:
+        funcs = [v for k, v in l_vars.items() if callable(v)]
+        if funcs:
+            func_to_call = funcs[0]
+        else:
+            raise ValueError("AI 未能生成任何有效的方法函数！")
+
+    return func_to_call(df)
 
 
 def log_thesis_data(action, detail):
@@ -160,9 +178,9 @@ if page == "🏠 系统总览 (监控中控)":
     with c_arch:
         st.markdown('<div class="glass-card"><h4>🧠 核心架构图解析 (Data Flow Pipeline)</h4>'
                     '<div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:10px; border:1px solid rgba(255,255,255,0.05);">'
-                    '<b>▶ 阶段 1：策略认知 (LLM)</b><br>对接大语言模型，支持模型智能切换与<b>深度思考(CoT)</b>模式，秒级编译策略代码。<br><br>'
-                    '<b>▶ 阶段 2：数据治理层 (Data Hub)</b><br>混合治理物理 CSV 与 Tushare 商业大数据接口，实现<span style="color:#00ffcc;">【大小写双重装甲兜底】</span>。<br><br>'
-                    '<b>▶ 阶段 3：沙盒推演与剥离 (Sandbox)</b><br>基于<span style="color:#ff4b4b;">【信号强制剥离】</span>技术，仅提取 AI 逻辑中的信号，彻底防崩溃。<br><br>'
+                    '<b>▶ 阶段 1：策略认知 (LLM)</b><br>对接大模型，支持<b>深度思考(CoT)</b>模式与<span style="color:#00ffcc;">【通俗白话解析提取】</span>。<br><br>'
+                    '<b>▶ 阶段 2：数据治理层 (Data Hub)</b><br>整合 Tushare，实现<span style="color:#00ffcc;">【大小写双重装甲兜底】</span>与代码自动消毒。<br><br>'
+                    '<b>▶ 阶段 3：沙盒推演与剥离 (Sandbox)</b><br>基于<span style="color:#ff4b4b;">【信号强制剥离】</span>技术，仅提取买卖信号，彻底防崩溃。<br><br>'
                     '<b>▶ 阶段 4：算法预测 (PyTorch)</b><br>启动 LSTM 模型抓取时序特征，可视化输出次日预判。'
                     '</div></div>', unsafe_allow_html=True)
     with c_point:
@@ -172,10 +190,10 @@ if page == "🏠 系统总览 (监控中控)":
         st.markdown("**高频行情跳动帧率 (Tick Speed)**")
         st.progress(0.92)
         st.markdown('<br><h4>💡 答辩核心创新点</h4>'
-                    '✅ <b>LLM 白话翻译机 (New)</b>: 策略代码附带通俗白话解析，折叠面板无损展示。<br>'
+                    '✅ <b>LLM 白话翻译机</b>: 策略代码附带通俗白话解析，折叠面板无损展示。<br>'
                     '✅ <b>LLM 深度思考微操</b>: 引入多级算力与 CoT 推演。<br>'
-                    '✅ <b>高频沙盘引擎</b>: 突破物理限制演示实时交易流。<br>'
-                    '✅ <b>信号剥离防崩机制</b>: 100% 根除崩溃熔断。</div>', unsafe_allow_html=True)
+                    '✅ <b>语法铁律防呆</b>: 彻底阻断 AI 乱赋值引发的 DataFrame 崩溃。<br>'
+                    '✅ <b>高频沙盘引擎</b>: 突破物理限制演示实时交易流。</div>', unsafe_allow_html=True)
 
 # ==========================================
 # 🤖 页面 2: AI 策略引擎 (LLM)
@@ -194,12 +212,10 @@ elif page == "🤖 AI 策略引擎 (LLM)":
         ctrl_col1, ctrl_col2 = st.columns([1, 1])
         with ctrl_col1:
             selected_model = st.selectbox("🧠 选择大模型算力规格",
-                                          ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"], index=0,
-                                          help="处理的上下文长度越长，能够读取的金融知识和历史策略越多。")
+                                          ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"], index=0)
         with ctrl_col2:
             st.markdown("<div style='height: 32px;'></div>", unsafe_allow_html=True)
-            enable_deep_think = st.toggle("💡 开启深度思考模式 (Chain-of-Thought)", value=False,
-                                          help="开启后，大模型将降低发散性(Temperature=0.3)，并在生成代码前强制进行分布逻辑推演和公式演算，大幅提高策略严谨性。")
+            enable_deep_think = st.toggle("💡 开启深度思考模式 (Chain-of-Thought)", value=False)
         st.markdown('</div>', unsafe_allow_html=True)
 
     chat_container = st.container(height=400)
@@ -215,15 +231,16 @@ elif page == "🤖 AI 策略引擎 (LLM)":
             with st.chat_message("assistant"):
                 msg_box = st.empty()
 
-                # 🔥 终极系统 Prompt 升级：强制提取白话解析
+                # 🔥 终极防崩溃军令升级：加入“单列赋值铁律”防呆
                 sys_p = """你是一名严谨的量化专家。
 1.拒绝任何与金融量化无关的闲聊。
-2.【强制指令】：在生成代码之前，必须使用 `<策略解析>` 和 `</策略解析>` 标签包裹一段通俗易懂的策略白话解释，告诉小白用户该策略的买卖点逻辑。
-3.生成的代码必须包含 def generate_signals(df): 并返回 df。绝对禁止读取本地文件。
-4.列名务必大写：'Open', 'High', 'Low', 'Close', 'Volume'。"""
+2.【强制指令】：在生成代码之前，必须使用 `<策略解析>` 和 `</策略解析>` 标签包裹一段通俗易懂的策略白话解释，告诉小白该策略的买卖逻辑。
+3.生成的代码必须包含 def generate_signals(df): 并返回 df。绝对禁止读取任何本地文件。
+4.列名务必大写：'Open', 'High', 'Low', 'Close', 'Volume'。绝对禁止使用 pd.np，请用 np。
+5.【语法铁律】：计算均线等技术指标时，只能提取一维的 Series 进行计算并赋值给单列（例如 df['Close'].rolling(5).mean()），绝对禁止使用 df[['Close']] 这种会返回 DataFrame 的多列写法，否则会引发 "Cannot set a DataFrame with multiple columns to the single column" 严重报错！"""
 
                 if enable_deep_think:
-                    sys_p += "\n5.【深度思考】：在标签内解释时，需进行详尽的分步逻辑推演。"
+                    sys_p += "\n6.【深度思考】：在标签内解释时，需进行详尽的分步逻辑演算。"
 
                 api_temperature = 0.3 if enable_deep_think else 0.7
 
@@ -241,19 +258,17 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                             msg_box.markdown(full_resp + "▌")
                     msg_box.markdown(full_resp)
 
-                    # 提取代码
                     code_match = re.search(r"```python\s*(.*?)\s*```", full_resp, re.DOTALL)
                     if code_match:
                         st.session_state.generated_code = code_match.group(1).strip()
 
-                        # 🔥 提取策略白话解析
                         exp_match = re.search(r"<策略解析>(.*?)</策略解析>", full_resp, re.DOTALL | re.IGNORECASE)
                         if exp_match:
                             st.session_state.strategy_explanation = exp_match.group(1).strip()
                         else:
                             st.session_state.strategy_explanation = "该策略无特定的白话解析，请直接参考代码内部注释。"
 
-                        st.toast("✅ 策略与白话注解已装填！", icon="🚀")
+                        st.toast("✅ 策略、防御装甲与白话注解均已装填！", icon="🚀")
                     st.session_state.messages.append({"role": "assistant", "content": full_resp})
                 except Exception as e:
                     st.error(f"通信异常: {e}")
@@ -283,12 +298,8 @@ elif page == "📈 深度静态全量回测":
                         df = apply_dual_column_armor(df)
 
                         df_safe = df.copy()
-                        l_vars = {}
-                        exec(st.session_state.generated_code, globals(), l_vars)
-                        if 'generate_signals' not in l_vars: raise ValueError(
-                            "AI 策略残缺：未定义 generate_signals 函数")
 
-                        df_ai = l_vars['generate_signals'](df)
+                        df_ai = execute_safely(st.session_state.generated_code, df)
                         df_safe['Signal'] = df_ai['Signal'] if 'Signal' in df_ai.columns else 0
                         df = df_safe
 
@@ -334,8 +345,7 @@ elif page == "📈 深度静态全量回测":
 
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
 
-            # 🔥 新增：策略白话翻译机 (折叠框)
-            with st.expander("💡 点击展开：AI 策略执行逻辑白话解析", expanded=False):
+            with st.expander("💡 点击展开：AI 策略底层执行逻辑白话解析", expanded=False):
                 st.markdown(st.session_state.strategy_explanation)
 
             fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.7, 0.3])
@@ -379,7 +389,6 @@ elif page == "⚡ 实时高频交易 (Live)":
     with c_chart:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
 
-        # 🔥 新增：策略白话翻译机 (折叠框)
         with st.expander("💡 当前加载军令：点击展开策略白话解析", expanded=False):
             st.markdown(st.session_state.strategy_explanation)
 
@@ -396,11 +405,7 @@ elif page == "⚡ 实时高频交易 (Live)":
                 sub = apply_dual_column_armor(stream.iloc[:i].copy())
                 sub_safe = sub.copy()
                 try:
-                    l_vars = {}
-                    exec(st.session_state.generated_code, globals(), l_vars)
-                    if 'generate_signals' not in l_vars: raise ValueError("缺失 `generate_signals` 函数")
-
-                    sub_ai = l_vars['generate_signals'](sub)
+                    sub_ai = execute_safely(st.session_state.generated_code, sub)
                     sub_safe['Signal'] = sub_ai['Signal'] if 'Signal' in sub_ai.columns else 0
                     sub = sub_safe
 
