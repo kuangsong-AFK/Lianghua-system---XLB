@@ -19,7 +19,7 @@ from sklearn.preprocessing import MinMaxScaler
 # ==========================================
 # 1. 初始化与核心兵符
 # ==========================================
-st.set_page_config(page_title="小吕布量化 Pro - 毕设版 V31", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="小吕布量化 Pro - 毕设版 V32", layout="wide", initial_sidebar_state="expanded")
 
 KIMI_API_KEY = "sk-yS2foVgWtvnFMWKRTLnI6l8NFqFrRiB8ojre75g2mK2P8LBk"
 TUSHARE_TOKEN = "ba486af7606bc2f6018f1d592251a49674132225f59d37b3473d676e"
@@ -30,6 +30,7 @@ client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", tim
 
 if "user_id" not in st.session_state: st.session_state.user_id = f"User_{str(uuid.uuid4())[:6]}"
 if "generated_code" not in st.session_state: st.session_state.generated_code = ""
+if "strategy_explanation" not in st.session_state: st.session_state.strategy_explanation = "暂无策略解析，请先前往 AI 战情室下达军令。"  # 🔥 新增白话解析缓存
 if "dl_result" not in st.session_state: st.session_state.dl_result = None
 if "bt_result" not in st.session_state: st.session_state.bt_result = None
 if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
@@ -69,6 +70,10 @@ st.markdown("""
 
     .glass-card { background: rgba(20, 28, 45, 0.65); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
     .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; }
+
+    /* 🔥 优化 Expander (折叠面板) 视觉效果 */
+    [data-testid="stExpander"] { background: rgba(10, 15, 25, 0.6) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 12px !important; backdrop-filter: blur(10px); }
+    [data-testid="stExpander"] summary { color: #00ffcc !important; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -152,10 +157,11 @@ if page == "🏠 系统总览 (监控中控)":
 
     with c_arch:
         st.markdown('<div class="glass-card"><h4>🧠 核心架构图解析 (Data Flow Pipeline)</h4>'
+                    '<p style="color:#aaa; font-size:0.9rem;">本系统打破传统量化编程门槛，通过 LLM 将自然语言交易意图无缝映射为矢量化代码并执行演示：</p>'
                     '<div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:10px; border:1px solid rgba(255,255,255,0.05);">'
-                    '<b>▶ 阶段 1：策略认知 (LLM)</b><br>对接大语言模型，支持模型智能切换与<b>深度思考(CoT)</b>模式，秒级编译策略代码。<br><br>'
-                    '<b>▶ 阶段 2：数据治理层 (Data Hub)</b><br>混合治理物理 CSV 与 Tushare 商业大数据接口，实现<span style="color:#00ffcc;">【大小写双重装甲兜底】</span>。<br><br>'
-                    '<b>▶ 阶段 3：沙盒推演与剥离 (Sandbox)</b><br>基于<span style="color:#ff4b4b;">【信号强制剥离】</span>技术，仅提取 AI 逻辑中的信号，彻底防崩溃。<br><br>'
+                    '<b>▶ 阶段 1：策略认知 (LLM)</b><br>对接大语言模型，支持模型智能切换与深度思考(CoT)，秒级编译策略代码并<span style="color:#00ffcc;">【提取通俗白话解析】</span>。<br><br>'
+                    '<b>▶ 阶段 2：数据治理层 (Data Hub)</b><br>混合治理物理 CSV 与 Tushare 商业大数据接口，实现大小写双重装甲兜底。<br><br>'
+                    '<b>▶ 阶段 3：沙盒推演与剥离 (Sandbox)</b><br>基于信号强制剥离技术，提取 AI 逻辑中的买卖点，并提供<span style="color:#ff4b4b;">【可视化白话翻译面板】</span>。<br><br>'
                     '<b>▶ 阶段 4：算法预测 (PyTorch)</b><br>启动 LSTM 模型抓取时序特征，可视化输出次日预判。'
                     '</div></div>', unsafe_allow_html=True)
     with c_point:
@@ -165,12 +171,13 @@ if page == "🏠 系统总览 (监控中控)":
         st.markdown("**高频行情跳动帧率 (Tick Speed)**")
         st.progress(0.92)
         st.markdown('<br><h4>💡 答辩核心创新点</h4>'
+                    '✅ <b>LLM 白话翻译机</b>: 将复杂量化代码翻译为通俗易懂的逻辑说明。<br>'
                     '✅ <b>LLM 深度思考微操</b>: 引入多级算力与 CoT 推演。<br>'
                     '✅ <b>高频沙盘引擎</b>: 突破物理限制演示实时交易流。<br>'
                     '✅ <b>信号剥离防崩机制</b>: 100% 根除崩溃熔断。</div>', unsafe_allow_html=True)
 
 # ==========================================
-# 🤖 页面 2: AI 策略引擎 (🔥 深度思考与模型选择升级)
+# 🤖 页面 2: AI 策略引擎
 # ==========================================
 elif page == "🤖 AI 策略引擎 (LLM)":
     if "messages" not in st.session_state: st.session_state.messages = []
@@ -179,7 +186,6 @@ elif page == "🤖 AI 策略引擎 (LLM)":
         '<div class="glass-card"><h3 style="margin-bottom:0;">🤖 LLM 策略战情室</h3><p style="color:#888;">最新生成的策略将作为“当前最高军令”同步至全系统。</p></div>',
         unsafe_allow_html=True)
 
-    # 🔥 新增：AI 参谋微操面板
     with st.container():
         st.markdown(
             '<div style="background:rgba(20,30,45,0.5); padding:15px; border-radius:12px; margin-bottom:15px; border:1px solid rgba(0,255,204,0.3);">',
@@ -190,7 +196,7 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                                           ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"], index=0,
                                           help="处理的上下文长度越长，能够读取的金融知识和历史策略越多。")
         with ctrl_col2:
-            st.markdown("<div style='height: 32px;'></div>", unsafe_allow_html=True)  # 占位对齐
+            st.markdown("<div style='height: 32px;'></div>", unsafe_allow_html=True)
             enable_deep_think = st.toggle("💡 开启深度思考模式 (Chain-of-Thought)", value=False,
                                           help="开启后，大模型将降低发散性(Temperature=0.3)，并在生成代码前强制进行分布逻辑推演和公式演算，大幅提高策略严谨性。")
         st.markdown('</div>', unsafe_allow_html=True)
@@ -208,13 +214,17 @@ elif page == "🤖 AI 策略引擎 (LLM)":
             with st.chat_message("assistant"):
                 msg_box = st.empty()
 
-                # 动态构建系统 Prompt
-                sys_p = "你是一名严谨的量化专家。\n1.拒绝任何与金融量化无关的闲聊。\n2.生成的代码必须包含 def generate_signals(df): 并返回 df。\n3.列名务必大写：'Open', 'High', 'Low', 'Close', 'Volume'。"
+                # 🔥 终极系统指令：强制要求输出【策略逻辑白话解析】
+                sys_p = """你是一名严谨的量化专家。
+1.拒绝任何与金融量化无关的闲聊。
+2.在输出代码之前，**必须严格以【策略逻辑白话解析】为标题**，用1-2段通俗易懂的文字向小白解释该策略的核心买点、卖点和底层逻辑。
+3.生成的代码必须包含 def generate_signals(df): 函数并返回 df。
+4.列名务必大写：'Open', 'High', 'Low', 'Close', 'Volume'。"""
 
                 if enable_deep_think:
-                    sys_p += "\n4.【深度思考已开启】：在输出代码前，请先用中文进行分步逻辑推演（思路链），详细阐明数学公式、技术指标的定义以及触发买卖信号的边界条件，确保推演绝对严密后，再输出完整的 Python 代码。"
+                    sys_p += "\n5.【深度思考已开启】：在写【策略逻辑白话解析】之前，请先进行严密的数学推演。"
 
-                api_temperature = 0.3 if enable_deep_think else 0.7  # 深度思考时降低温度，提升严谨性
+                api_temperature = 0.3 if enable_deep_think else 0.7
 
                 try:
                     stream = client.chat.completions.create(
@@ -230,10 +240,20 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                             msg_box.markdown(full_resp + "▌")
                     msg_box.markdown(full_resp)
 
+                    # 提取 Python 代码
                     code_match = re.search(r"```python\s*(.*?)\s*```", full_resp, re.DOTALL)
                     if code_match:
                         st.session_state.generated_code = code_match.group(1).strip()
-                        st.toast("✅ 策略已装填！最新军令同步完毕！", icon="🚀")
+
+                        # 🔥 提取【策略逻辑白话解析】
+                        exp_match = re.search(r"【策略逻辑白话解析】(.*?)(?=```python|$)", full_resp,
+                                              re.DOTALL | re.IGNORECASE)
+                        if exp_match:
+                            st.session_state.strategy_explanation = exp_match.group(1).strip()
+                        else:
+                            st.session_state.strategy_explanation = "AI 军师专注于编写军令，未留下通俗解析。请直接参考代码注释。"
+
+                        st.toast("✅ 策略与白话解析已装填！最新军令同步完毕！", icon="🚀")
                     st.session_state.messages.append({"role": "assistant", "content": full_resp})
                 except Exception as e:
                     st.error(f"通信异常: {e}")
@@ -313,6 +333,11 @@ elif page == "📈 深度静态全量回测":
                 unsafe_allow_html=True)
 
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+
+            # 🔥 新增：AI 策略逻辑白话解析折叠框
+            with st.expander("💡 点击查看 AI 策略底层执行逻辑 (白话解析)", expanded=False):
+                st.info(st.session_state.strategy_explanation)
+
             fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.7, 0.3])
 
             fig.add_trace(
@@ -353,6 +378,11 @@ elif page == "⚡ 实时高频交易 (Live)":
         st.markdown('</div>', unsafe_allow_html=True)
     with c_chart:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+
+        # 🔥 新增：AI 策略逻辑白话解析折叠框
+        with st.expander("💡 当前加载指令：点击查看 AI 策略底层执行逻辑", expanded=False):
+            st.info(st.session_state.strategy_explanation)
+
         met_ph = st.empty();
         cht_ph = st.empty()
         if st.session_state.is_live_trading:
