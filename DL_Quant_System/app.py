@@ -28,7 +28,7 @@ ts.set_token(TUSHARE_TOKEN)
 pro = ts.pro_api()
 client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=30.0)
 
-# 🔥 彻底解决 AttributeError：在应用最顶端初始化所有状态
+# 🔥 彻底解决状态丢失：在应用最顶端初始化所有状态
 if "user_id" not in st.session_state: st.session_state.user_id = f"User_{str(uuid.uuid4())[:6]}"
 if "generated_code" not in st.session_state: st.session_state.generated_code = ""
 if "dl_result" not in st.session_state: st.session_state.dl_result = None
@@ -44,7 +44,8 @@ st.markdown("""
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
     .stApp { background-image: linear-gradient(132deg, #02040a, #111d3d, #030614, #1d2b4f, #081224) !important; background-size: 400% 400% !important; animation: fluidFlow 12s ease-in-out infinite !important; }
     [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 1.5rem !important; }
-    header[data-testid="stHeader"] { background: transparent !important; }
+    header[data-testid="stHeader"] { background: transparent !important; pointer-events: none !important; }
+    header[data-testid="stHeader"] * { pointer-events: auto !important; }
     footer { display: none !important; }
     .stMarkdown, p, h1, h2, h3, label, span { color: #e2e8f0 !important; }
 
@@ -52,9 +53,9 @@ st.markdown("""
     [data-testid="stSidebarCollapseButton"], [data-testid="collapsedControl"] {
         display: flex !important; background-color: rgba(0, 255, 204, 0.2) !important; 
         border: 1px solid rgba(0, 255, 204, 0.8) !important; border-radius: 8px !important;
-        box-shadow: 0 0 15px rgba(0, 255, 204, 0.3) !important; transition: all 0.3s ease;
+        box-shadow: 0 0 15px rgba(0, 255, 204, 0.3) !important; transition: all 0.3s ease; z-index: 999999 !important;
     }
-    [data-testid="collapsedControl"] { position: fixed !important; top: 15px !important; left: 15px !important; z-index: 999999 !important; }
+    [data-testid="collapsedControl"] { position: fixed !important; top: 15px !important; left: 15px !important; pointer-events: auto !important; }
 
     [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.7) !important; backdrop-filter: blur(20px) !important; border-right: 1px solid rgba(255,255,255,0.05) !important; }
     div[role="radiogroup"] > label > div:first-child { display: none !important; }
@@ -75,12 +76,16 @@ st.markdown("""
 
 
 # ==========================================
-# 3. 核心工具函数 (双向大小写映射防崩装甲)
+# 3. 核心工具函数 (🔥 战前与战后双重装甲)
 # ==========================================
 def apply_dual_column_armor(df):
+    """确保 DataFrame 无论遭遇何种破坏，始终拥有大小写兼容属性"""
     mapping = {'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'vol': 'Volume', 'amount': 'Amount'}
+    # 填补大写
     for low, up in mapping.items():
         if low in df.columns and up not in df.columns: df[up] = df[low]
+    # 填补小写 (防止 AI 暴力丢弃小写列)
+    for low, up in mapping.items():
         if up in df.columns and low not in df.columns: df[low] = df[up]
     return df
 
@@ -117,14 +122,13 @@ with st.sidebar:
     ], label_visibility="collapsed")
 
 # ==========================================
-# 🏠 页面 1: 系统总览 (🔥 豪华版大盘)
+# 🏠 页面 1: 系统总览
 # ==========================================
 if page == "🏠 系统总览 (监控中控)":
     st.markdown(
-        '<div class="glass-card"><h1>🏛️ 双引擎驱动量化决策决策终端</h1><p style="color:#00ffcc; font-size:1.2rem;">中期检查专项演示平台 (Mid-term Research & Development Status)</p></div>',
+        '<div class="glass-card"><h1>🏛️ 双引擎驱动量化决策决策终端</h1><p style="color:#00ffcc; font-size:1.2rem;">中期检查专项演示平台 (Mid-term Research Dashboard)</p></div>',
         unsafe_allow_html=True)
 
-    # 状态实时监控
     try:
         t_start = time.time()
         pro.trade_cal(exchange='SSE', start_date='20240101', end_date='20240101')
@@ -148,16 +152,16 @@ if page == "🏠 系统总览 (监控中控)":
     with c_arch:
         st.markdown('<div class="glass-card"><h4>⚙️ 系统工程架构 (Technical Architecture)</h4>'
                     '<ul><li><b>1. LLM 自然语言交互层</b>: 采用 NLP 技术解析非结构化交易构思，支持<b>策略即时覆盖机制</b>。</li>'
-                    '<li><b>2. 混合数据治理层</b>: 整合 Tushare 商业接口，支持 OHLCV 自动复权清洗及<b>列名大小写自适应映射</b>。</li>'
+                    '<li><b>2. 混合数据治理层</b>: 整合 Tushare 商业接口，具备<b>战前战后双重防崩装甲</b>保障沙盒容错。</li>'
                     '<li><b>3. LSTM 算法预测层</b>: 基于时序滑动窗口，通过多层 LSTM 神经网络捕捉股价非线性规律。</li>'
-                    '<li><b>4. 模拟仿真执行层</b>: 包含静态历史归因引擎与<b>高频 Tick Stream 推演器</b>。</li></ul></div>',
+                    '<li><b>4. 模拟仿真执行层</b>: 包含全量历史回测归因引擎与<b>高频 Tick Stream 推演器</b>。</li></ul></div>',
                     unsafe_allow_html=True)
     with c_point:
         st.markdown('<div class="glass-card"><h4>💡 中期学术创新点</h4>'
                     '✅ <b>LLM 防闲聊过滤</b>: 锁定金融领域知识域。<br>'
-                    '✅ <b>容灾日志审计</b>: 全量捕获用户沙盒崩溃日志。<br>'
-                    '✅ <b>高频沙盘引擎</b>: 突破个人接口频率限制演示实时交易。<br>'
-                    '✅ <b>视觉自适应 K 线</b>: 实现工业级看盘体验。</div>', unsafe_allow_html=True)
+                    '✅ <b>容灾日志审计</b>: 全量捕获用户交互与崩溃日志。<br>'
+                    '✅ <b>高频沙盘引擎</b>: 突破物理限制演示实时交易流。<br>'
+                    '✅ <b>双生映射技术</b>: 根除大模型格式幻觉带来的崩溃。</div>', unsafe_allow_html=True)
 
 # ==========================================
 # 🤖 页面 2: AI 策略引擎
@@ -172,31 +176,35 @@ elif page == "🤖 AI 策略引擎 (LLM)":
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"])
 
-    if prompt := st.chat_input("输入策略（如：20日均线金叉买入）..."):
+    if prompt := st.chat_input("输入策略（如：20日均线金叉买入，禁用无关闲聊）..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         log_thesis_data("指令下达", prompt)
         with chat_container:
             with st.chat_message("assistant"):
                 msg_box = st.empty()
-                sys_p = "你是一名严谨的量化专家。1.拒绝闲聊。2.生成的代码必须包含 def generate_signals(df): 并返回 df。3.列名用'Close'等。"
-                stream = client.chat.completions.create(model="moonshot-v1-8k", messages=[{"role": "system",
-                                                                                           "content": sys_p}] + st.session_state.messages,
-                                                        stream=True)
-                full_resp = ""
-                for chunk in stream:
-                    if chunk.choices[0].delta.content:
-                        full_resp += chunk.choices[0].delta.content
-                        msg_box.markdown(full_resp + "▌")
-                msg_box.markdown(full_resp)
-                code_match = re.search(r"```python\s*(.*?)\s*```", full_resp, re.DOTALL)
-                if code_match:
-                    st.session_state.generated_code = code_match.group(1).strip()
-                    st.toast("✅ 策略已装填！最新军令同步完毕！")
-                st.session_state.messages.append({"role": "assistant", "content": full_resp})
+                sys_p = "你是一名严谨的量化专家。1.拒绝任何与金融量化无关的闲聊。2.生成的代码必须包含 def generate_signals(df): 函数。3.列名务必大写：'Open', 'High', 'Low', 'Close', 'Volume'。"
+                try:
+                    stream = client.chat.completions.create(model="moonshot-v1-8k", messages=[{"role": "system",
+                                                                                               "content": sys_p}] + st.session_state.messages,
+                                                            stream=True)
+                    full_resp = ""
+                    for chunk in stream:
+                        if chunk.choices[0].delta.content:
+                            full_resp += chunk.choices[0].delta.content
+                            msg_box.markdown(full_resp + "▌")
+                    msg_box.markdown(full_resp)
+
+                    code_match = re.search(r"```python\s*(.*?)\s*```", full_resp, re.DOTALL)
+                    if code_match:
+                        st.session_state.generated_code = code_match.group(1).strip()
+                        st.toast("✅ 策略已装填！最新军令同步完毕！")
+                    st.session_state.messages.append({"role": "assistant", "content": full_resp})
+                except Exception as e:
+                    st.error(f"通信异常: {e}")
         st.rerun()
 
 # ==========================================
-# 📈 页面 3: 深度静态回测 (🔥 满血版回归)
+# 📈 页面 3: 深度静态回测 (🔥 终极防崩版)
 # ==========================================
 elif page == "📈 深度静态全量回测":
     st.markdown('<div class="glass-card"><h3>📊 历史回测全量审计与归因分析</h3></div>', unsafe_allow_html=True)
@@ -216,31 +224,39 @@ elif page == "📈 深度静态全量回测":
                         df = ts.pro_bar(ts_code=ts_code, adj=adj_p, start_date='20220101')
                         df = df.sort_values('trade_date').reset_index(drop=True)
                         df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
-                        df = apply_dual_column_armor(df)  # 🔥 装甲防护
 
-                        # 执行策略
+                        # 🔥 战前装甲 (确保进入沙盒前双生存在)
+                        df = apply_dual_column_armor(df)
+
+                        # 隔离执行策略
                         l_vars = {}
                         exec(st.session_state.generated_code, globals(), l_vars)
+                        if 'generate_signals' not in l_vars: raise ValueError(
+                            "AI 策略残缺：未定义 generate_signals 函数")
                         df = l_vars['generate_signals'](df)
 
-                        # 指标计算 (严谨学术版)
-                        df['Ret'] = df['close'].pct_change()
-                        df['Pos'] = df['Signal'].replace(0, np.nan).ffill().fillna(0)
+                        # 🔥 战后装甲 (修复被 AI 误删的小写列)
+                        df = apply_dual_column_armor(df)
+
+                        # 🔥 全面改用安全的大写指标结算
+                        df['Ret'] = df['Close'].pct_change()
+                        df['Pos'] = df['Signal'].replace(0, np.nan).ffill().fillna(0) if 'Signal' in df.columns else 0
                         df['Strat_Ret'] = df['Pos'].shift(1) * df['Ret']
                         df['Cum_Prod'] = (1 + df['Strat_Ret'].fillna(0)).cumprod()
 
-                        # 计算年化和最大回撤
+                        # 核算高级指标
                         total_ret = (df['Cum_Prod'].iloc[-1] - 1)
-                        annual_ret = (1 + total_ret) ** (252 / len(df)) - 1
+                        annual_ret = (1 + total_ret) ** (252 / max(1, len(df))) - 1
                         max_dd = (df['Cum_Prod'] / df['Cum_Prod'].cummax() - 1).min()
                         volatility = df['Strat_Ret'].std() * np.sqrt(252)
-                        sharpe = annual_ret / volatility if volatility != 0 else 0
+                        sharpe = annual_ret / volatility if volatility != 0 and pd.notnull(volatility) else 0
 
                         st.session_state.bt_result = {"df": df, "code": ts_code, "metrics": {
                             "total": total_ret, "annual": annual_ret, "max_dd": max_dd, "sharpe": sharpe
                         }, "y_mode": y_mode}
                     except Exception as e:
-                        st.error(f"沙盒异常: {e}"); log_thesis_data("沙盒报错", str(e))
+                        st.error(f"沙盒系统级拦截: {e}")
+                        log_thesis_data("沙盒引擎熔断", str(e))
         else:
             st.warning("战情室未生成策略军令。")
         st.markdown('</div>', unsafe_allow_html=True)
@@ -250,7 +266,6 @@ elif page == "📈 深度静态全量回测":
             m = st.session_state.bt_result['metrics']
             df = st.session_state.bt_result['df']
 
-            # 核心指标卡片
             c1, c2, c3, c4 = st.columns(4)
             c1.markdown(
                 f'<div class="metric-box"><p style="margin:0; font-size:0.8rem;">累计收益</p><h2 style="color:#00ffcc;">{m["total"] * 100:.2f}%</h2></div>',
@@ -267,11 +282,24 @@ elif page == "📈 深度静态全量回测":
 
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
             fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.7, 0.3])
+
+            # 🔥 统一使用大写列绘图，杜绝报错
             fig.add_trace(
-                go.Candlestick(x=df['trade_date'], open=df['open'], high=df['high'], low=df['low'], close=df['close'],
+                go.Candlestick(x=df['trade_date'], open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
                                name='K线'), row=1, col=1)
             fig.add_trace(go.Scatter(x=df['trade_date'], y=df['Cum_Prod'], name='净值', fill='tozeroy',
                                      line=dict(color='#00ffcc')), row=2, col=1)
+
+            if 'Signal' in df.columns:
+                buys = df[df['Signal'] == 1]
+                sells = df[df['Signal'] == -1]
+                fig.add_trace(go.Scatter(x=buys['trade_date'], y=buys['Low'] * 0.95, mode='markers',
+                                         marker=dict(symbol='triangle-up', size=14, color='#00FFFF',
+                                                     line=dict(width=1, color='white')), name='买入'), row=1, col=1)
+                fig.add_trace(go.Scatter(x=sells['trade_date'], y=sells['High'] * 1.05, mode='markers',
+                                         marker=dict(symbol='triangle-down', size=14, color='#FF00FF',
+                                                     line=dict(width=1, color='white')), name='卖出'), row=1, col=1)
+
             fig.update_layout(height=600, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
                               plot_bgcolor='rgba(0,0,0,0.1)', xaxis_rangeslider_visible=False, dragmode='pan')
             if st.session_state.bt_result["y_mode"] == "开启": fig.update_yaxes(autorange=True, row=1, col=1)
@@ -288,9 +316,9 @@ elif page == "⚡ 实时高频交易 (Live)":
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         live_code = st.text_input("🎯 动态推送标的", value="000001")
         freq = st.slider("⏱️ 行情跳动间隔 (秒)", 0.1, 2.0, 0.5)
-        st.button("▶️ 开启高频自动交易", on_click=lambda: st.session_state.update({"is_live_trading": True}),
+        st.button("▶️ 开启高频推演", on_click=lambda: st.session_state.update({"is_live_trading": True}),
                   type="primary")
-        st.button("⏹️ 强行熔断停止", on_click=lambda: st.session_state.update({"is_live_trading": False}))
+        st.button("⏹️ 强行停止", on_click=lambda: st.session_state.update({"is_live_trading": False}))
         st.markdown('</div>', unsafe_allow_html=True)
     with c_chart:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
@@ -303,30 +331,42 @@ elif page == "⚡ 实时高频交易 (Live)":
             stream = df_full.tail(120).reset_index(drop=True)
             for i in range(20, len(stream)):
                 if not st.session_state.is_live_trading: break
+
                 sub = apply_dual_column_armor(stream.iloc[:i].copy())
-                l_vars = {}
-                exec(st.session_state.generated_code, globals(), l_vars)
-                sub = l_vars['generate_signals'](sub)
+                try:
+                    l_vars = {}
+                    exec(st.session_state.generated_code, globals(), l_vars)
+                    sub = l_vars['generate_signals'](sub)
+                    sub = apply_dual_column_armor(sub)  # 战后修复装甲
 
-                with met_ph.container():
-                    c = st.columns(3)
-                    c[0].metric("Tick 现价", f"{sub['close'].iloc[-1]}")
-                    c[1].metric("高频信号", "🟢 买入" if sub['Signal'].iloc[-1] == 1 else "🔴 卖出" if sub['Signal'].iloc[
-                                                                                                         -1] == -1 else "⚪ 观望")
-                    c[2].metric("并发收益率", f"{(sub['close'].pct_change().iloc[-1] * 100):.2f}%")
+                    sub['Ret'] = sub['Close'].pct_change()
+                    sig_val = sub['Signal'].iloc[-1] if 'Signal' in sub.columns else 0
+                    sub['Cum'] = (1 + (sub['Signal'].shift(1).fillna(0) * sub['Ret'].fillna(
+                        0))).cumprod() if 'Signal' in sub.columns else 1
 
-                fig = go.Figure(data=[
-                    go.Candlestick(x=sub['trade_date'], open=sub['open'], high=sub['high'], low=sub['low'],
-                                   close=sub['close'])])
-                fig.update_layout(height=450, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
-                                  margin=dict(l=0, r=0, t=0, b=0), xaxis_rangeslider_visible=False, dragmode='pan')
-                fig.update_yaxes(autorange=True)
-                cht_ph.plotly_chart(fig, use_container_width=True, key=f"live_{i}", config={'scrollZoom': True})
+                    with met_ph.container():
+                        c = st.columns(3)
+                        c[0].metric("Tick 现价", f"{sub['Close'].iloc[-1]:.2f}")
+                        c[1].metric("高频信号", "🟢 买入" if sig_val == 1 else "🔴 卖出" if sig_val == -1 else "⚪ 观望")
+                        c[2].metric("动态净值", f"{sub['Cum'].iloc[-1]:.4f}")
+
+                    fig = go.Figure(data=[
+                        go.Candlestick(x=sub['trade_date'], open=sub['Open'], high=sub['High'], low=sub['Low'],
+                                       close=sub['Close'])])
+                    fig.update_layout(height=450, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
+                                      margin=dict(l=0, r=0, t=0, b=0), xaxis_rangeslider_visible=False, dragmode='pan')
+                    fig.update_yaxes(autorange=True)
+                    cht_ph.plotly_chart(fig, use_container_width=True, key=f"live_{i}", config={'scrollZoom': True})
+
+                except Exception as e:
+                    st.error(f"高频沙盒熔断: {e}")
+                    st.session_state.is_live_trading = False
+                    break
                 time.sleep(freq)
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
-# 🧠 页面 5: 深度学习预测 (LSTM) (🔥 修复稳定性)
+# 🧠 页面 5: 深度学习预测 (LSTM)
 # ==========================================
 elif page == "🧠 深度学习预测 (LSTM)":
     st.markdown('<div class="glass-card"><h3>🧠 深度神经网络时序建模中心 (LSTM)</h3></div>', unsafe_allow_html=True)
@@ -336,7 +376,7 @@ elif page == "🧠 深度学习预测 (LSTM)":
         st_code = st.text_input("🎯 训练模型标的", value="000001")
         slen = st.slider("📏 滑窗长度 (Seq_Len)", 5, 60, 20)
         eps = st.slider("🔄 Epoch 迭代轮数", 10, 50, 30)
-        if st.button("🚀 启动张量训练", type="primary"):
+        if st.button("🚀 启动张量训练", type="primary", use_container_width=True):
             with st.spinner("神经网络前向传播中..."):
                 try:
                     df = ts.pro_bar(ts_code=format_ts_code(st_code), adj='qfq', start_date='20210101').sort_values(
@@ -381,10 +421,9 @@ elif page == "🧠 深度学习预测 (LSTM)":
                     st.session_state.dl_result = {"dates": df['trade_date'].iloc[-100:],
                                                   "actual": df['close'].iloc[-100:], "pred": inv_p.flatten()}
                 except Exception as e:
-                    st.error(f"DL 异常: {e}")
+                    st.error(f"DL 张量异常: {e}")
         st.markdown('</div>', unsafe_allow_html=True)
     with col_r:
-        # 🔥 核心修复：更严谨的状态判断
         if 'dl_result' in st.session_state and st.session_state.dl_result is not None:
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
             res = st.session_state.dl_result
@@ -397,7 +436,7 @@ elif page == "🧠 深度学习预测 (LSTM)":
             st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
-# 🛡️ 页面 6: 论文数据审计
+# 🛡️ 页面 6: 论文审计日志
 # ==========================================
 elif page == "🛡️ 论文审计日志":
     st.markdown('<div class="glass-card"><h3>🛡️ 实验数据采集与多维审计中心</h3></div>', unsafe_allow_html=True)
