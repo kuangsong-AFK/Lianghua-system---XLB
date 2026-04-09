@@ -87,20 +87,15 @@ st.markdown("""
 # 3. 核心工具函数与审计系统
 # ==========================================
 def apply_dual_column_armor(df):
-    """🔥 V39 终极免疫装甲：兼容小写、首字母大写、全大写"""
+    """🔥 V39 全域免疫装甲：兼容小写、首字母大写、全大写"""
     mapping = {'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'vol': 'Volume', 'amount': 'Amount'}
-
-    # 1. 补齐首字母大写
     for low, up in mapping.items():
         if low in df.columns and up not in df.columns: df[up] = df[low]
         if up in df.columns and low not in df.columns: df[low] = df[up]
-
-    # 2. 补齐全大写 (防备 AI 脑残写成 'CLOSE')
     for up in mapping.values():
         all_cap = up.upper()
         if up in df.columns and all_cap not in df.columns:
             df[all_cap] = df[up]
-
     return df
 
 
@@ -117,7 +112,10 @@ def add_default_indicators(df):
 
 
 def execute_safely(code, df):
-    safe_code = code.replace("pd.np", "np")
+    # 🔥 V40 正则表达式防呆强化：绞杀一切 pd.np 和 pandas.np
+    safe_code = re.sub(r'\bpd\.np\b', 'np', code)
+    safe_code = re.sub(r'\bpandas\.np\b', 'np', safe_code)
+
     sandbox_env = {"pd": pd, "np": np, "math": math}
     l_vars = {}
     exec(safe_code, sandbox_env, l_vars)
@@ -204,9 +202,10 @@ def render_smart_charts(df):
         current_row += 1
 
     total_height = 500 + (num_sub_groups * 150)
+    # 🔥 V40 图形引擎兼容性升级：将 hovermode='x unified' 降级为全环境兼容的 hovermode='x'
     fig.update_layout(height=total_height, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
                       plot_bgcolor='rgba(0,0,0,0.1)',
-                      xaxis_rangeslider_visible=False, dragmode='x', hovermode='x unified', showlegend=False)
+                      xaxis_rangeslider_visible=False, dragmode='x', hovermode='x', showlegend=False)
     fig.update_yaxes(fixedrange=False)
 
     return fig
@@ -296,7 +295,7 @@ if page == "🏠 系统总览 (监控中控)":
         st.markdown('<br><h4>💡 答辩核心创新点</h4>'
                     '✅ <b>默认常驻指标</b>: 底层数据自动绑定均线与MACD，无需重复生成。<br>'
                     '✅ <b>K线自适应缩放</b>: 框选指定时间段，Y轴自动缩放。<br>'
-                    '✅ <b>语法铁律防呆 (全大写免疫)</b>: 彻底阻断 AI 乱造名字引发的崩溃。<br>'
+                    '✅ <b>全域防呆护甲</b>: 彻底阻断 pd.np 和全大写带来的代码崩溃。<br>'
                     '✅ <b>信号剥离防崩</b>: 100% 根除沙盒污染。</div>', unsafe_allow_html=True)
 
 # ==========================================
@@ -335,7 +334,6 @@ elif page == "🤖 AI 策略引擎 (LLM)":
             with st.chat_message("assistant"):
                 msg_box = st.empty()
 
-                # 🔥 系统指令：修正对“大写”的描述，防止 AI 全大写
                 sys_p = """你是一名严谨的量化专家。
 1.拒绝闲聊。
 2.【强制解析】：生成代码前，用 `<策略解析>` 标签包裹一段通俗的策略白话解释。
@@ -595,8 +593,9 @@ elif page == "🧠 深度学习预测 (LSTM)":
             fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹', line=dict(color='#00ffcc')))
             fig.add_trace(
                 go.Scatter(x=res['dates'], y=res['pred'], name='LSTM 预测', line=dict(color='#ff00ff', dash='dot')))
+            # 🔥 LSTM 页面同样修复 hovermode='x'，确保完美兼容旧版环境
             fig.update_layout(height=500, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
-                              plot_bgcolor='rgba(0,0,0,0.1)', dragmode='x', hovermode='x unified')
+                              plot_bgcolor='rgba(0,0,0,0.1)', dragmode='x', hovermode='x')
             fig.update_yaxes(fixedrange=False)
             st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
             st.markdown('</div>', unsafe_allow_html=True)
