@@ -203,19 +203,16 @@ def render_smart_charts(df):
         current_row += 1
 
     total_height = 500 + (num_sub_groups * 150)
-
-    # 🔥 核心升级：dragmode 切换为 'pan' (平移模式)；hovermode 彻底降级为兼容性最强的 'x' 解决报错
     fig.update_layout(
         height=total_height,
         template="plotly_dark",
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0.1)',
         xaxis_rangeslider_visible=False,
-        dragmode='pan',  # 开启平移
-        hovermode='x',  # 完美兼容旧环境
+        dragmode='pan',
+        hovermode='x',
         showlegend=False
     )
-    # 解除坐标轴锁定，允许双击自适应
     fig.update_xaxes(fixedrange=False)
     fig.update_yaxes(fixedrange=False)
 
@@ -292,8 +289,8 @@ if page == "🏠 系统总览 (监控中控)":
         st.markdown('<div class="glass-card"><h4>🧠 核心架构图解析 (Data Flow Pipeline)</h4>'
                     '<p style="color:#aaa; font-size:0.9rem;">本系统打破传统量化编程门槛，通过 LLM 将自然语言交易意图无缝映射为矢量化代码并执行演示：</p>'
                     '<div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:10px; border:1px solid rgba(255,255,255,0.05);">'
-                    '<b>▶ 阶段 1：策略认知 (LLM)</b><br>对接大语言模型，支持深度思考(CoT)，秒级编译策略代码并<span style="color:#00ffcc;">【提取通俗白话解析】</span>。<br><br>'
-                    '<b>▶ 阶段 2：数据治理层 (Data Hub)</b><br>整合 Tushare，自动挂载<span style="color:#00ffcc;">【全局常驻指标 (MA/MACD/VOL)】</span>。<br><br>'
+                    '<b>▶ 阶段 1：策略认知 (LLM)</b><br>对接大语言模型，支持模型智能切换与深度思考(CoT)，秒级编译策略代码并<span style="color:#00ffcc;">【提取通俗白话解析】</span>。<br><br>'
+                    '<b>▶ 阶段 2：数据治理层 (Data Hub)</b><br>整合 Tushare，底层数据加载后自动挂载<span style="color:#00ffcc;">【全局常驻指标 (MA/MACD/VOL)】</span>。<br><br>'
                     '<b>▶ 阶段 3：沙盒推演与动态渲染 (Sandbox)</b><br>执行无损安全过滤运算，调用<span style="color:#ff4b4b;">可平移自适应画图引擎 (Pan & Auto-scale)</span>。<br><br>'
                     '<b>▶ 阶段 4：算法预测 (PyTorch)</b><br>启动 LSTM 模型抓取时序特征，可视化输出次日预判。'
                     '</div></div>', unsafe_allow_html=True)
@@ -304,9 +301,9 @@ if page == "🏠 系统总览 (监控中控)":
         st.markdown("**高频行情跳动帧率 (Tick Speed)**")
         st.progress(0.92)
         st.markdown('<br><h4>💡 答辩核心创新点</h4>'
-                    '✅ <b>默认常驻指标</b>: 自动绑定均线与MACD，零代码即显。<br>'
-                    '✅ <b>平移自适应缩放 (New)</b>: 左右拖拽平移，双击瞬间对齐Y轴高度。<br>'
-                    '✅ <b>语法铁律防呆 (全大写免疫)</b>: 彻底阻断代码崩溃。<br>'
+                    '✅ <b>严禁重复造轮子 (New)</b>: 强制规避 AI 重复生成底层已有指标，图表不冗余。<br>'
+                    '✅ <b>平移自适应缩放</b>: 左右拖拽平移，双击瞬间对齐Y轴高度。<br>'
+                    '✅ <b>稳定版白话翻译器 (New)</b>: 弃用 XML 标签，改用 Markdown 标题，解析 100% 提取。<br>'
                     '✅ <b>信号剥离防崩</b>: 100% 根除沙盒污染。</div>', unsafe_allow_html=True)
 
 # ==========================================
@@ -337,7 +334,7 @@ elif page == "🤖 AI 策略引擎 (LLM)":
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"])
 
-    if prompt := st.chat_input("输入策略（底层已常驻 MA5, MA20, SUB1_MACD_DIFF/DEA/HIST）..."):
+    if prompt := st.chat_input("输入策略（底层已常驻 MA5, MA20, MACD，可直接使用）..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         log_thesis_data("指令下达", f"模型:{selected_model}, 内容:{prompt}")
 
@@ -345,18 +342,21 @@ elif page == "🤖 AI 策略引擎 (LLM)":
             with st.chat_message("assistant"):
                 msg_box = st.empty()
 
+                # 🔥 系统指令终极优化：
+                # 1. 改用更稳定的 【策略白话解析】 Markdown 标题提取法，放弃脆弱的 HTML 标签。
+                # 2. 强力禁止 AI 重复生成 MACD。
                 sys_p = """你是一名严谨的量化专家。
 1.拒绝闲聊。
-2.【强制解析】：生成代码前，用 `<策略解析>` 标签包裹一段通俗的策略白话解释。
+2.【强制解析-核心】：在输出代码前，必须独占一行写出“【策略白话解析】”作为标题，紧接着写一段通俗的策略逻辑说明（绝对不要使用任何XML或HTML标签包裹）。
 3.【环境告知】：传入的 df 已经默认包含 `MAIN_MA5`, `MAIN_MA20`, `SUB1_MACD_DIFF`, `SUB1_MACD_DEA`, `SUB1_MACD_HIST`，可以直接使用。
-4.如果你需要生成新指标，重叠主图的叫 `MAIN_xxx`，副图叫 `SUB2_xxx`。
+4.【严禁重复造轮子-核心】：如果你要用均线或 MACD，必须直接使用上述已存在的列！绝对禁止再生成新的 MACD 列（不要写 SUB2_MACD）！只有需要其他新指标（如 KDJ、RSI）时，才可生成新的副图列（如 SUB2_K）。
 5.生成的代码包含 def generate_signals(df): 并返回 df。绝对禁止 read_csv。
 6.【语法铁律】：
    - 计算指标只能赋值给单列；逻辑判断严禁使用 and/or，必须使用 & 和 | 并加括号。
    - 【致命点】：列名必须是首字母大写：'Open', 'High', 'Low', 'Close', 'Volume'！千万不要写成全大写的 'CLOSE'！"""
 
                 if enable_deep_think:
-                    sys_p += "\n7.【深度思考】：在标签内解释时，需进行详尽的逻辑演算。"
+                    sys_p += "\n7.【深度思考】：在写解析前，先进行详尽的逻辑演算。"
 
                 api_temperature = 0.3 if enable_deep_think else 0.7
 
@@ -378,7 +378,9 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                     if code_match:
                         st.session_state.generated_code = code_match.group(1).strip()
 
-                        exp_match = re.search(r"<策略解析>(.*?)</策略解析>", full_resp, re.DOTALL | re.IGNORECASE)
+                        # 🔥 稳定版解析提取正则：抓取【策略白话解析】到代码块之间的内容
+                        exp_match = re.search(r"【策略白话解析】(.*?)(?=```python|$)", full_resp,
+                                              re.DOTALL | re.IGNORECASE)
                         if exp_match:
                             st.session_state.strategy_explanation = exp_match.group(1).strip()
                         else:
@@ -402,7 +404,6 @@ elif page == "📈 深度静态全量回测":
         ts_code = format_ts_code(raw_code)
         adj = st.selectbox("⚖️ 复权模式", ["qfq (前复权)", "hfq (后复权)", "None (不复权)"])
 
-        # 🔥 UI 提示变更
         st.info(
             "💡 交互提示：已开启【无缝平移模式】。按住鼠标可左右拖拽 K 线；拖拽后**双击图表**，即可让 K线与副图的 Y轴高度瞬间自动适应！")
 
@@ -608,7 +609,6 @@ elif page == "🧠 深度学习预测 (LSTM)":
             fig.add_trace(
                 go.Scatter(x=res['dates'], y=res['pred'], name='LSTM 预测', line=dict(color='#ff00ff', dash='dot')))
 
-            # 🔥 LSTM 引擎同步应用平移和旧版 hovermode 兼容
             fig.update_layout(height=500, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
                               plot_bgcolor='rgba(0,0,0,0.1)', dragmode='pan', hovermode='x')
             fig.update_xaxes(fixedrange=False)
