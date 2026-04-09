@@ -114,8 +114,8 @@ def add_default_indicators(df):
 
 
 def execute_safely(code, df):
-    safe_code = re.sub(r'\bpd\.np\b', 'np', code)
-    safe_code = re.sub(r'\bpandas\.np\b', 'np', safe_code)
+    # 彻底替换所有的 pd.np 和 pandas.np 幻觉
+    safe_code = code.replace("pd.np", "np").replace("pandas.np", "np")
 
     sandbox_env = {"pd": pd, "np": np, "math": math}
     l_vars = {}
@@ -131,7 +131,13 @@ def execute_safely(code, df):
         else:
             raise ValueError("AI 军师未能生成任何有效的方法函数！")
 
-    return func_to_call(df)
+    df_ai = func_to_call(df)
+
+    # 🔥 V45 自动纠错装甲：AI 若生成了小写的 signal，强行转为大写 Signal
+    if 'signal' in df_ai.columns and 'Signal' not in df_ai.columns:
+        df_ai['Signal'] = df_ai['signal']
+
+    return df_ai
 
 
 def render_smart_charts(df):
@@ -281,9 +287,8 @@ if page == "🏠 系统总览 (监控中控)":
 
     with c_arch:
         st.markdown('<div class="glass-card"><h4>🧠 核心架构图解析 (Data Flow Pipeline)</h4>'
-                    '<p style="color:#aaa; font-size:0.9rem;">本系统打破传统量化门槛，全域支持 128K 超长上下文与深度思考可视化：</p>'
                     '<div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:10px; border:1px solid rgba(255,255,255,0.05);">'
-                    '<b>▶ 阶段 1：策略推演 (LLM)</b><br>对接模型支持最高 128k 算力。开启<span style="color:#00ffcc;">【深度思考】</span>后，UI将实时渲染大模型的思维链(CoT)推导过程。<br><br>'
+                    '<b>▶ 阶段 1：策略推演 (LLM)</b><br>对接模型支持最高 128k 算力。开启<span style="color:#00ffcc;">【深度思考】</span>后，UI将实时渲染推导过程。<br><br>'
                     '<b>▶ 阶段 2：数据挂载 (Data Hub)</b><br>底层数据自动注入<span style="color:#00ffcc;">【常驻指标 (MA/MACD)】</span>并附带大小写免疫。<br><br>'
                     '<b>▶ 阶段 3：动态渲染 (Smart Charting)</b><br>调用<span style="color:#ff4b4b;">可平移自适应画图引擎 (双击自适应对齐)</span>。<br><br>'
                     '<b>▶ 阶段 4：算法预测 (PyTorch)</b><br>启动 LSTM 模型抓取时序特征，可视化输出。'
@@ -295,13 +300,12 @@ if page == "🏠 系统总览 (监控中控)":
         st.markdown("**UI 实时通信帧率**")
         st.progress(0.96)
         st.markdown('<br><h4>💡 答辩终极杀手锏</h4>'
-                    '✅ <b>深度思考全息化 (New)</b>: 100% 可视化 AI 推演公式的思考全过程，尽显 128K 算力。<br>'
-                    '✅ <b>平移自适应缩放</b>: 左右拖拽平移，双击瞬间对齐Y轴。<br>'
-                    '✅ <b>大汉命名契约</b>: 防冗余智能附图分离。<br>'
-                    '✅ <b>白话翻译引擎</b>: 提升金融科普教育属性。</div>', unsafe_allow_html=True)
+                    '✅ <b>空转预警雷达 (New)</b>: 智能侦测策略失效，防止收益 0% 的尴尬。<br>'
+                    '✅ <b>深度思考全息化</b>: 100% 可视化 AI 推演公式的思考全过程。<br>'
+                    '✅ <b>平移自适应缩放</b>: 左右拖拽平移，双击瞬间对齐Y轴。</div>', unsafe_allow_html=True)
 
 # ==========================================
-# 🤖 页面 2: AI 策略引擎 (LLM) 🔥 深度思考可视化截流版
+# 🤖 页面 2: AI 策略引擎 (LLM)
 # ==========================================
 elif page == "🤖 AI 策略引擎 (LLM)":
     if "messages" not in st.session_state: st.session_state.messages = []
@@ -336,7 +340,6 @@ elif page == "🤖 AI 策略引擎 (LLM)":
             with st.chat_message("assistant"):
                 st.toast(f"🚀 系统已成功连线底层算力集群: {selected_model}", icon="⚡")
 
-                # 🔥 UI 预置：如果开启深度思考，弹出独立的思维推演框
                 if enable_deep_think:
                     think_expander = st.expander("🧠 AI 正在脑海中推演与拆解数学逻辑...", expanded=True)
                     think_box = think_expander.empty()
@@ -350,7 +353,6 @@ elif page == "🤖 AI 策略引擎 (LLM)":
 5.代码含 def generate_signals(df): 并 return df。禁止 read_csv。
 6.【语法铁律】：赋值给单列；禁止使用 and/or，必须使用 & 和 | 加括号；列名首字母大写，勿写全大写 'CLOSE'。"""
 
-                # 🔥 强制 AI 使用 <think> 标签记录内心独白
                 if enable_deep_think:
                     sys_p += "\n7.【深度思考-绝对指令】：你必须首先将你的策略拆解、指标公式复习和数学推演过程写在 `<think>` 和 `</think>` 标签之间！在 `</think>` 之后再输出【策略白话解析】和代码。"
 
@@ -369,40 +371,32 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                             delta = chunk.choices[0].delta.content
                             full_resp += delta
 
-                            # 🔥 流式截流器：将 <think> 内部的话提取到灰色框，外部的话放到普通对话框
                             if enable_deep_think:
                                 if "<think>" in full_resp:
                                     if "</think>" in full_resp:
-                                        # 思考结束，分离两段内容
                                         parts = full_resp.split("</think>")
                                         think_text = parts[0].replace("<think>", "").strip()
                                         main_text = parts[1].lstrip()
-
                                         think_box.markdown(think_text)
                                         if main_text:
                                             msg_box.markdown(main_text + "▌")
                                         else:
                                             msg_box.markdown("✨ 正在起草最终执行军令...")
                                     else:
-                                        # 正在思考中...
                                         think_text = full_resp.replace("<think>", "").strip()
                                         think_box.markdown(think_text + "▌")
                                         msg_box.markdown("✨ 疯狂燃烧算力中，请观察上方推演过程...")
                                 else:
-                                    # 如果还没出现 think 标签，全扔在下面
                                     msg_box.markdown(full_resp + "▌")
                             else:
-                                # 没有开启深度思考，正常流式输出
                                 msg_box.markdown(full_resp + "▌")
 
-                    # 最终流清理
                     if enable_deep_think and "</think>" in full_resp:
                         parts = full_resp.split("</think>")
                         msg_box.markdown(parts[1].strip())
                     else:
                         msg_box.markdown(full_resp.replace("<think>", "").replace("</think>", "").strip())
 
-                    # 提取 Python 代码和解析
                     code_match = re.search(r"```python\s*(.*?)\s*```", full_resp, re.DOTALL)
                     if code_match:
                         st.session_state.generated_code = code_match.group(1).strip()
@@ -492,6 +486,14 @@ elif page == "📈 深度静态全量回测":
             c4.markdown(
                 f'<div class="metric-box"><p style="margin:0; font-size:0.8rem;">夏普比率</p><h2 style="color:#00ffcc;">{m["sharpe"]:.2f}</h2></div>',
                 unsafe_allow_html=True)
+
+            # 🔥 V45 预警雷达：空转检测
+            if st.session_state.generated_code:
+                if 'Signal' not in df.columns:
+                    st.warning("⚠️ **预警雷达拦截**：AI 军师未能成功建立买卖阵地 (缺少 Signal 列)。建议重新下达明确指令！")
+                elif df['Signal'].abs().sum() == 0:
+                    st.warning(
+                        "⚠️ **预警雷达拦截**：AI 军师制定的策略条件【过于苛刻】，在您选定的这段历史时间内，【未触发任何一次买卖操作】！因此图表上无信号点，收益率为 0.00%。您可以尝试放宽策略条件重新生成。")
 
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
 
