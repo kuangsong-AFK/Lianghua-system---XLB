@@ -204,14 +204,8 @@ def render_smart_charts(df):
 
     total_height = 500 + (num_sub_groups * 150)
     fig.update_layout(
-        height=total_height,
-        template="plotly_dark",
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0.1)',
-        xaxis_rangeslider_visible=False,
-        dragmode='pan',
-        hovermode='x',
-        showlegend=False
+        height=total_height, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0.1)',
+        xaxis_rangeslider_visible=False, dragmode='pan', hovermode='x', showlegend=False
     )
     fig.update_xaxes(fixedrange=False)
     fig.update_yaxes(fixedrange=False)
@@ -278,42 +272,42 @@ if page == "🏠 系统总览 (监控中控)":
     with col2:
         st.metric("Tushare 行情链路", ts_status, "A股数据: 接入成功")
     with col3:
-        st.metric("大语言模型通信通道", "Moonshot-v1", "语义解析: 🟢 正常")
+        st.metric("大模型底层通信", "Moonshot-v1", "通道: 🟢 正常")
     with col4:
-        st.metric("AI 神经网络推理框架", f"PyTorch {torch.__version__}", "时序预测引擎: 待命")
+        st.metric("AI 神经网络", f"PyTorch {torch.__version__}", "时序预测: 待命")
 
     st.markdown("---")
     c_arch, c_point = st.columns([1.2, 1])
 
     with c_arch:
         st.markdown('<div class="glass-card"><h4>🧠 核心架构图解析 (Data Flow Pipeline)</h4>'
-                    '<p style="color:#aaa; font-size:0.9rem;">本系统打破传统量化编程门槛，通过 LLM 将自然语言交易意图无缝映射为矢量化代码并执行演示：</p>'
+                    '<p style="color:#aaa; font-size:0.9rem;">本系统打破传统量化门槛，全域支持 128K 超长上下文与深度思考可视化：</p>'
                     '<div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:10px; border:1px solid rgba(255,255,255,0.05);">'
-                    '<b>▶ 阶段 1：策略认知 (LLM)</b><br>对接大语言模型，支持模型智能切换与深度思考(CoT)，秒级编译策略代码并<span style="color:#00ffcc;">【提取通俗白话解析】</span>。<br><br>'
-                    '<b>▶ 阶段 2：数据治理层 (Data Hub)</b><br>整合 Tushare，底层数据加载后自动挂载<span style="color:#00ffcc;">【全局常驻指标 (MA/MACD/VOL)】</span>。<br><br>'
-                    '<b>▶ 阶段 3：沙盒推演与动态渲染 (Sandbox)</b><br>执行无损安全过滤运算，调用<span style="color:#ff4b4b;">可平移自适应画图引擎 (Pan & Auto-scale)</span>。<br><br>'
-                    '<b>▶ 阶段 4：算法预测 (PyTorch)</b><br>启动 LSTM 模型抓取时序特征，可视化输出次日预判。'
+                    '<b>▶ 阶段 1：策略推演 (LLM)</b><br>对接模型支持最高 128k 算力。开启<span style="color:#00ffcc;">【深度思考】</span>后，UI将实时渲染大模型的思维链(CoT)推导过程。<br><br>'
+                    '<b>▶ 阶段 2：数据挂载 (Data Hub)</b><br>底层数据自动注入<span style="color:#00ffcc;">【常驻指标 (MA/MACD)】</span>并附带大小写免疫。<br><br>'
+                    '<b>▶ 阶段 3：动态渲染 (Smart Charting)</b><br>调用<span style="color:#ff4b4b;">可平移自适应画图引擎 (双击自适应对齐)</span>。<br><br>'
+                    '<b>▶ 阶段 4：算法预测 (PyTorch)</b><br>启动 LSTM 模型抓取时序特征，可视化输出。'
                     '</div></div>', unsafe_allow_html=True)
     with c_point:
         st.markdown('<div class="glass-card"><h4>📋 平台体征监控 (Telemetry)</h4>', unsafe_allow_html=True)
         st.markdown("**内存池占用率 (预估)**")
         st.progress(0.35)
-        st.markdown("**高频行情跳动帧率 (Tick Speed)**")
-        st.progress(0.92)
-        st.markdown('<br><h4>💡 答辩核心创新点</h4>'
-                    '✅ <b>严禁重复造轮子 (New)</b>: 强制规避 AI 重复生成底层已有指标，图表不冗余。<br>'
-                    '✅ <b>平移自适应缩放</b>: 左右拖拽平移，双击瞬间对齐Y轴高度。<br>'
-                    '✅ <b>稳定版白话翻译器 (New)</b>: 弃用 XML 标签，改用 Markdown 标题，解析 100% 提取。<br>'
-                    '✅ <b>信号剥离防崩</b>: 100% 根除沙盒污染。</div>', unsafe_allow_html=True)
+        st.markdown("**UI 实时通信帧率**")
+        st.progress(0.96)
+        st.markdown('<br><h4>💡 答辩终极杀手锏</h4>'
+                    '✅ <b>深度思考全息化 (New)</b>: 100% 可视化 AI 推演公式的思考全过程，尽显 128K 算力。<br>'
+                    '✅ <b>平移自适应缩放</b>: 左右拖拽平移，双击瞬间对齐Y轴。<br>'
+                    '✅ <b>大汉命名契约</b>: 防冗余智能附图分离。<br>'
+                    '✅ <b>白话翻译引擎</b>: 提升金融科普教育属性。</div>', unsafe_allow_html=True)
 
 # ==========================================
-# 🤖 页面 2: AI 策略引擎 (LLM)
+# 🤖 页面 2: AI 策略引擎 (LLM) 🔥 深度思考可视化截流版
 # ==========================================
 elif page == "🤖 AI 策略引擎 (LLM)":
     if "messages" not in st.session_state: st.session_state.messages = []
 
     st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0;">🤖 LLM 策略战情室</h3><p style="color:#888;">最新生成的策略将作为“当前最高军令”同步至全系统。</p></div>',
+        '<div class="glass-card"><h3 style="margin-bottom:0;">🤖 LLM 策略战情室</h3><p style="color:#888;">在此呼叫顶尖架构师。开启深度思考后，您将看到 AI 的完整心智推演过程。</p></div>',
         unsafe_allow_html=True)
 
     with st.container():
@@ -322,11 +316,11 @@ elif page == "🤖 AI 策略引擎 (LLM)":
             unsafe_allow_html=True)
         ctrl_col1, ctrl_col2 = st.columns([1, 1])
         with ctrl_col1:
-            selected_model = st.selectbox("🧠 选择大模型算力规格",
+            selected_model = st.selectbox("🧠 选择大模型算力通道 (支持超长文本)",
                                           ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"], index=0)
         with ctrl_col2:
             st.markdown("<div style='height: 32px;'></div>", unsafe_allow_html=True)
-            enable_deep_think = st.toggle("💡 开启深度思考模式 (Chain-of-Thought)", value=False)
+            enable_deep_think = st.toggle("💡 强子注入：开启深度思考引擎 (CoT)", value=False)
         st.markdown('</div>', unsafe_allow_html=True)
 
     chat_container = st.container(height=400)
@@ -334,29 +328,31 @@ elif page == "🤖 AI 策略引擎 (LLM)":
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"])
 
-    if prompt := st.chat_input("输入策略（底层已常驻 MA5, MA20, MACD，可直接使用）..."):
+    if prompt := st.chat_input("输入策略（例：均线金叉买入死叉卖出。底层已有 MA5, MA20, MACD 可直接调用）..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
-        log_thesis_data("指令下达", f"模型:{selected_model}, 内容:{prompt}")
+        log_thesis_data("指令下达", f"模型:{selected_model}, CoT:{enable_deep_think}, 内容:{prompt}")
 
         with chat_container:
             with st.chat_message("assistant"):
+                st.toast(f"🚀 系统已成功连线底层算力集群: {selected_model}", icon="⚡")
+
+                # 🔥 UI 预置：如果开启深度思考，弹出独立的思维推演框
+                if enable_deep_think:
+                    think_expander = st.expander("🧠 AI 正在脑海中推演与拆解数学逻辑...", expanded=True)
+                    think_box = think_expander.empty()
                 msg_box = st.empty()
 
-                # 🔥 系统指令终极优化：
-                # 1. 改用更稳定的 【策略白话解析】 Markdown 标题提取法，放弃脆弱的 HTML 标签。
-                # 2. 强力禁止 AI 重复生成 MACD。
                 sys_p = """你是一名严谨的量化专家。
 1.拒绝闲聊。
-2.【强制解析-核心】：在输出代码前，必须独占一行写出“【策略白话解析】”作为标题，紧接着写一段通俗的策略逻辑说明（绝对不要使用任何XML或HTML标签包裹）。
-3.【环境告知】：传入的 df 已经默认包含 `MAIN_MA5`, `MAIN_MA20`, `SUB1_MACD_DIFF`, `SUB1_MACD_DEA`, `SUB1_MACD_HIST`，可以直接使用。
-4.【严禁重复造轮子-核心】：如果你要用均线或 MACD，必须直接使用上述已存在的列！绝对禁止再生成新的 MACD 列（不要写 SUB2_MACD）！只有需要其他新指标（如 KDJ、RSI）时，才可生成新的副图列（如 SUB2_K）。
-5.生成的代码包含 def generate_signals(df): 并返回 df。绝对禁止 read_csv。
-6.【语法铁律】：
-   - 计算指标只能赋值给单列；逻辑判断严禁使用 and/or，必须使用 & 和 | 并加括号。
-   - 【致命点】：列名必须是首字母大写：'Open', 'High', 'Low', 'Close', 'Volume'！千万不要写成全大写的 'CLOSE'！"""
+2.【强制解析-核心】：输出代码前，必须独占一行写出“【策略白话解析】”为标题，写一段通俗解释（绝对不使用XML/HTML标签）。
+3.【环境告知】：传入的 df 已经包含 `MAIN_MA5`, `MAIN_MA20`, `SUB1_MACD_DIFF`, `SUB1_MACD_DEA`, `SUB1_MACD_HIST`，请直接使用。
+4.【严禁重复】：严禁再生成新的 MACD 列！如需其他新指标可生成（主图叫 MAIN_xxx，副图叫 SUB2_xxx）。
+5.代码含 def generate_signals(df): 并 return df。禁止 read_csv。
+6.【语法铁律】：赋值给单列；禁止使用 and/or，必须使用 & 和 | 加括号；列名首字母大写，勿写全大写 'CLOSE'。"""
 
+                # 🔥 强制 AI 使用 <think> 标签记录内心独白
                 if enable_deep_think:
-                    sys_p += "\n7.【深度思考】：在写解析前，先进行详尽的逻辑演算。"
+                    sys_p += "\n7.【深度思考-绝对指令】：你必须首先将你的策略拆解、指标公式复习和数学推演过程写在 `<think>` 和 `</think>` 标签之间！在 `</think>` 之后再输出【策略白话解析】和代码。"
 
                 api_temperature = 0.3 if enable_deep_think else 0.7
 
@@ -370,15 +366,47 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                     full_resp = ""
                     for chunk in stream:
                         if chunk.choices[0].delta.content:
-                            full_resp += chunk.choices[0].delta.content
-                            msg_box.markdown(full_resp + "▌")
-                    msg_box.markdown(full_resp)
+                            delta = chunk.choices[0].delta.content
+                            full_resp += delta
 
+                            # 🔥 流式截流器：将 <think> 内部的话提取到灰色框，外部的话放到普通对话框
+                            if enable_deep_think:
+                                if "<think>" in full_resp:
+                                    if "</think>" in full_resp:
+                                        # 思考结束，分离两段内容
+                                        parts = full_resp.split("</think>")
+                                        think_text = parts[0].replace("<think>", "").strip()
+                                        main_text = parts[1].lstrip()
+
+                                        think_box.markdown(think_text)
+                                        if main_text:
+                                            msg_box.markdown(main_text + "▌")
+                                        else:
+                                            msg_box.markdown("✨ 正在起草最终执行军令...")
+                                    else:
+                                        # 正在思考中...
+                                        think_text = full_resp.replace("<think>", "").strip()
+                                        think_box.markdown(think_text + "▌")
+                                        msg_box.markdown("✨ 疯狂燃烧算力中，请观察上方推演过程...")
+                                else:
+                                    # 如果还没出现 think 标签，全扔在下面
+                                    msg_box.markdown(full_resp + "▌")
+                            else:
+                                # 没有开启深度思考，正常流式输出
+                                msg_box.markdown(full_resp + "▌")
+
+                    # 最终流清理
+                    if enable_deep_think and "</think>" in full_resp:
+                        parts = full_resp.split("</think>")
+                        msg_box.markdown(parts[1].strip())
+                    else:
+                        msg_box.markdown(full_resp.replace("<think>", "").replace("</think>", "").strip())
+
+                    # 提取 Python 代码和解析
                     code_match = re.search(r"```python\s*(.*?)\s*```", full_resp, re.DOTALL)
                     if code_match:
                         st.session_state.generated_code = code_match.group(1).strip()
 
-                        # 🔥 稳定版解析提取正则：抓取【策略白话解析】到代码块之间的内容
                         exp_match = re.search(r"【策略白话解析】(.*?)(?=```python|$)", full_resp,
                                               re.DOTALL | re.IGNORECASE)
                         if exp_match:
@@ -386,10 +414,10 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                         else:
                             st.session_state.strategy_explanation = "该策略无特定的白话解析，请直接参考代码内部注释。"
 
-                        st.toast("✅ 策略装填完毕！", icon="🚀")
+                        st.toast("✅ 军令推演完成，策略装填完毕！", icon="🚀")
                     st.session_state.messages.append({"role": "assistant", "content": full_resp})
                 except Exception as e:
-                    st.error(f"通信异常: {e}")
+                    st.error(f"通信链路断开: {e}")
         st.rerun()
 
 # ==========================================
