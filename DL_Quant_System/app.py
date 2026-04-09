@@ -85,32 +85,24 @@ st.markdown("""
 # ==========================================
 # 3. 核心工具函数与审计系统
 # ==========================================
-def apply_dual_column_armor(df):
+def apply_triple_column_armor(df):
+    """🔥 终极三位一体装甲：同时兼容小写、首字母大写、全大写"""
     mapping = {'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'vol': 'Volume', 'amount': 'Amount'}
     for low, up in mapping.items():
+        # 1. 补齐首字母大写
         if low in df.columns and up not in df.columns: df[up] = df[low]
         if up in df.columns and low not in df.columns: df[low] = df[up]
-    return df
 
+        # 2. 补齐全大写 (应对 AI 的全大写幻觉)
+        all_caps = up.upper()
+        if up in df.columns and all_caps not in df.columns: df[all_caps] = df[up]
+        if all_caps in df.columns and up not in df.columns: df[up] = df[all_caps]
 
-# 🔥 新增：默认指标挂载函数
-def add_default_indicators(df):
-    """为 DataFrame 默认挂载 MA5, MA20, MACD 指标"""
-    if 'Close' in df.columns:
-        # 主图指标：5日与20日均线
-        df['MAIN_MA5'] = df['Close'].rolling(window=5).mean()
-        df['MAIN_MA20'] = df['Close'].rolling(window=20).mean()
-
-        # 副图1指标：MACD
-        exp1 = df['Close'].ewm(span=12, adjust=False).mean()
-        exp2 = df['Close'].ewm(span=26, adjust=False).mean()
-        df['SUB1_MACD_DIFF'] = exp1 - exp2
-        df['SUB1_MACD_DEA'] = df['SUB1_MACD_DIFF'].ewm(span=9, adjust=False).mean()
-        df['SUB1_MACD_HIST'] = 2 * (df['SUB1_MACD_DIFF'] - df['SUB1_MACD_DEA'])
     return df
 
 
 def execute_safely(code, df):
+    """终极沙盒执行器：代码消毒 + 万能函数捕捉"""
     safe_code = code.replace("pd.np", "np")
     sandbox_env = {"pd": pd, "np": np, "math": math}
     l_vars = {}
@@ -127,94 +119,6 @@ def execute_safely(code, df):
             raise ValueError("AI 军师未能生成任何有效的方法函数！")
 
     return func_to_call(df)
-
-
-# 🔥 画图引擎升级：自适应交互配置
-def render_smart_charts(df):
-    # 1. 扫描并分拣列名
-    main_indicators = []
-    sub_groups = {}
-
-    for col in df.columns:
-        if col.startswith('MAIN_'):
-            main_indicators.append(col)
-        elif col.startswith('SUB'):
-            match = re.match(r'^SUB(\d+)_', col)
-            if match:
-                group_id = match.group(1)
-                if group_id not in sub_groups:
-                    sub_groups[group_id] = []
-                sub_groups[group_id].append(col)
-
-    num_sub_groups = len(sub_groups)
-    total_rows = 2 + num_sub_groups  # 1主图 + 1成交量 + N个副图
-
-    # 2. 动态分配高度
-    main_height = 0.5
-    vol_height = 0.15
-    remaining_height = 1.0 - main_height - vol_height
-    row_heights = [main_height, vol_height]
-    if num_sub_groups > 0:
-        sub_height = remaining_height / num_sub_groups
-        row_heights.extend([sub_height] * num_sub_groups)
-
-    fig = make_subplots(rows=total_rows, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=row_heights)
-
-    # --- Row 1: K 线与 MAIN_ ---
-    fig.add_trace(go.Candlestick(
-        x=df['trade_date'], open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name='K线',
-        increasing_line_color='#FD1050', increasing_fillcolor='#FD1050', decreasing_line_color='#00FF00',
-        decreasing_fillcolor='#00FF00'
-    ), row=1, col=1)
-
-    overlay_colors = ['#FFFF00', '#FF00FF', '#FFFFFF', '#00FFFF', '#FFA500']
-    for i, col in enumerate(main_indicators):
-        fig.add_trace(go.Scatter(x=df['trade_date'], y=df[col], name=col.replace('MAIN_', ''),
-                                 line=dict(width=1.2, color=overlay_colors[i % len(overlay_colors)])), row=1, col=1)
-
-    if 'Signal' in df.columns:
-        buys = df[df['Signal'] == 1]
-        sells = df[df['Signal'] == -1]
-        fig.add_trace(go.Scatter(x=buys['trade_date'], y=buys['Low'] * 0.95, mode='markers',
-                                 marker=dict(symbol='triangle-up', size=14, color='#00FFFF',
-                                             line=dict(width=1, color='white')), name='买入'), row=1, col=1)
-        fig.add_trace(go.Scatter(x=sells['trade_date'], y=sells['High'] * 1.05, mode='markers',
-                                 marker=dict(symbol='triangle-down', size=14, color='#FF00FF',
-                                             line=dict(width=1, color='white')), name='卖出'), row=1, col=1)
-
-    # --- Row 2: 成交量 ---
-    if 'Volume' in df.columns:
-        vol_colors = np.where(df['Close'] >= df['Open'], '#FD1050', '#00FF00')
-        fig.add_trace(go.Bar(x=df['trade_date'], y=df['Volume'], name='成交量', marker_color=vol_colors, opacity=0.8),
-                      row=2, col=1)
-
-    # --- Row 3+: 动态 SUB_ 副图 ---
-    sub_colors = ['#00FFFF', '#FF00FF', '#FFFF00', '#FFFFFF']
-    current_row = 3
-    for group_id in sorted(sub_groups.keys(), key=int):
-        cols_in_group = sub_groups[group_id]
-        for i, col in enumerate(cols_in_group):
-            if 'HIST' in col.upper() or (
-                    'MACD' in col.upper() and 'DIFF' not in col.upper() and 'DEA' not in col.upper() and 'SIGNAL' not in col.upper()):
-                hist_colors = np.where(df[col] >= 0, '#FD1050', '#00FF00')
-                fig.add_trace(go.Bar(x=df['trade_date'], y=df[col], name=col.replace(f'SUB{group_id}_', ''),
-                                     marker_color=hist_colors), row=current_row, col=1)
-            else:
-                fig.add_trace(go.Scatter(x=df['trade_date'], y=df[col], name=col.replace(f'SUB{group_id}_', ''),
-                                         line=dict(width=1.2, color=sub_colors[i % len(sub_colors)])), row=current_row,
-                              col=1)
-        current_row += 1
-
-    total_height = 500 + (num_sub_groups * 150)
-    # 🔥 核心升级：dragmode='x' 实现框选自动 Y 轴缩放自适应
-    fig.update_layout(height=total_height, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
-                      plot_bgcolor='rgba(0,0,0,0.1)',
-                      xaxis_rangeslider_visible=False, dragmode='x', hovermode='x unified', showlegend=False)
-
-    # 解除 Y 轴锁定，使其能在框选时自适应
-    fig.update_yaxes(fixedrange=False)
-
-    return fig
 
 
 def log_thesis_data(action, detail):
@@ -288,8 +192,8 @@ if page == "🏠 系统总览 (监控中控)":
                     '<p style="color:#aaa; font-size:0.9rem;">本系统打破传统量化编程门槛，通过 LLM 将自然语言交易意图无缝映射为矢量化代码并执行演示：</p>'
                     '<div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:10px; border:1px solid rgba(255,255,255,0.05);">'
                     '<b>▶ 阶段 1：策略认知 (LLM)</b><br>对接大语言模型，支持模型智能切换与深度思考(CoT)，秒级编译策略代码并<span style="color:#00ffcc;">【提取通俗白话解析】</span>。<br><br>'
-                    '<b>▶ 阶段 2：数据治理层 (Data Hub)</b><br>整合 Tushare，底层数据加载后自动挂载<span style="color:#00ffcc;">【全局常驻指标 (MA/MACD/VOL)】</span>。<br><br>'
-                    '<b>▶ 阶段 3：沙盒推演与动态渲染 (Sandbox)</b><br>执行无损安全过滤运算，调用<span style="color:#ff4b4b;">自适应画图引擎 (框选即缩放)</span>。<br><br>'
+                    '<b>▶ 阶段 2：数据治理层 (Data Hub)</b><br>整合 Tushare 商业接口，实现大小写<span style="color:#00ffcc;">【三位一体装甲兜底】</span>与代码自动消毒。<br><br>'
+                    '<b>▶ 阶段 3：沙盒推演与剥离 (Sandbox)</b><br>基于<span style="color:#ff4b4b;">【信号强制剥离】与【万能函数捕捉】</span>技术，彻底防止页面熔断崩溃。<br><br>'
                     '<b>▶ 阶段 4：算法预测 (PyTorch)</b><br>启动 LSTM 模型抓取时序特征，可视化输出次日预判。'
                     '</div></div>', unsafe_allow_html=True)
     with c_point:
@@ -299,13 +203,13 @@ if page == "🏠 系统总览 (监控中控)":
         st.markdown("**高频行情跳动帧率 (Tick Speed)**")
         st.progress(0.92)
         st.markdown('<br><h4>💡 答辩核心创新点</h4>'
-                    '✅ <b>默认常驻指标 (New)</b>: 底层数据自动绑定均线与MACD，无需重复生成。<br>'
-                    '✅ <b>K线自适应缩放 (New)</b>: 框选指定时间段，Y轴自动缩放到该区间的最高/最低价。<br>'
-                    '✅ <b>语法铁律防呆</b>: 彻底阻断 AI 赋值引发的 DataFrame 崩溃。<br>'
-                    '✅ <b>信号剥离防崩</b>: 100% 根除崩溃熔断。</div>', unsafe_allow_html=True)
+                    '✅ <b>LLM 白话翻译机</b>: 策略逻辑动态解释与可视化。<br>'
+                    '✅ <b>语法铁律三重防呆</b>: 彻底阻断 AI 错误列名(如CLOSE)、多列赋值引发的异常。<br>'
+                    '✅ <b>高频沙盘引擎</b>: 突破物理限制演示交易流。<br>'
+                    '✅ <b>信号剥离防崩机制</b>: 100% 根除崩溃熔断。</div>', unsafe_allow_html=True)
 
 # ==========================================
-# 🤖 页面 2: AI 策略引擎 (LLM)
+# 🤖 页面 2: AI 策略引擎 (🔥 语法铁律 V35 终极版)
 # ==========================================
 elif page == "🤖 AI 策略引擎 (LLM)":
     if "messages" not in st.session_state: st.session_state.messages = []
@@ -332,7 +236,7 @@ elif page == "🤖 AI 策略引擎 (LLM)":
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"])
 
-    if prompt := st.chat_input("输入策略（底层已常驻 MA5, MA20, SUB1_MACD_DIFF/DEA/HIST）..."):
+    if prompt := st.chat_input("输入策略（如：20日均线金叉买入，禁用无关闲聊）..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
         log_thesis_data("指令下达", f"模型:{selected_model}, 内容:{prompt}")
 
@@ -340,17 +244,17 @@ elif page == "🤖 AI 策略引擎 (LLM)":
             with st.chat_message("assistant"):
                 msg_box = st.empty()
 
-                # 🔥 系统指令：告知 AI 底层已有常驻指标，可以直接用
+                # 🔥 系统指令：新增多条件逻辑符号铁律 + 严格规范列名大小写
                 sys_p = """你是一名严谨的量化专家。
-1.拒绝闲聊。
-2.【强制解析】：生成代码前，用 `<策略解析>` 标签包裹一段通俗的策略白话解释。
-3.【环境告知】：传入的 df 已经默认包含 `MAIN_MA5`, `MAIN_MA20`, `SUB1_MACD_DIFF`, `SUB1_MACD_DEA`, `SUB1_MACD_HIST`，你可以直接使用它们进行条件判断。
-4.如果你需要生成新指标，重叠主图的叫 `MAIN_xxx`，副图叫 `SUB2_xxx`。
-5.生成的代码包含 def generate_signals(df): 并返回 df。绝对禁止 read_csv。
-6.【语法铁律】：计算指标只能赋值给单列；逻辑判断严禁使用 and/or，必须使用 & 和 | 并加括号。"""
+1.拒绝任何与金融量化无关的闲聊。
+2.【强制指令】：在生成代码之前，必须使用 `<策略解析>` 和 `</策略解析>` 标签包裹一段通俗易懂的策略白话解释，告诉小白该策略的买卖逻辑。
+3.生成的代码必须包含 def generate_signals(df): 并返回 df。绝对禁止读取任何本地文件。
+4.【强制列名】：必须且只能使用精确的首字母大写列名：'Open', 'High', 'Low', 'Close', 'Volume'（切勿使用全大写如CLOSE！）。绝对禁止使用 pd.np，请用 np。
+5.【语法铁律1】：计算指标时只能赋值给一维单列，如 df['Close'].rolling(5).mean()，禁止使用 df[['Close']]。
+6.【语法铁律2】：在进行 Pandas 多条件判断时，绝对禁止使用 Python 的 `and` 或 `or`！必须使用 `&` 和 `|`，且每个单一条件必须用括号 `()` 包裹！"""
 
                 if enable_deep_think:
-                    sys_p += "\n7.【深度思考】：在标签内解释时，需进行详尽的逻辑演算。"
+                    sys_p += "\n7.【深度思考】：在标签内解释时，需进行详尽的分步逻辑演算。"
 
                 api_temperature = 0.3 if enable_deep_think else 0.7
 
@@ -378,7 +282,7 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                         else:
                             st.session_state.strategy_explanation = "该策略无特定的白话解析，请直接参考代码内部注释。"
 
-                        st.toast("✅ 策略装填完毕！", icon="🚀")
+                        st.toast("✅ 策略与三重防御军令已装填！", icon="🚀")
                     st.session_state.messages.append({"role": "assistant", "content": full_resp})
                 except Exception as e:
                     st.error(f"通信异常: {e}")
@@ -395,50 +299,45 @@ elif page == "📈 深度静态全量回测":
         raw_code = st.text_input("🎯 回测标的代码", value="000001")
         ts_code = format_ts_code(raw_code)
         adj = st.selectbox("⚖️ 复权模式", ["qfq (前复权)", "hfq (后复权)", "None (不复权)"])
+        y_mode = st.radio("📏 Y轴自适应缩放", ["开启", "关闭"])
 
-        # 移除了 y_mode 按钮，因为我们现在使用了全局最优解的 dragmode='x'
-        st.info("💡 绘图提示：在右侧图表中按住鼠标**横向拉框选区**，Y轴将自动适应选中区域。双击图表即可还原。")
+        if st.session_state.generated_code:
+            if st.button("🚀 启动全量归因回测", use_container_width=True, type="primary"):
+                with st.spinner("正在调度数据并安全执行沙盒..."):
+                    try:
+                        adj_p = adj.split(" ")[0] if adj != "None" else None
+                        df = ts.pro_bar(ts_code=ts_code, adj=adj_p, start_date='20220101')
+                        df = df.sort_values('trade_date').reset_index(drop=True)
+                        df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
 
-        if st.button("🚀 启动全量归因回测", use_container_width=True, type="primary"):
-            # 无论是否有策略代码，都可以先看默认底图
-            with st.spinner("正在调度数据并挂载常驻指标..."):
-                try:
-                    adj_p = adj.split(" ")[0] if adj != "None" else None
-                    df = ts.pro_bar(ts_code=ts_code, adj=adj_p, start_date='20220101')
-                    df = df.sort_values('trade_date').reset_index(drop=True)
-                    df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
-                    df = apply_dual_column_armor(df)
+                        # 🔥 三重战前装甲 (确保进入沙盒前大小写全部存在)
+                        df = apply_triple_column_armor(df)
 
-                    # 🔥 挂载系统常驻指标 (默认生成 5/20均线 和 MACD)
-                    df = add_default_indicators(df)
+                        df_safe = df.copy()
 
-                    df_safe = df.copy()
-
-                    if st.session_state.generated_code:
                         df_ai = execute_safely(st.session_state.generated_code, df)
-                        for col in df_ai.columns:
-                            if col == 'Signal' or col.startswith('MAIN_') or col.startswith('SUB'):
-                                df_safe[col] = df_ai[col]
+                        df_safe['Signal'] = df_ai['Signal'] if 'Signal' in df_ai.columns else 0
+                        df = df_safe
 
-                    df = df_safe
+                        df['Ret'] = df['Close'].pct_change()
+                        df['Pos'] = df['Signal'].replace(0, np.nan).ffill().fillna(0)
+                        df['Strat_Ret'] = df['Pos'].shift(1) * df['Ret']
+                        df['Cum_Prod'] = (1 + df['Strat_Ret'].fillna(0)).cumprod()
 
-                    df['Ret'] = df['Close'].pct_change()
-                    df['Pos'] = df['Signal'].replace(0, np.nan).ffill().fillna(0) if 'Signal' in df.columns else 0
-                    df['Strat_Ret'] = df['Pos'].shift(1) * df['Ret']
-                    df['Cum_Prod'] = (1 + df['Strat_Ret'].fillna(0)).cumprod()
+                        total_ret = (df['Cum_Prod'].iloc[-1] - 1)
+                        annual_ret = (1 + total_ret) ** (252 / max(1, len(df))) - 1
+                        max_dd = (df['Cum_Prod'] / df['Cum_Prod'].cummax() - 1).min()
+                        volatility = df['Strat_Ret'].std() * np.sqrt(252)
+                        sharpe = annual_ret / volatility if volatility != 0 and pd.notnull(volatility) else 0
 
-                    total_ret = (df['Cum_Prod'].iloc[-1] - 1)
-                    annual_ret = (1 + total_ret) ** (252 / max(1, len(df))) - 1
-                    max_dd = (df['Cum_Prod'] / df['Cum_Prod'].cummax() - 1).min()
-                    volatility = df['Strat_Ret'].std() * np.sqrt(252)
-                    sharpe = annual_ret / volatility if volatility != 0 and pd.notnull(volatility) else 0
-
-                    st.session_state.bt_result = {"df": df, "code": ts_code, "metrics": {
-                        "total": total_ret, "annual": annual_ret, "max_dd": max_dd, "sharpe": sharpe
-                    }}
-                except Exception as e:
-                    st.error(f"沙盒异常拦截: {e}")
-                    log_thesis_data("沙盒引擎拦截", str(e))
+                        st.session_state.bt_result = {"df": df, "code": ts_code, "metrics": {
+                            "total": total_ret, "annual": annual_ret, "max_dd": max_dd, "sharpe": sharpe
+                        }, "y_mode": y_mode}
+                    except Exception as e:
+                        st.error(f"沙盒异常拦截: {e}")
+                        log_thesis_data("沙盒引擎拦截", str(e))
+        else:
+            st.warning("战情室未生成策略军令。")
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col_r:
@@ -462,12 +361,30 @@ elif page == "📈 深度静态全量回测":
 
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
 
-            if st.session_state.generated_code:
-                with st.expander("💡 点击展开：AI 策略底层执行逻辑白话解析", expanded=False):
-                    st.markdown(st.session_state.strategy_explanation)
+            # 🔥 UI 植入：白话解析折叠框
+            with st.expander("💡 点击展开：AI 策略底层执行逻辑白话解析", expanded=False):
+                st.markdown(st.session_state.strategy_explanation)
 
-            # 🔥 调用中央画图引擎
-            fig = render_smart_charts(df)
+            fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.7, 0.3])
+            fig.add_trace(
+                go.Candlestick(x=df['trade_date'], open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
+                               name='K线'), row=1, col=1)
+            fig.add_trace(go.Scatter(x=df['trade_date'], y=df['Cum_Prod'], name='净值', fill='tozeroy',
+                                     line=dict(color='#00ffcc')), row=2, col=1)
+
+            if 'Signal' in df.columns:
+                buys = df[df['Signal'] == 1]
+                sells = df[df['Signal'] == -1]
+                fig.add_trace(go.Scatter(x=buys['trade_date'], y=buys['Low'] * 0.95, mode='markers',
+                                         marker=dict(symbol='triangle-up', size=14, color='#00FFFF',
+                                                     line=dict(width=1, color='white')), name='买入信号'), row=1, col=1)
+                fig.add_trace(go.Scatter(x=sells['trade_date'], y=sells['High'] * 1.05, mode='markers',
+                                         marker=dict(symbol='triangle-down', size=14, color='#FF00FF',
+                                                     line=dict(width=1, color='white')), name='卖出信号'), row=1, col=1)
+
+            fig.update_layout(height=600, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
+                              plot_bgcolor='rgba(0,0,0,0.1)', xaxis_rangeslider_visible=False, dragmode='pan')
+            if st.session_state.bt_result["y_mode"] == "开启": fig.update_yaxes(autorange=True, row=1, col=1)
             st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -481,7 +398,6 @@ elif page == "⚡ 实时高频交易 (Live)":
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         live_code = st.text_input("🎯 动态推送标的", value="000001")
         freq = st.slider("⏱️ 行情跳动间隔 (秒)", 0.1, 2.0, 0.5)
-        st.info("💡 横向框选 K 线图可放大特定区域，Y轴将自适应高度。")
         st.button("▶️ 开启高频推演", on_click=lambda: st.session_state.update({"is_live_trading": True}),
                   type="primary")
         st.button("⏹️ 强行停止", on_click=lambda: st.session_state.update({"is_live_trading": False}))
@@ -489,9 +405,9 @@ elif page == "⚡ 实时高频交易 (Live)":
     with c_chart:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
 
-        if st.session_state.generated_code:
-            with st.expander("💡 当前加载军令：点击展开策略白话解析", expanded=False):
-                st.markdown(st.session_state.strategy_explanation)
+        # 🔥 UI 植入：白话解析折叠框
+        with st.expander("💡 当前加载军令：点击展开策略白话解析", expanded=False):
+            st.markdown(st.session_state.strategy_explanation)
 
         met_ph = st.empty();
         cht_ph = st.empty()
@@ -503,24 +419,18 @@ elif page == "⚡ 实时高频交易 (Live)":
             for i in range(20, len(stream)):
                 if not st.session_state.is_live_trading: break
 
-                sub = apply_dual_column_armor(stream.iloc[:i].copy())
-                # 挂载默认指标
-                sub = add_default_indicators(sub)
+                # 🔥 三重战前装甲
+                sub = apply_triple_column_armor(stream.iloc[:i].copy())
                 sub_safe = sub.copy()
-
                 try:
-                    if st.session_state.generated_code:
-                        sub_ai = execute_safely(st.session_state.generated_code, sub)
-                        for col in sub_ai.columns:
-                            if col == 'Signal' or col.startswith('MAIN_') or col.startswith('SUB'):
-                                sub_safe[col] = sub_ai[col]
+                    sub_ai = execute_safely(st.session_state.generated_code, sub)
 
+                    sub_safe['Signal'] = sub_ai['Signal'] if 'Signal' in sub_ai.columns else 0
                     sub = sub_safe
 
                     sub['Ret'] = sub['Close'].pct_change()
-                    sig_val = sub['Signal'].iloc[-1] if 'Signal' in sub.columns else 0
-                    sub['Cum'] = (1 + (sub['Signal'].shift(1).fillna(0) * sub['Ret'].fillna(
-                        0))).cumprod() if 'Signal' in sub.columns else 1
+                    sig_val = sub['Signal'].iloc[-1]
+                    sub['Cum'] = (1 + (sub['Signal'].shift(1).fillna(0) * sub['Ret'].fillna(0))).cumprod()
 
                     with met_ph.container():
                         c = st.columns(3)
@@ -528,7 +438,23 @@ elif page == "⚡ 实时高频交易 (Live)":
                         c[1].metric("高频信号", "🟢 买入" if sig_val == 1 else "🔴 卖出" if sig_val == -1 else "⚪ 观望")
                         c[2].metric("并发收益率", f"{(sub['Close'].pct_change().iloc[-1] * 100):.2f}%")
 
-                    fig = render_smart_charts(sub)
+                    fig = go.Figure(data=[
+                        go.Candlestick(x=sub['trade_date'], open=sub['Open'], high=sub['High'], low=sub['Low'],
+                                       close=sub['Close'])])
+
+                    buys = sub[sub['Signal'] == 1]
+                    sells = sub[sub['Signal'] == -1]
+                    fig.add_trace(go.Scatter(x=buys['trade_date'], y=buys['Low'] * 0.95, mode='markers',
+                                             marker=dict(symbol='triangle-up', size=14, color='#00FFFF',
+                                                         line=dict(width=1, color='white')), name='自动买入'))
+                    fig.add_trace(go.Scatter(x=sells['trade_date'], y=sells['High'] * 1.05, mode='markers',
+                                             marker=dict(symbol='triangle-down', size=14, color='#FF00FF',
+                                                         line=dict(width=1, color='white')), name='自动卖出'))
+
+                    fig.update_layout(height=450, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
+                                      margin=dict(l=0, r=0, t=0, b=0), xaxis_rangeslider_visible=False, dragmode='pan',
+                                      showlegend=False)
+                    fig.update_yaxes(autorange=True)
                     cht_ph.plotly_chart(fig, use_container_width=True, key=f"live_{i}", config={'scrollZoom': True})
 
                 except Exception as e:
@@ -605,8 +531,7 @@ elif page == "🧠 深度学习预测 (LSTM)":
             fig.add_trace(
                 go.Scatter(x=res['dates'], y=res['pred'], name='LSTM 预测', line=dict(color='#ff00ff', dash='dot')))
             fig.update_layout(height=500, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
-                              plot_bgcolor='rgba(0,0,0,0.1)', dragmode='x', hovermode='x unified')
-            fig.update_yaxes(fixedrange=False)
+                              plot_bgcolor='rgba(0,0,0,0.1)', dragmode='pan')
             st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
             st.markdown('</div>', unsafe_allow_html=True)
 
