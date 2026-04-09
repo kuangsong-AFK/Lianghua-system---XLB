@@ -17,7 +17,8 @@ import torch
 import torch.nn as nn
 from sklearn.preprocessing import MinMaxScaler
 
-# 🔥 终极防呆装甲：强行给 pandas 注入 np，彻底根治 AI 的 pd.np 幻觉！
+# 🔥 终极物理级防呆补丁：强行给全局 pandas 注入 np 属性！
+# 从此以后，AI 随便写 pd.np.where 还是 pd.np.nan，全部合法！绝不报错！
 pd.np = np
 
 # ==========================================
@@ -90,14 +91,31 @@ st.markdown("""
 # 3. 核心工具函数与审计系统
 # ==========================================
 def apply_dual_column_armor(df):
-    mapping = {'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'vol': 'Volume', 'amount': 'Amount'}
-    for low, up in mapping.items():
-        if low in df.columns and up not in df.columns: df[up] = df[low]
-        if up in df.columns and low not in df.columns: df[low] = df[up]
-    for up in mapping.values():
-        all_cap = up.upper()
-        if up in df.columns and all_cap not in df.columns:
-            df[all_cap] = df[up]
+    """🔥 V47 三位一体全域大小写装甲：彻底剿灭 KeyError: 'CLOSE' """
+    mapping_base = {'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'vol': 'Volume', 'amount': 'Amount'}
+
+    for lower_case, camel_case in mapping_base.items():
+        upper_case = camel_case.upper()
+
+        # 寻找存在的数据源
+        src = None
+        if lower_case in df.columns:
+            src = df[lower_case]
+        elif camel_case in df.columns:
+            src = df[camel_case]
+        elif upper_case in df.columns:
+            src = df[upper_case]
+
+        if src is not None:
+            # 强制克隆三份，AI 随便调哪个都不报错
+            df[lower_case] = src
+            df[camel_case] = src
+            df[upper_case] = src
+
+        # 针对 Volume 的特殊处理
+        if lower_case == 'vol' and src is not None:
+            df['VOLUME'] = src
+
     return df
 
 
@@ -114,11 +132,11 @@ def add_default_indicators(df):
 
 
 def execute_safely(code, df):
-    # 彻底替换所有的 pd.np 和 pandas.np 幻觉
-    safe_code = code.replace("pd.np", "np").replace("pandas.np", "np")
-
+    # 双重保险消毒
+    safe_code = code.replace("pandas.np", "np")
     sandbox_env = {"pd": pd, "np": np, "math": math}
     l_vars = {}
+
     exec(safe_code, sandbox_env, l_vars)
 
     func_to_call = None
@@ -133,9 +151,17 @@ def execute_safely(code, df):
 
     df_ai = func_to_call(df)
 
-    # 🔥 V45 自动纠错装甲：AI 若生成了小写的 signal，强行转为大写 Signal
-    if 'signal' in df_ai.columns and 'Signal' not in df_ai.columns:
-        df_ai['Signal'] = df_ai['signal']
+    # 🔥 V47 信号强制归一化装甲：解决 Invalid value for dtype 'int64'
+    sig_col = next((c for c in df_ai.columns if c.lower() == 'signal'), None)
+    if sig_col:
+        # 如果 AI 生成了小写的 signal，强转为大写
+        if sig_col != 'Signal':
+            df_ai['Signal'] = df_ai[sig_col]
+        # 强行截断 0.5 这种浮点数，转为 1, -1, 0，并固定为 int 类型
+        df_ai['Signal'] = df_ai['Signal'].fillna(0).apply(lambda x: 1 if x > 0.1 else (-1 if x < -0.1 else 0)).astype(
+            int)
+    else:
+        df_ai['Signal'] = 0
 
     return df_ai
 
@@ -288,7 +314,7 @@ if page == "🏠 系统总览 (监控中控)":
     with c_arch:
         st.markdown('<div class="glass-card"><h4>🧠 核心架构图解析 (Data Flow Pipeline)</h4>'
                     '<div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:10px; border:1px solid rgba(255,255,255,0.05);">'
-                    '<b>▶ 阶段 1：策略推演 (LLM)</b><br>对接模型支持最高 128k 算力。开启<span style="color:#00ffcc;">【深度思考】</span>后，UI将实时渲染推导过程。<br><br>'
+                    '<b>▶ 阶段 1：策略推演 (LLM)</b><br>对接模型支持最高 128k 算力。<br><br>'
                     '<b>▶ 阶段 2：数据挂载 (Data Hub)</b><br>底层数据自动注入<span style="color:#00ffcc;">【常驻指标 (MA/MACD)】</span>并附带大小写免疫。<br><br>'
                     '<b>▶ 阶段 3：动态渲染 (Smart Charting)</b><br>调用<span style="color:#ff4b4b;">可平移自适应画图引擎 (双击自适应对齐)</span>。<br><br>'
                     '<b>▶ 阶段 4：算法预测 (PyTorch)</b><br>启动 LSTM 模型抓取时序特征，可视化输出。'
@@ -300,8 +326,8 @@ if page == "🏠 系统总览 (监控中控)":
         st.markdown("**UI 实时通信帧率**")
         st.progress(0.96)
         st.markdown('<br><h4>💡 答辩终极杀手锏</h4>'
-                    '✅ <b>空转预警雷达 (New)</b>: 智能侦测策略失效，防止收益 0% 的尴尬。<br>'
-                    '✅ <b>深度思考全息化</b>: 100% 可视化 AI 推演公式的思考全过程。<br>'
+                    '✅ <b>类型强制归一 (New)</b>: 自动剿灭 AI 产生的浮点数买卖信号报错。<br>'
+                    '✅ <b>全局物理补丁</b>: pd.np = np，永久杜绝旧语法崩溃。<br>'
                     '✅ <b>平移自适应缩放</b>: 左右拖拽平移，双击瞬间对齐Y轴。</div>', unsafe_allow_html=True)
 
 # ==========================================
@@ -351,7 +377,10 @@ elif page == "🤖 AI 策略引擎 (LLM)":
 3.【环境告知】：传入的 df 已经包含 `MAIN_MA5`, `MAIN_MA20`, `SUB1_MACD_DIFF`, `SUB1_MACD_DEA`, `SUB1_MACD_HIST`，请直接使用。
 4.【严禁重复】：严禁再生成新的 MACD 列！如需其他新指标可生成（主图叫 MAIN_xxx，副图叫 SUB2_xxx）。
 5.代码含 def generate_signals(df): 并 return df。禁止 read_csv。
-6.【语法铁律】：赋值给单列；禁止使用 and/or，必须使用 & 和 | 加括号；列名首字母大写，勿写全大写 'CLOSE'。"""
+6.【语法铁律】：
+   - 信号列 'Signal' 只能赋值为整数 1, -1 或 0。严禁赋值 0.5 这种浮点数！
+   - 逻辑判断禁止使用 and/or，必须使用 & 和 | 加括号。
+   - 列名首字母大写 'Close'。"""
 
                 if enable_deep_think:
                     sys_p += "\n7.【深度思考-绝对指令】：你必须首先将你的策略拆解、指标公式复习和数学推演过程写在 `<think>` 和 `</think>` 标签之间！在 `</think>` 之后再输出【策略白话解析】和代码。"
@@ -487,13 +516,10 @@ elif page == "📈 深度静态全量回测":
                 f'<div class="metric-box"><p style="margin:0; font-size:0.8rem;">夏普比率</p><h2 style="color:#00ffcc;">{m["sharpe"]:.2f}</h2></div>',
                 unsafe_allow_html=True)
 
-            # 🔥 V45 预警雷达：空转检测
             if st.session_state.generated_code:
-                if 'Signal' not in df.columns:
-                    st.warning("⚠️ **预警雷达拦截**：AI 军师未能成功建立买卖阵地 (缺少 Signal 列)。建议重新下达明确指令！")
-                elif df['Signal'].abs().sum() == 0:
+                if 'Signal' not in df.columns or df['Signal'].abs().sum() == 0:
                     st.warning(
-                        "⚠️ **预警雷达拦截**：AI 军师制定的策略条件【过于苛刻】，在您选定的这段历史时间内，【未触发任何一次买卖操作】！因此图表上无信号点，收益率为 0.00%。您可以尝试放宽策略条件重新生成。")
+                        "⚠️ **预警雷达拦截**：AI 制定的策略条件【过于苛刻】，在该历史行情内【未触发任何买卖操作】，故收益为 0.00%。请放宽条件重新生成。")
 
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
 
