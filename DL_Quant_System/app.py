@@ -20,7 +20,7 @@ from sklearn.preprocessing import MinMaxScaler
 # ==========================================
 # 1. 初始化与核心兵符
 # ==========================================
-st.set_page_config(page_title="小吕布量化 Pro - 毕设版", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="小吕布量化 Pro - 契约标准版", layout="wide", initial_sidebar_state="expanded")
 
 KIMI_API_KEY = "sk-yS2foVgWtvnFMWKRTLnI6l8NFqFrRiB8ojre75g2mK2P8LBk"
 TUSHARE_TOKEN = "ba486af7606bc2f6018f1d592251a49674132225f59d37b3473d676e"
@@ -29,10 +29,9 @@ ts.set_token(TUSHARE_TOKEN)
 pro = ts.pro_api()
 client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=30.0)
 
-# 初始化所有 Session State
 if "user_id" not in st.session_state: st.session_state.user_id = f"User_{str(uuid.uuid4())[:6]}"
 if "generated_code" not in st.session_state: st.session_state.generated_code = ""
-if "strategy_explanation" not in st.session_state: st.session_state.strategy_explanation = "暂无策略解析，请先前往 AI 战情室下达军令。"
+if "strategy_explanation" not in st.session_state: st.session_state.strategy_explanation = "💡 暂无策略解析，请先前往 AI 战情室生成策略。"
 if "dl_result" not in st.session_state: st.session_state.dl_result = None
 if "bt_result" not in st.session_state: st.session_state.bt_result = None
 if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
@@ -51,7 +50,6 @@ st.markdown("""
     footer { display: none !important; }
     .stMarkdown, p, h1, h2, h3, label, span { color: #e2e8f0 !important; }
 
-    /* 侧边栏按钮与展开按钮 */
     [data-testid="stSidebarCollapseButton"], [data-testid="collapsedControl"] {
         display: flex !important; background-color: rgba(0, 255, 204, 0.25) !important; 
         border: 1px solid rgba(0, 255, 204, 0.9) !important; border-radius: 8px !important;
@@ -59,7 +57,6 @@ st.markdown("""
     }
     [data-testid="collapsedControl"] { position: fixed !important; top: 15px !important; left: 15px !important; pointer-events: auto !important; }
 
-    /* 侧边栏选项卡 */
     [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; }
     div[role="radiogroup"] > label > div:first-child { display: none !important; }
     div[role="radiogroup"] > label {
@@ -72,12 +69,15 @@ st.markdown("""
         border-left: 4px solid #00ffcc !important; box-shadow: 0 4px 18px rgba(0, 255, 204, 0.15) !important; transform: translateX(5px);
     }
 
-    /* 毛玻璃卡片与 Expander 折叠面板 */
     .glass-card { background: rgba(20, 28, 45, 0.65); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
     .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; }
-    [data-testid="stExpander"] { background: rgba(10, 15, 25, 0.6) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 12px !important; backdrop-filter: blur(10px); margin-bottom: 15px !important; }
+
+    [data-testid="stExpander"] { background: rgba(15, 20, 30, 0.6) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 12px !important; backdrop-filter: blur(10px); margin-bottom: 15px !important; }
     [data-testid="stExpander"] summary { color: #00ffcc !important; font-weight: bold; }
-    [data-testid="stExpander"] div[role="region"] { padding: 15px; color: #e2e8f0; line-height: 1.6; }
+    [data-testid="stExpander"] div[role="region"] { padding: 15px; color: #e2e8f0; line-height: 1.6; overflow-x: auto; }
+
+    /* 优化 DataFrame 呈现的底色 */
+    [data-testid="stDataFrame"] { background: rgba(0,0,0,0.3); border-radius: 8px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -94,7 +94,6 @@ def apply_dual_column_armor(df):
 
 
 def execute_safely(code, df):
-    """终极沙盒执行器：代码消毒 + 万能函数捕捉"""
     safe_code = code.replace("pd.np", "np")
     sandbox_env = {"pd": pd, "np": np, "math": math}
     l_vars = {}
@@ -108,7 +107,7 @@ def execute_safely(code, df):
         if funcs:
             func_to_call = funcs[0]
         else:
-            raise ValueError("AI 军师未能生成任何有效的方法函数！")
+            raise ValueError("AI 未能生成任何有效的方法函数！")
 
     return func_to_call(df)
 
@@ -155,7 +154,7 @@ with st.sidebar:
 # ==========================================
 if page == "🏠 系统总览 (监控中控)":
     st.markdown(
-        '<div class="glass-card"><h1 style="margin-bottom:0;">🏛️ 全链路智能量化决策枢纽</h1><p style="color:#00ffcc; font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
+        '<div class="glass-card"><h1 style="margin-bottom:0;">🏛️ 全链路智能量化决策枢纽</h1><p style="color:#00ffcc; font-size:1.1rem; margin-top:5px;">第一阶段：智能制图命名契约实装完毕</p></div>',
         unsafe_allow_html=True)
 
     try:
@@ -181,33 +180,31 @@ if page == "🏠 系统总览 (监控中控)":
 
     with c_arch:
         st.markdown('<div class="glass-card"><h4>🧠 核心架构图解析 (Data Flow Pipeline)</h4>'
-                    '<p style="color:#aaa; font-size:0.9rem;">本系统打破传统量化编程门槛，通过 LLM 将自然语言交易意图无缝映射为矢量化代码并执行演示：</p>'
                     '<div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:10px; border:1px solid rgba(255,255,255,0.05);">'
-                    '<b>▶ 阶段 1：策略认知 (LLM)</b><br>对接大语言模型，支持模型智能切换与深度思考(CoT)，秒级编译策略代码并<span style="color:#00ffcc;">【提取通俗白话解析】</span>。<br><br>'
-                    '<b>▶ 阶段 2：数据治理层 (Data Hub)</b><br>整合 Tushare 商业接口，实现大小写双重装甲兜底与<span style="color:#00ffcc;">【代码自动消毒机制】</span>。<br><br>'
-                    '<b>▶ 阶段 3：沙盒推演与剥离 (Sandbox)</b><br>基于<span style="color:#ff4b4b;">【信号强制剥离】与【万能函数捕捉】</span>技术，彻底防止页面熔断崩溃。<br><br>'
-                    '<b>▶ 阶段 4：算法预测 (PyTorch)</b><br>启动 LSTM 模型抓取时序特征，可视化输出次日预判。'
+                    '<b>▶ 阶段 1：策略认知与契约锁定 (LLM)</b><br>大语言模型已装载<span style="color:#00ffcc;">【严格命名规范契约】</span>，强制要求 MAIN_ 和 SUB_ 前缀。<br><br>'
+                    '<b>▶ 阶段 2：数据治理层 (Data Hub)</b><br>混合治理物理 CSV 与 Tushare 商业大数据接口。<br><br>'
+                    '<b>▶ 阶段 3：沙盒推演与剥离 (Sandbox)</b><br>基于信号强制剥离技术，执行无损运算。<br><br>'
+                    '<b>▶ 阶段 4：动态渲染引擎 (即将到来)</b><br>自动扫描 DataFrame 列名，实现零代码自动化重绘红涨绿跌。'
                     '</div></div>', unsafe_allow_html=True)
     with c_point:
         st.markdown('<div class="glass-card"><h4>📋 平台体征监控 (Telemetry)</h4>', unsafe_allow_html=True)
-        st.markdown("**内存池占用率 (预估)**")
+        st.markdown("**内存池占用率 (预估)**");
         st.progress(0.35)
-        st.markdown("**高频行情跳动帧率 (Tick Speed)**")
+        st.markdown("**高频行情跳动帧率 (Tick Speed)**");
         st.progress(0.92)
         st.markdown('<br><h4>💡 答辩核心创新点</h4>'
-                    '✅ <b>LLM 白话翻译机</b>: 策略逻辑动态解释与可视化。<br>'
-                    '✅ <b>语法铁律双重防呆</b>: 彻底阻断 AI 并发条件判断和多列赋值引发的异常。<br>'
-                    '✅ <b>高频沙盘引擎</b>: 突破物理限制演示交易流。<br>'
-                    '✅ <b>信号剥离防崩机制</b>: 100% 根除崩溃熔断。</div>', unsafe_allow_html=True)
+                    '✅ <b>LLM 白话翻译机</b>: 策略代码附带通俗解析。<br>'
+                    '✅ <b>大汉命名契约 (New)</b>: 强制指标名称分类化，为智能引擎打底。<br>'
+                    '✅ <b>语法铁律防呆</b>: 彻底阻断条件逻辑崩溃。</div>', unsafe_allow_html=True)
 
 # ==========================================
-# 🤖 页面 2: AI 策略引擎 (🔥 语法铁律 V34 终极版)
+# 🤖 页面 2: AI 策略引擎 (🔥 核心契约 Prompt)
 # ==========================================
 elif page == "🤖 AI 策略引擎 (LLM)":
     if "messages" not in st.session_state: st.session_state.messages = []
 
     st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0;">🤖 LLM 策略战情室</h3><p style="color:#888;">最新生成的策略将作为“当前最高军令”同步至全系统。</p></div>',
+        '<div class="glass-card"><h3 style="margin-bottom:0;">🤖 LLM 策略战情室</h3><p style="color:#888;">最新的【智能绘图命名契约】已写入底层军规。</p></div>',
         unsafe_allow_html=True)
 
     with st.container():
@@ -228,25 +225,31 @@ elif page == "🤖 AI 策略引擎 (LLM)":
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"])
 
-    if prompt := st.chat_input("输入策略（如：20日均线金叉买入，禁用无关闲聊）..."):
+    if prompt := st.chat_input("输入策略（如：20日均线金叉买入，带上MACD指标）..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
-        log_thesis_data("指令下达", f"模型:{selected_model}, 内容:{prompt}")
+        log_thesis_data("指令下达", f"模型:{selected_model}, 深度思考:{enable_deep_think}, 内容:{prompt}")
 
         with chat_container:
             with st.chat_message("assistant"):
                 msg_box = st.empty()
 
-                # 🔥 系统指令：新增多条件逻辑符号铁律
-                sys_p = """你是一名严谨的量化专家。
+                # 🔥 终极绘图契约 Prompt
+                sys_p = """你是一名顶尖量化架构师。
 1.拒绝任何与金融量化无关的闲聊。
-2.【强制指令】：在生成代码之前，必须使用 `<策略解析>` 和 `</策略解析>` 标签包裹一段通俗易懂的策略白话解释，告诉小白该策略的买卖逻辑。
-3.生成的代码必须包含 def generate_signals(df): 并返回 df。绝对禁止读取任何本地文件。
-4.列名务必大写：'Open', 'High', 'Low', 'Close', 'Volume'。绝对禁止使用 pd.np，请用 np。
-5.【语法铁律1】：计算指标时只能赋值给一维单列，如 df['Close'].rolling(5).mean()，禁止使用 df[['Close']]。
-6.【语法铁律2-致命】：在进行 Pandas 多条件逻辑判断时（如 np.where 或 信号赋值），**绝对禁止使用 Python 的 `and` 或 `or` 关键字**！必须使用位运算符 `&` (与) 和 `|` (或)，并且每一个单一条件都必须用括号 `()` 包裹！例如：正确写法是 `np.where((df['A']>0) & (df['B']<0), 1, 0)`，绝不能写成 `df['A']>0 and df['B']<0`。"""
+2.【强制解析】：生成代码前，必须用 `<策略解析>` 和 `</策略解析>` 标签包裹一段通俗说明。
+3.【强制函数骨架】：必须输出 `def generate_signals(df):` 并 `return df`。绝对禁止读取本地文件（如 read_csv）。
+4.【强制数据列名 - 核心绘图契约】：为了适配后端的全自动智能绘图引擎，你新增的指标列名必须严格遵守以下前缀契约：
+   - 基础行情列：'Open', 'High', 'Low', 'Close', 'Volume'（已提供，勿改）。
+   - 交易信号列：必须精确命名为 `Signal` (1买, -1卖, 0观望)。
+   - 主图叠加指标（与K线同量级，如均线、布林带）：必须以 `MAIN_` 开头！例如：`df['MAIN_MA5']`, `df['MAIN_UPPER']`。
+   - 副图独立指标（需独立坐标轴，如 MACD, KDJ, RSI）：必须以 `SUB+数字_` 开头分组！例如：MACD组命名为 `df['SUB1_MACD_DIFF']`, `df['SUB1_MACD_DEA']`；KDJ组命名为 `df['SUB2_K']`, `df['SUB2_D']`。
+5.【防崩语法铁律】：
+   - 绝对禁止使用 `pd.np`，直接使用 `np`。
+   - 赋值只能给一维单列，严禁使用 `df[['Close']]`。
+   - 多条件逻辑判断绝对禁止使用 Python 的 `and` 或 `or`！必须使用 `&` 和 `|`，且每个条件必加括号，例如 `(df['Close'] > df['MAIN_MA5']) & (df['Volume'] > 0)`。"""
 
                 if enable_deep_think:
-                    sys_p += "\n7.【深度思考】：在标签内解释时，需进行详尽的分步逻辑演算。"
+                    sys_p += "\n6.【深度思考】：在标签内解释时，需进行详尽的逻辑演算。"
 
                 api_temperature = 0.3 if enable_deep_think else 0.7
 
@@ -272,16 +275,16 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                         if exp_match:
                             st.session_state.strategy_explanation = exp_match.group(1).strip()
                         else:
-                            st.session_state.strategy_explanation = "该策略无特定的白话解析，请直接参考代码内部注释。"
+                            st.session_state.strategy_explanation = "请直接参考代码内部注释。"
 
-                        st.toast("✅ 策略与双重防御军令已装填！", icon="🚀")
+                        st.toast("✅ 绘图契约策略装填完毕！", icon="🚀")
                     st.session_state.messages.append({"role": "assistant", "content": full_resp})
                 except Exception as e:
                     st.error(f"通信异常: {e}")
         st.rerun()
 
 # ==========================================
-# 📈 页面 3: 深度静态全量回测
+# 📈 页面 3: 深度静态全量回测 (🔥 加入底层数据表校验)
 # ==========================================
 elif page == "📈 深度静态全量回测":
     st.markdown('<div class="glass-card"><h3>📊 历史回测全量审计与归因分析</h3></div>', unsafe_allow_html=True)
@@ -295,7 +298,7 @@ elif page == "📈 深度静态全量回测":
 
         if st.session_state.generated_code:
             if st.button("🚀 启动全量归因回测", use_container_width=True, type="primary"):
-                with st.spinner("正在调度数据并安全执行沙盒..."):
+                with st.spinner("正在从 Tushare 调度数据并执行沙盒..."):
                     try:
                         adj_p = adj.split(" ")[0] if adj != "None" else None
                         df = ts.pro_bar(ts_code=ts_code, adj=adj_p, start_date='20220101')
@@ -304,13 +307,17 @@ elif page == "📈 深度静态全量回测":
                         df = apply_dual_column_armor(df)
 
                         df_safe = df.copy()
-
                         df_ai = execute_safely(st.session_state.generated_code, df)
-                        df_safe['Signal'] = df_ai['Signal'] if 'Signal' in df_ai.columns else 0
+
+                        # 强行剥离出契约指定的列
+                        for col in df_ai.columns:
+                            if col == 'Signal' or col.startswith('MAIN_') or col.startswith('SUB'):
+                                df_safe[col] = df_ai[col]
+
                         df = df_safe
 
                         df['Ret'] = df['Close'].pct_change()
-                        df['Pos'] = df['Signal'].replace(0, np.nan).ffill().fillna(0)
+                        df['Pos'] = df['Signal'].replace(0, np.nan).ffill().fillna(0) if 'Signal' in df.columns else 0
                         df['Strat_Ret'] = df['Pos'].shift(1) * df['Ret']
                         df['Cum_Prod'] = (1 + df['Strat_Ret'].fillna(0)).cumprod()
 
@@ -325,7 +332,7 @@ elif page == "📈 深度静态全量回测":
                         }, "y_mode": y_mode}
                     except Exception as e:
                         st.error(f"沙盒异常拦截: {e}")
-                        log_thesis_data("沙盒引擎拦截", str(e))
+                        log_thesis_data("沙盒引擎熔断", str(e))
         else:
             st.warning("战情室未生成策略军令。")
         st.markdown('</div>', unsafe_allow_html=True)
@@ -350,10 +357,15 @@ elif page == "📈 深度静态全量回测":
                 unsafe_allow_html=True)
 
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-
-            # 🔥 UI 植入：白话解析折叠框
             with st.expander("💡 点击展开：AI 策略底层执行逻辑白话解析", expanded=False):
                 st.markdown(st.session_state.strategy_explanation)
+
+            # 🔥 新增：底层数据查看器 (用于验证契约是否生效)
+            with st.expander("🔍 验证契约：查看沙盒计算后的底层数据表", expanded=False):
+                st.info(
+                    "注：在第二步升级画图引擎前，您可以先在此处确认大模型是否乖乖生成了带 `MAIN_` 和 `SUB1_` 前缀的列。")
+                # 把最新的 10 行数据展示出来，颠倒顺序让最新的在上面
+                st.dataframe(df.tail(10).iloc[::-1], use_container_width=True)
 
             fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.05, row_heights=[0.7, 0.3])
             fig.add_trace(
@@ -379,7 +391,7 @@ elif page == "📈 深度静态全量回测":
             st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
-# ⚡ 页面 4: 实时高频交易 (Live)
+# ⚡ 页面 4: 实时高频交易 (Live) & 🧠 LSTM (保持不变)
 # ==========================================
 elif page == "⚡ 实时高频交易 (Live)":
     st.markdown('<div class="glass-card"><h3>⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>', unsafe_allow_html=True)
@@ -394,11 +406,8 @@ elif page == "⚡ 实时高频交易 (Live)":
         st.markdown('</div>', unsafe_allow_html=True)
     with c_chart:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-
-        # 🔥 UI 植入：白话解析折叠框
         with st.expander("💡 当前加载军令：点击展开策略白话解析", expanded=False):
             st.markdown(st.session_state.strategy_explanation)
-
         met_ph = st.empty();
         cht_ph = st.empty()
         if st.session_state.is_live_trading:
@@ -408,30 +417,24 @@ elif page == "⚡ 实时高频交易 (Live)":
             stream = df_full.tail(120).reset_index(drop=True)
             for i in range(20, len(stream)):
                 if not st.session_state.is_live_trading: break
-
                 sub = apply_dual_column_armor(stream.iloc[:i].copy())
                 sub_safe = sub.copy()
                 try:
                     sub_ai = execute_safely(st.session_state.generated_code, sub)
-
                     sub_safe['Signal'] = sub_ai['Signal'] if 'Signal' in sub_ai.columns else 0
                     sub = sub_safe
-
                     sub['Ret'] = sub['Close'].pct_change()
                     sig_val = sub['Signal'].iloc[-1]
                     sub['Cum'] = (1 + (sub['Signal'].shift(1).fillna(0) * sub['Ret'].fillna(0))).cumprod()
-
                     with met_ph.container():
                         c = st.columns(3)
                         c[0].metric("Tick 现价", f"{sub['Close'].iloc[-1]:.2f}")
                         c[1].metric("高频信号", "🟢 买入" if sig_val == 1 else "🔴 卖出" if sig_val == -1 else "⚪ 观望")
                         c[2].metric("并发收益率", f"{(sub['Close'].pct_change().iloc[-1] * 100):.2f}%")
-
                     fig = go.Figure(data=[
                         go.Candlestick(x=sub['trade_date'], open=sub['Open'], high=sub['High'], low=sub['Low'],
                                        close=sub['Close'])])
-
-                    buys = sub[sub['Signal'] == 1]
+                    buys = sub[sub['Signal'] == 1];
                     sells = sub[sub['Signal'] == -1]
                     fig.add_trace(go.Scatter(x=buys['trade_date'], y=buys['Low'] * 0.95, mode='markers',
                                              marker=dict(symbol='triangle-up', size=14, color='#00FFFF',
@@ -439,23 +442,18 @@ elif page == "⚡ 实时高频交易 (Live)":
                     fig.add_trace(go.Scatter(x=sells['trade_date'], y=sells['High'] * 1.05, mode='markers',
                                              marker=dict(symbol='triangle-down', size=14, color='#FF00FF',
                                                          line=dict(width=1, color='white')), name='自动卖出'))
-
                     fig.update_layout(height=450, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
                                       margin=dict(l=0, r=0, t=0, b=0), xaxis_rangeslider_visible=False, dragmode='pan',
                                       showlegend=False)
                     fig.update_yaxes(autorange=True)
                     cht_ph.plotly_chart(fig, use_container_width=True, key=f"live_{i}", config={'scrollZoom': True})
-
                 except Exception as e:
-                    st.error(f"高频沙盒安全熔断: {e}")
-                    st.session_state.is_live_trading = False
+                    st.error(f"高频沙盒安全熔断: {e}");
+                    st.session_state.is_live_trading = False;
                     break
                 time.sleep(freq)
         st.markdown('</div>', unsafe_allow_html=True)
 
-# ==========================================
-# 🧠 页面 5: 深度学习预测 (LSTM)
-# ==========================================
 elif page == "🧠 深度学习预测 (LSTM)":
     st.markdown('<div class="glass-card"><h3>🧠 深度神经网络时序建模中心 (LSTM)</h3></div>', unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 2.5])
@@ -473,11 +471,9 @@ elif page == "🧠 深度学习预测 (LSTM)":
                     scaler = MinMaxScaler()
                     scaled = scaler.fit_transform(df['close'].values.reshape(-1, 1))
                     X, y = [], []
-                    for i in range(slen, len(scaled)):
-                        X.append(scaled[i - slen:i, 0]);
-                        y.append(scaled[i, 0])
-                    X_t = torch.tensor(np.array(X), dtype=torch.float32).unsqueeze(-1)
-                    y_t = torch.tensor(np.array(y), dtype=torch.float32)
+                    for i in range(slen, len(scaled)): X.append(scaled[i - slen:i, 0]); y.append(scaled[i, 0])
+                    X_t, y_t = torch.tensor(np.array(X), dtype=torch.float32).unsqueeze(-1), torch.tensor(np.array(y),
+                                                                                                          dtype=torch.float32)
 
 
                     class LSTM(nn.Module):
@@ -502,9 +498,8 @@ elif page == "🧠 深度学习预测 (LSTM)":
                         opt.step()
                         lbox.code(f"Epoch {e + 1}/{eps}, Loss: {loss.item():.6f}");
                         pbar.progress((e + 1) / eps)
-
                     model.eval();
-                    test_p = model(X_t[-100:]).detach().numpy()
+                    test_p = model(X_t[-100:]).detach().numpy();
                     inv_p = scaler.inverse_transform(test_p)
                     st.session_state.dl_result = {"dates": df['trade_date'].iloc[-100:],
                                                   "actual": df['close'].iloc[-100:], "pred": inv_p.flatten()}
@@ -523,16 +518,13 @@ elif page == "🧠 深度学习预测 (LSTM)":
             st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
             st.markdown('</div>', unsafe_allow_html=True)
 
-# ==========================================
-# 🛡️ 页面 6: 论文审计日志
-# ==========================================
 elif page == "🛡️ 论文审计日志":
     st.markdown('<div class="glass-card"><h3>🛡️ 实验数据采集与多维审计中心</h3></div>', unsafe_allow_html=True)
     c1, c2 = st.columns([1, 1.2])
     with c1:
-        if os.path.exists(GLOBAL_LOG_FILE):
-            st.download_button("📁 导出中期汇报审计日志 (CSV)",
-                               data=pd.read_csv(GLOBAL_LOG_FILE).to_csv(index=False).encode('utf-8'),
-                               file_name='Backtest_Audit_Logs.csv', type="primary")
+        if os.path.exists(GLOBAL_LOG_FILE): st.download_button("📁 导出中期汇报审计日志 (CSV)",
+                                                               data=pd.read_csv(GLOBAL_LOG_FILE).to_csv(
+                                                                   index=False).encode('utf-8'),
+                                                               file_name='Backtest_Audit_Logs.csv', type="primary")
     with c2:
         st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
