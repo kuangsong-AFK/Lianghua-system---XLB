@@ -114,7 +114,9 @@ def add_default_indicators(df):
 
 
 def execute_safely(code, df):
-    safe_code = code.replace("pandas.np", "np")
+    safe_code = re.sub(r'\bpd\.np\b', 'np', code)
+    safe_code = re.sub(r'\bpandas\.np\b', 'np', safe_code)
+
     sandbox_env = {"pd": pd, "np": np, "math": math}
     l_vars = {}
     exec(safe_code, sandbox_env, l_vars)
@@ -202,11 +204,19 @@ def render_smart_charts(df):
 
     total_height = 500 + (num_sub_groups * 150)
 
-    # 🔥 修复真凶：dragmode 只能为 'zoom' (框选缩放)，不能为 'x'
-    # hovermode='x unified' 是悬停时显示十字准线数据
-    fig.update_layout(height=total_height, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
-                      plot_bgcolor='rgba(0,0,0,0.1)',
-                      xaxis_rangeslider_visible=False, dragmode='zoom', hovermode='x unified', showlegend=False)
+    # 🔥 核心升级：dragmode 切换为 'pan' (平移模式)；hovermode 彻底降级为兼容性最强的 'x' 解决报错
+    fig.update_layout(
+        height=total_height,
+        template="plotly_dark",
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0.1)',
+        xaxis_rangeslider_visible=False,
+        dragmode='pan',  # 开启平移
+        hovermode='x',  # 完美兼容旧环境
+        showlegend=False
+    )
+    # 解除坐标轴锁定，允许双击自适应
+    fig.update_xaxes(fixedrange=False)
     fig.update_yaxes(fixedrange=False)
 
     return fig
@@ -282,9 +292,9 @@ if page == "🏠 系统总览 (监控中控)":
         st.markdown('<div class="glass-card"><h4>🧠 核心架构图解析 (Data Flow Pipeline)</h4>'
                     '<p style="color:#aaa; font-size:0.9rem;">本系统打破传统量化编程门槛，通过 LLM 将自然语言交易意图无缝映射为矢量化代码并执行演示：</p>'
                     '<div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:10px; border:1px solid rgba(255,255,255,0.05);">'
-                    '<b>▶ 阶段 1：策略认知 (LLM)</b><br>对接大语言模型，支持模型智能切换与深度思考(CoT)，秒级编译策略代码并<span style="color:#00ffcc;">【提取通俗白话解析】</span>。<br><br>'
-                    '<b>▶ 阶段 2：数据治理层 (Data Hub)</b><br>整合 Tushare，底层数据加载后自动挂载<span style="color:#00ffcc;">【全局常驻指标 (MA/MACD/VOL)】</span>。<br><br>'
-                    '<b>▶ 阶段 3：沙盒推演与动态渲染 (Sandbox)</b><br>执行无损安全过滤运算，调用<span style="color:#ff4b4b;">自适应画图引擎 (框选即缩放)</span>。<br><br>'
+                    '<b>▶ 阶段 1：策略认知 (LLM)</b><br>对接大语言模型，支持深度思考(CoT)，秒级编译策略代码并<span style="color:#00ffcc;">【提取通俗白话解析】</span>。<br><br>'
+                    '<b>▶ 阶段 2：数据治理层 (Data Hub)</b><br>整合 Tushare，自动挂载<span style="color:#00ffcc;">【全局常驻指标 (MA/MACD/VOL)】</span>。<br><br>'
+                    '<b>▶ 阶段 3：沙盒推演与动态渲染 (Sandbox)</b><br>执行无损安全过滤运算，调用<span style="color:#ff4b4b;">可平移自适应画图引擎 (Pan & Auto-scale)</span>。<br><br>'
                     '<b>▶ 阶段 4：算法预测 (PyTorch)</b><br>启动 LSTM 模型抓取时序特征，可视化输出次日预判。'
                     '</div></div>', unsafe_allow_html=True)
     with c_point:
@@ -294,9 +304,9 @@ if page == "🏠 系统总览 (监控中控)":
         st.markdown("**高频行情跳动帧率 (Tick Speed)**")
         st.progress(0.92)
         st.markdown('<br><h4>💡 答辩核心创新点</h4>'
-                    '✅ <b>默认常驻指标</b>: 底层数据自动绑定均线与MACD，无需重复生成。<br>'
-                    '✅ <b>K线自适应缩放</b>: 框选指定时间段，Y轴自动缩放。<br>'
-                    '✅ <b>语法铁律防呆 (全大写免疫)</b>: 彻底阻断 AI 乱造名字引发的崩溃。<br>'
+                    '✅ <b>默认常驻指标</b>: 自动绑定均线与MACD，零代码即显。<br>'
+                    '✅ <b>平移自适应缩放 (New)</b>: 左右拖拽平移，双击瞬间对齐Y轴高度。<br>'
+                    '✅ <b>语法铁律防呆 (全大写免疫)</b>: 彻底阻断代码崩溃。<br>'
                     '✅ <b>信号剥离防崩</b>: 100% 根除沙盒污染。</div>', unsafe_allow_html=True)
 
 # ==========================================
@@ -392,7 +402,9 @@ elif page == "📈 深度静态全量回测":
         ts_code = format_ts_code(raw_code)
         adj = st.selectbox("⚖️ 复权模式", ["qfq (前复权)", "hfq (后复权)", "None (不复权)"])
 
-        st.info("💡 绘图提示：在右侧图表中按住鼠标**横向拉框选区**，Y轴将自动缩放自适应。双击图表即可还原。")
+        # 🔥 UI 提示变更
+        st.info(
+            "💡 交互提示：已开启【无缝平移模式】。按住鼠标可左右拖拽 K 线；拖拽后**双击图表**，即可让 K线与副图的 Y轴高度瞬间自动适应！")
 
         if st.button("🚀 启动全量归因回测", use_container_width=True, type="primary"):
             with st.spinner("正在调度数据并挂载常驻指标..."):
@@ -472,7 +484,7 @@ elif page == "⚡ 实时高频交易 (Live)":
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         live_code = st.text_input("🎯 动态推送标的", value="000001")
         freq = st.slider("⏱️ 行情跳动间隔 (秒)", 0.1, 2.0, 0.5)
-        st.info("💡 横向框选 K 线图可放大特定区域，Y轴将自适应缩放。")
+        st.info("💡 交互提示：已开启平移模式。拖拽平移后，**双击图表**即可实现Y轴高度自适应。")
         st.button("▶️ 开启高频推演", on_click=lambda: st.session_state.update({"is_live_trading": True}),
                   type="primary")
         st.button("⏹️ 强行停止", on_click=lambda: st.session_state.update({"is_live_trading": False}))
@@ -539,6 +551,7 @@ elif page == "🧠 深度学习预测 (LSTM)":
         st_code = st.text_input("🎯 训练模型标的", value="000001")
         slen = st.slider("📏 滑窗长度 (Seq_Len)", 5, 60, 20)
         eps = st.slider("🔄 Epoch 迭代轮数", 10, 50, 30)
+        st.info("💡 双击右侧图表即可自适应 Y轴高度。")
         if st.button("🚀 启动张量训练", type="primary", use_container_width=True):
             with st.spinner("神经网络前向传播中..."):
                 try:
@@ -595,9 +608,10 @@ elif page == "🧠 深度学习预测 (LSTM)":
             fig.add_trace(
                 go.Scatter(x=res['dates'], y=res['pred'], name='LSTM 预测', line=dict(color='#ff00ff', dash='dot')))
 
-            # 🔥 LSTM 画图引擎也同步修复为 dragmode='zoom'
+            # 🔥 LSTM 引擎同步应用平移和旧版 hovermode 兼容
             fig.update_layout(height=500, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
-                              plot_bgcolor='rgba(0,0,0,0.1)', dragmode='zoom', hovermode='x unified')
+                              plot_bgcolor='rgba(0,0,0,0.1)', dragmode='pan', hovermode='x')
+            fig.update_xaxes(fixedrange=False)
             fig.update_yaxes(fixedrange=False)
 
             st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
