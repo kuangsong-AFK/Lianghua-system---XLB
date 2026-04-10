@@ -46,13 +46,13 @@ if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 if "is_live_trading" not in st.session_state: st.session_state.is_live_trading = False
 
 # ==========================================
-# 2. UI/UX 强化 (深海流体背景 + 悬浮输入框)
+# 2. UI/UX 强化 (深海流体背景 + 千问级悬浮输入舱)
 # ==========================================
 st.markdown("""
 <style>
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
-    [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 1.5rem !important; padding-bottom: 120px !important; }
+    [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 1.5rem !important; padding-bottom: 150px !important; }
     header[data-testid="stHeader"] { background: transparent !important; pointer-events: none !important; }
     header[data-testid="stHeader"] * { pointer-events: auto !important; }
     footer { display: none !important; }
@@ -66,27 +66,40 @@ st.markdown("""
     div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; padding: 14px 18px !important; margin-bottom: 10px !important; border-radius: 12px !important; border-left: 4px solid transparent !important; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important; cursor: pointer !important; width: 100% !important; }
     div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; box-shadow: 0 4px 18px rgba(0, 255, 204, 0.15) !important; transform: translateX(5px); }
 
-    /* 卡片样式 */
+    /* 毛玻璃卡片样式 */
     .glass-card { background: rgba(20, 28, 45, 0.65); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
     .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; }
     [data-testid="stExpander"] { background: rgba(10, 15, 25, 0.6) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 12px !important; backdrop-filter: blur(10px); margin-bottom: 15px !important; }
     [data-testid="stExpander"] summary { color: #00ffcc !important; font-weight: bold; }
-    [data-testid="stExpander"] div[role="region"] { padding: 15px; color: #e2e8f0; line-height: 1.6; overflow-x: auto; }
 
-    /* 🔥 聊天输入框悬浮半透明玻璃化改造 */
+    /* 🔥 千问级别：沉浸式悬浮半透明聊天框 */
     [data-testid="stChatInput"] { 
-        background-color: rgba(15, 20, 30, 0.7) !important; 
-        backdrop-filter: blur(25px) !important; 
-        border: 1px solid rgba(0, 255, 204, 0.4) !important; 
-        border-radius: 24px !important; 
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6) !important; 
-        padding: 5px !important;
-        margin-bottom: 20px !important; 
-        max-width: 800px;
+        background-color: rgba(30, 41, 59, 0.75) !important; 
+        backdrop-filter: blur(24px) !important; 
+        border: 1px solid rgba(255, 255, 255, 0.15) !important; 
+        border-radius: 30px !important;  /* 千问经典大圆角 */
+        box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; 
+        padding: 12px 20px !important;
+        margin-bottom: 25px !important; 
+        max-width: 850px;
         margin-left: auto;
         margin-right: auto;
     }
-    [data-testid="stChatInput"] textarea { color: #fff !important; }
+    [data-testid="stChatInput"] textarea { 
+        color: #fff !important; 
+        font-size: 16px !important;
+        min-height: 50px !important; 
+    }
+    /* 发送按钮悬浮光效 */
+    [data-testid="stChatInputSubmitButton"] {
+        background-color: #3b82f6 !important; /* 经典科技蓝 */
+        border-radius: 50% !important;
+        transition: all 0.3s ease;
+    }
+    [data-testid="stChatInputSubmitButton"]:hover {
+        background-color: #60a5fa !important;
+        box-shadow: 0 0 15px rgba(59, 130, 246, 0.6) !important;
+    }
 
     /* 隐藏 popover 内部组件的多余背景 */
     [data-testid="stPopoverBody"] { background-color: rgba(20, 28, 45, 0.95) !important; border: 1px solid rgba(0, 255, 204, 0.5) !important; border-radius: 16px !important; backdrop-filter: blur(20px) !important; }
@@ -289,24 +302,37 @@ if page == "🏠 系统总览 (监控中控)":
         st.metric("AI 神经网络", f"PyTorch {torch.__version__}", "时序预测: 待命")
 
     st.markdown("---")
-    c_arch, c_point = st.columns([1.2, 1])
+
+    # 🔥 调整比例，给图表分配 2 倍于右侧监控面板的宽度
+    c_arch, c_point = st.columns([2, 1])
 
     with c_arch:
         st.markdown('<div class="glass-card"><h4>🧠 核心架构与操作流 (Data Flow Pipeline)</h4>', unsafe_allow_html=True)
+
+        # 🔥 全面重绘巨幅 Graphviz 架构图，提升 DPI 与节点尺寸
         overview_graph = graphviz.Digraph()
-        overview_graph.attr(rankdir='LR', bgcolor='transparent')
-        overview_graph.node('A', '📊 1. 获取数据\n(左侧输入代码)', shape='box', style='filled', fillcolor='#1e293b',
-                            fontcolor='white', color='#00ffcc')
-        overview_graph.node('B', '🧠 2. 模型训练\n(LSTM 时序预测)', shape='box', style='filled', fillcolor='#1e293b',
-                            fontcolor='white', color='#00ffcc')
-        overview_graph.node('C', '📈 3. 策略回测\n(全量审计与归因)', shape='box', style='filled', fillcolor='#1e293b',
-                            fontcolor='white', color='#00ffcc')
-        overview_graph.node('D', '🤖 4. AI 战情室\n(大模型多模态解读)', shape='box', style='filled', fillcolor='#3b0764',
-                            fontcolor='white', color='#ff00ff')
-        overview_graph.edge('A', 'B', label=' 喂入清洗数据', fontcolor='white', color='#00ffcc')
-        overview_graph.edge('B', 'C', label=' 输出预测信号', fontcolor='white', color='#00ffcc')
-        overview_graph.edge('C', 'D', label=' 上传回测结果', fontcolor='white', color='#ff00ff')
-        overview_graph.edge('A', 'D', label=' 研报/原始数据', fontcolor='white', color='#ff00ff')
+        overview_graph.attr(rankdir='LR', bgcolor='transparent', dpi='300', nodesep='0.6', ranksep='1.0')
+        overview_graph.attr('node', fontname='sans-serif', fontsize='14', shape='rect', style='filled', rx='12',
+                            ry='12', height='1.2', width='2.8')
+
+        overview_graph.node('A', '📊 1. 获取数据\n(左侧输入标的代码)', fillcolor='#1e293b', fontcolor='white',
+                            color='#00ffcc', penwidth='2')
+        overview_graph.node('B', '🧠 2. 模型训练\n(LSTM 时序深度预测)', fillcolor='#1e293b', fontcolor='white',
+                            color='#00ffcc', penwidth='2')
+        overview_graph.node('C', '📈 3. 策略回测\n(全量审计与归因分析)', fillcolor='#1e293b', fontcolor='white',
+                            color='#00ffcc', penwidth='2')
+        overview_graph.node('D', '🤖 4. AI 战情室\n(大模型多模态深度解读)', fillcolor='#3b0764', fontcolor='white',
+                            color='#ff00ff', penwidth='2')
+
+        overview_graph.edge('A', 'B', label=' 喂入清洗数据', fontcolor='white', color='#00ffcc', fontsize='12',
+                            penwidth='2')
+        overview_graph.edge('B', 'C', label=' 输出预测信号', fontcolor='white', color='#00ffcc', fontsize='12',
+                            penwidth='2')
+        overview_graph.edge('C', 'D', label=' 上传回测结果', fontcolor='white', color='#ff00ff', fontsize='12',
+                            penwidth='2')
+        overview_graph.edge('A', 'D', label=' 研报/原始数据', fontcolor='white', color='#ff00ff', fontsize='12',
+                            penwidth='2')
+
         st.graphviz_chart(overview_graph, use_container_width=True)
         st.markdown(
             '<div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:10px; border:1px solid rgba(255,255,255,0.05);"><b>🎯 极简操作指南：</b><br>1. 在<b>回测/深度学习</b>界面输入标的（如000001），系统自动拉取 A 股数据并挂载指标。<br>2. 切换至<b>AI 策略引擎</b>，上传研报或直接下达军令，AI 会自动编写量化代码。<br>3. 拖拽 K 线图可平移，<b>双击图表</b>瞬间触发 Y 轴自适应对齐。</div></div>',
@@ -327,7 +353,6 @@ if page == "🏠 系统总览 (监控中控)":
 # ==========================================
 elif page == "🤖 AI 策略引擎 (LLM)":
     if "messages" not in st.session_state: st.session_state.messages = []
-    if "temp_files" not in st.session_state: st.session_state.temp_files = []  # 临时存放文件预览
 
     st.markdown(
         '<div class="glass-card"><h3 style="margin-bottom:0;">🤖 LLM 策略战情室</h3><p style="color:#888;">多模态视觉引擎已就绪，体验沉浸式全流体工作流。</p></div>',
@@ -347,29 +372,28 @@ elif page == "🤖 AI 策略引擎 (LLM)":
         st.markdown('</div>', unsafe_allow_html=True)
 
     # 聊天记录显示区域
-    chat_container = st.container(height=380)
+    chat_container = st.container(height=420)
     with chat_container:
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"])
 
-    # === 🔥 核心UI改造：利用 Popover 模拟悬浮工具菜单 ===
-    st.markdown("<br>", unsafe_allow_html=True)  # 留白，防止和底部的 chat_input 贴太近
-    col_menu, col_empty = st.columns([1, 6])
+    # === 附件上传按钮 (贴近底部聊天框) ===
+    st.markdown("<br>", unsafe_allow_html=True)
+    col_menu, col_empty = st.columns([1.5, 6])
     with col_menu:
-        # 这个 Popover 将像那个 '+' 按钮一样，点击后向上弹出菜单
-        with st.popover("➕ 呈递附件/工具", use_container_width=True):
-            st.caption("🚀 选取本地文件，发送后即焚")
+        with st.popover("📎 呈递图文附件", use_container_width=True):
+            st.caption("🚀 支持 TXT/CSV/图片，发送后即焚")
             uploaded_files = st.file_uploader(
                 "上传文件",
                 accept_multiple_files=True,
                 type=['png', 'jpg', 'jpeg', 'csv', 'txt'],
-                label_visibility="collapsed"  # 隐藏默认大标签，看起来更简洁
+                label_visibility="collapsed"
             )
 
     # 解析文件内容
     file_context = ""
     if uploaded_files:
-        with st.expander("👀 附件预览 (已准备就绪)", expanded=True):
+        with st.expander("👀 附件预览 (已悬挂至当前对话上下文)", expanded=True):
             cols = st.columns(min(len(uploaded_files), 3))
             for idx, file in enumerate(uploaded_files):
                 with cols[idx % 3]:
@@ -386,8 +410,8 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                         st.text(content[:50] + "...")
                         file_context += f"\n【附件文本 {file.name} 内容】:\n{content}\n"
 
-    # === 聊天输入框 (已被 CSS 玻璃化悬浮处理) ===
-    if raw_prompt := st.chat_input("输入量化策略，或向 AI 提问..."):
+    # === 聊天输入框 (已通过上方 CSS 渲染为千问风格) ===
+    if raw_prompt := st.chat_input("向小吕布量化架构师发送军令..."):
         full_prompt_for_ai = raw_prompt
         if file_context: full_prompt_for_ai = f"以下是参考附件信息：\n{file_context}\n\n需求：{raw_prompt}"
 
