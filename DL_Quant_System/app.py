@@ -773,4 +773,3 @@ elif page == "🛡️ 论文审计日志":
                                file_name='Backtest_Audit_Logs.csv', type="primary")
     with c2:
         st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
-```
