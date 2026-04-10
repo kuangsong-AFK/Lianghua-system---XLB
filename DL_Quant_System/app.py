@@ -11,7 +11,6 @@ from datetime import datetime
 import os
 import uuid
 import math
-import graphviz
 from PIL import Image
 import io
 import base64
@@ -21,7 +20,7 @@ import torch
 import torch.nn as nn
 from sklearn.preprocessing import MinMaxScaler
 
-# 🔥 终极物理级防呆补丁：强行给全局 pandas 注入 np 属性！
+# 🔥 终极物理级防呆补丁
 pd.np = np
 
 # ==========================================
@@ -36,7 +35,6 @@ ts.set_token(TUSHARE_TOKEN)
 pro = ts.pro_api()
 client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=30.0)
 
-# 初始化所有 Session State
 if "user_id" not in st.session_state: st.session_state.user_id = f"User_{str(uuid.uuid4())[:6]}"
 if "generated_code" not in st.session_state: st.session_state.generated_code = ""
 if "strategy_explanation" not in st.session_state: st.session_state.strategy_explanation = "暂无策略解析，请先前往 AI 战情室下达军令。"
@@ -46,7 +44,7 @@ if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 if "is_live_trading" not in st.session_state: st.session_state.is_live_trading = False
 
 # ==========================================
-# 2. UI/UX 强化 (深海流体背景 + 千问级悬浮输入舱)
+# 2. UI/UX 强化 (剿灭黑块 + 千问级悬浮舱)
 # ==========================================
 st.markdown("""
 <style>
@@ -54,55 +52,40 @@ st.markdown("""
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
     [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 1.5rem !important; padding-bottom: 150px !important; }
     header[data-testid="stHeader"] { background: transparent !important; pointer-events: none !important; }
-    header[data-testid="stHeader"] * { pointer-events: auto !important; }
-    footer { display: none !important; }
-    .stMarkdown, p, h1, h2, h3, label, span { color: #e2e8f0 !important; }
 
-    /* 侧边栏样式 */
-    [data-testid="stSidebarCollapseButton"], [data-testid="collapsedControl"] { display: flex !important; background-color: rgba(0, 255, 204, 0.25) !important; border: 1px solid rgba(0, 255, 204, 0.9) !important; border-radius: 8px !important; box-shadow: 0 0 18px rgba(0, 255, 204, 0.4) !important; transition: all 0.3s ease; z-index: 999999 !important; }
-    [data-testid="collapsedControl"] { position: fixed !important; top: 15px !important; left: 15px !important; pointer-events: auto !important; }
+    /* 强制所有字体变白，防止系统自带主题干扰 */
+    .stMarkdown, p, h1, h2, h3, h4, label, span { color: #e2e8f0 !important; }
+
+    /* 侧边栏及卡片样式 */
     [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; }
-    div[role="radiogroup"] > label > div:first-child { display: none !important; }
-    div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; padding: 14px 18px !important; margin-bottom: 10px !important; border-radius: 12px !important; border-left: 4px solid transparent !important; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important; cursor: pointer !important; width: 100% !important; }
-    div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; box-shadow: 0 4px 18px rgba(0, 255, 204, 0.15) !important; transform: translateX(5px); }
+    div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; padding: 14px 18px !important; margin-bottom: 10px !important; border-radius: 12px !important; border-left: 4px solid transparent !important; }
+    div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
 
-    /* 毛玻璃卡片样式 */
-    .glass-card { background: rgba(20, 28, 45, 0.65); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
+    .glass-card { background: rgba(20, 28, 45, 0.65) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
     .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; }
-    [data-testid="stExpander"] { background: rgba(10, 15, 25, 0.6) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 12px !important; backdrop-filter: blur(10px); margin-bottom: 15px !important; }
-    [data-testid="stExpander"] summary { color: #00ffcc !important; font-weight: bold; }
+    [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); }
+
+    /* 🔥 彻底剿灭底部黑块 */
+    [data-testid="stBottomBlock"], [data-testid="stBottom"], [data-testid="stBottom"] > div {
+        background-color: transparent !important;
+        background: transparent !important;
+        border: none !important;
+    }
 
     /* 🔥 千问级别：沉浸式悬浮半透明聊天框 */
     [data-testid="stChatInput"] { 
-        background-color: rgba(30, 41, 59, 0.75) !important; 
-        backdrop-filter: blur(24px) !important; 
+        background-color: rgba(30, 41, 59, 0.85) !important; 
+        backdrop-filter: blur(25px) !important; 
         border: 1px solid rgba(255, 255, 255, 0.15) !important; 
-        border-radius: 30px !important;  /* 千问经典大圆角 */
+        border-radius: 36px !important;  /* 千问经典大圆角 */
         box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; 
-        padding: 12px 20px !important;
-        margin-bottom: 25px !important; 
+        padding: 8px 16px !important;
         max-width: 850px;
-        margin-left: auto;
-        margin-right: auto;
+        margin: 0 auto 25px auto !important;
     }
-    [data-testid="stChatInput"] textarea { 
-        color: #fff !important; 
-        font-size: 16px !important;
-        min-height: 50px !important; 
-    }
-    /* 发送按钮悬浮光效 */
-    [data-testid="stChatInputSubmitButton"] {
-        background-color: #3b82f6 !important; /* 经典科技蓝 */
-        border-radius: 50% !important;
-        transition: all 0.3s ease;
-    }
-    [data-testid="stChatInputSubmitButton"]:hover {
-        background-color: #60a5fa !important;
-        box-shadow: 0 0 15px rgba(59, 130, 246, 0.6) !important;
-    }
-
-    /* 隐藏 popover 内部组件的多余背景 */
-    [data-testid="stPopoverBody"] { background-color: rgba(20, 28, 45, 0.95) !important; border: 1px solid rgba(0, 255, 204, 0.5) !important; border-radius: 16px !important; backdrop-filter: blur(20px) !important; }
+    [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; }
+    [data-testid="stChatInputSubmitButton"] { background-color: #3b82f6 !important; border-radius: 50% !important; transition: all 0.3s ease; }
+    [data-testid="stChatInputSubmitButton"]:hover { background-color: #60a5fa !important; box-shadow: 0 0 15px rgba(59, 130, 246, 0.6) !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -146,7 +129,6 @@ def execute_safely(code, df):
     sandbox_env = {"pd": pd, "np": np, "math": math}
     l_vars = {}
     exec(safe_code, sandbox_env, l_vars)
-
     func_to_call = None
     if 'generate_signals' in l_vars and callable(l_vars['generate_signals']):
         func_to_call = l_vars['generate_signals']
@@ -156,7 +138,6 @@ def execute_safely(code, df):
             func_to_call = funcs[0]
         else:
             raise ValueError("AI 未生成有效的方法函数！")
-
     df_ai = func_to_call(df)
     sig_col = next((c for c in df_ai.columns if c.lower() == 'signal'), None)
     if sig_col:
@@ -180,26 +161,20 @@ def render_smart_charts(df):
                 group_id = match.group(1)
                 if group_id not in sub_groups: sub_groups[group_id] = []
                 sub_groups[group_id].append(col)
-
     num_sub_groups = len(sub_groups)
     total_rows = 2 + num_sub_groups
-
     main_height, vol_height = 0.5, 0.15
     remaining_height = 1.0 - main_height - vol_height
     row_heights = [main_height, vol_height]
     if num_sub_groups > 0: row_heights.extend([remaining_height / num_sub_groups] * num_sub_groups)
-
     fig = make_subplots(rows=total_rows, cols=1, shared_xaxes=True, vertical_spacing=0.03, row_heights=row_heights)
-
     fig.add_trace(go.Candlestick(x=df['trade_date'], open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
                                  name='K线', increasing_line_color='#FD1050', increasing_fillcolor='#FD1050',
                                  decreasing_line_color='#00FF00', decreasing_fillcolor='#00FF00'), row=1, col=1)
-
     overlay_colors = ['#FFFF00', '#FF00FF', '#FFFFFF', '#00FFFF', '#FFA500']
     for i, col in enumerate(main_indicators): fig.add_trace(
         go.Scatter(x=df['trade_date'], y=df[col], name=col.replace('MAIN_', ''),
                    line=dict(width=1.2, color=overlay_colors[i % len(overlay_colors)])), row=1, col=1)
-
     if 'Signal' in df.columns:
         buys, sells = df[df['Signal'] == 1], df[df['Signal'] == -1]
         fig.add_trace(go.Scatter(x=buys['trade_date'], y=buys['Low'] * 0.95, mode='markers',
@@ -208,12 +183,10 @@ def render_smart_charts(df):
         fig.add_trace(go.Scatter(x=sells['trade_date'], y=sells['High'] * 1.05, mode='markers',
                                  marker=dict(symbol='triangle-down', size=14, color='#FF00FF',
                                              line=dict(width=1, color='white')), name='卖出'), row=1, col=1)
-
     if 'Volume' in df.columns:
         vol_colors = np.where(df['Close'] >= df['Open'], '#FD1050', '#00FF00')
         fig.add_trace(go.Bar(x=df['trade_date'], y=df['Volume'], name='成交量', marker_color=vol_colors, opacity=0.8),
                       row=2, col=1)
-
     sub_colors = ['#00FFFF', '#FF00FF', '#FFFF00', '#FFFFFF']
     current_row = 3
     for group_id in sorted(sub_groups.keys(), key=int):
@@ -229,7 +202,6 @@ def render_smart_charts(df):
                                          line=dict(width=1.2, color=sub_colors[i % len(sub_colors)])), row=current_row,
                               col=1)
         current_row += 1
-
     fig.update_layout(height=500 + (num_sub_groups * 150), template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
                       plot_bgcolor='rgba(0,0,0,0.1)', xaxis_rangeslider_visible=False, dragmode='pan', hovermode='x',
                       showlegend=False)
@@ -280,7 +252,7 @@ with st.sidebar:
 # ==========================================
 if page == "🏠 系统总览 (监控中控)":
     st.markdown(
-        '<div class="glass-card"><h1 style="margin-bottom:0;">🏛️ 全链路智能量化决策枢纽</h1><p style="color:#00ffcc; font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
+        '<div class="glass-card"><h1 style="margin-bottom:0; color:white;">🏛️ 全链路智能量化决策枢纽</h1><p style="color:#00ffcc; font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
         unsafe_allow_html=True)
 
     try:
@@ -303,49 +275,42 @@ if page == "🏠 系统总览 (监控中控)":
 
     st.markdown("---")
 
-    # 🔥 调整比例，给图表分配 2 倍于右侧监控面板的宽度
     c_arch, c_point = st.columns([2, 1])
 
     with c_arch:
-        st.markdown('<div class="glass-card"><h4>🧠 核心架构与操作流 (Data Flow Pipeline)</h4>', unsafe_allow_html=True)
-
-        # 🔥 全面重绘巨幅 Graphviz 架构图，提升 DPI 与节点尺寸
-        overview_graph = graphviz.Digraph()
-        overview_graph.attr(rankdir='LR', bgcolor='transparent', dpi='300', nodesep='0.6', ranksep='1.0')
-        overview_graph.attr('node', fontname='sans-serif', fontsize='14', shape='rect', style='filled', rx='12',
-                            ry='12', height='1.2', width='2.8')
-
-        overview_graph.node('A', '📊 1. 获取数据\n(左侧输入标的代码)', fillcolor='#1e293b', fontcolor='white',
-                            color='#00ffcc', penwidth='2')
-        overview_graph.node('B', '🧠 2. 模型训练\n(LSTM 时序深度预测)', fillcolor='#1e293b', fontcolor='white',
-                            color='#00ffcc', penwidth='2')
-        overview_graph.node('C', '📈 3. 策略回测\n(全量审计与归因分析)', fillcolor='#1e293b', fontcolor='white',
-                            color='#00ffcc', penwidth='2')
-        overview_graph.node('D', '🤖 4. AI 战情室\n(大模型多模态深度解读)', fillcolor='#3b0764', fontcolor='white',
-                            color='#ff00ff', penwidth='2')
-
-        overview_graph.edge('A', 'B', label=' 喂入清洗数据', fontcolor='white', color='#00ffcc', fontsize='12',
-                            penwidth='2')
-        overview_graph.edge('B', 'C', label=' 输出预测信号', fontcolor='white', color='#00ffcc', fontsize='12',
-                            penwidth='2')
-        overview_graph.edge('C', 'D', label=' 上传回测结果', fontcolor='white', color='#ff00ff', fontsize='12',
-                            penwidth='2')
-        overview_graph.edge('A', 'D', label=' 研报/原始数据', fontcolor='white', color='#ff00ff', fontsize='12',
-                            penwidth='2')
-
-        st.graphviz_chart(overview_graph, use_container_width=True)
         st.markdown(
-            '<div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:10px; border:1px solid rgba(255,255,255,0.05);"><b>🎯 极简操作指南：</b><br>1. 在<b>回测/深度学习</b>界面输入标的（如000001），系统自动拉取 A 股数据并挂载指标。<br>2. 切换至<b>AI 策略引擎</b>，上传研报或直接下达军令，AI 会自动编写量化代码。<br>3. 拖拽 K 线图可平移，<b>双击图表</b>瞬间触发 Y 轴自适应对齐。</div></div>',
+            '<div class="glass-card"><h3 style="color:white; margin-bottom: 20px;">🧠 核心架构与操作流 (Data Flow Pipeline)</h3>',
+            unsafe_allow_html=True)
+
+        # 🔥 全新升级：采用 Streamlit 原生支持的 Mermaid 引擎渲染流程图
+        # 无需任何外部库，超高清且完美适应所有系统
+        st.markdown("""
+        ```mermaid
+        graph LR
+            A[📊 1. 获取数据<br>左侧输入标的] -->|喂入清洗数据| B(🧠 2. 模型训练<br>LSTM 时序预测)
+            B -->|输出预测信号| C{📈 3. 策略回测<br>全量审计与归因}
+            C -->|上传回测结果| D[🤖 4. AI 战情室<br>大模型多模态解读]
+            A -.->|研报/原始数据| D
+
+            style A fill:#1e293b,stroke:#00ffcc,stroke-width:2px,color:#fff
+            style B fill:#1e293b,stroke:#00ffcc,stroke-width:2px,color:#fff
+            style C fill:#1e293b,stroke:#00ffcc,stroke-width:2px,color:#fff
+            style D fill:#3b0764,stroke:#ff00ff,stroke-width:2px,color:#fff
+        ```
+        """)
+        st.markdown(
+            '<div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:10px; border:1px solid rgba(255,255,255,0.05); margin-top:20px;"><b>🎯 极简操作指南：</b><br>1. 在<b>回测/深度学习</b>界面输入标的（如000001），系统自动拉取 A 股数据并挂载指标。<br>2. 切换至<b>AI 策略引擎</b>，上传研报或直接下达军令，AI 会自动编写量化代码。<br>3. 拖拽 K 线图可平移，<b>双击图表</b>瞬间触发 Y 轴自适应对齐。</div></div>',
             unsafe_allow_html=True)
 
     with c_point:
-        st.markdown('<div class="glass-card"><h4>📋 平台体征监控 (Telemetry)</h4>', unsafe_allow_html=True)
+        st.markdown('<div class="glass-card"><h4 style="color:white;">📋 平台体征监控 (Telemetry)</h4>',
+                    unsafe_allow_html=True)
         st.markdown("**内存池占用率 (预估)**")
         st.progress(0.35)
         st.markdown("**UI 实时通信帧率**")
         st.progress(0.96)
         st.markdown(
-            '<br><h4>💡 答辩终极杀手锏</h4>✅ <b>类型强制归一 (New)</b>: 自动剿灭 AI 产生的浮点数买卖信号报错。<br>✅ <b>全局物理补丁</b>: pd.np = np，永久杜绝旧语法崩溃。<br>✅ <b>平移自适应缩放</b>: 左右拖拽平移，双击瞬间对齐Y轴。</div>',
+            '<br><h4 style="color:white;">💡 答辩终极杀手锏</h4>✅ <b>类型强制归一 (New)</b>: 自动剿灭 AI 产生的浮点数买卖信号报错。<br>✅ <b>全局物理补丁</b>: pd.np = np，永久杜绝旧语法崩溃。<br>✅ <b>平移自适应缩放</b>: 左右拖拽平移，双击瞬间对齐Y轴。</div>',
             unsafe_allow_html=True)
 
 # ==========================================
@@ -355,7 +320,7 @@ elif page == "🤖 AI 策略引擎 (LLM)":
     if "messages" not in st.session_state: st.session_state.messages = []
 
     st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0;">🤖 LLM 策略战情室</h3><p style="color:#888;">多模态视觉引擎已就绪，体验沉浸式全流体工作流。</p></div>',
+        '<div class="glass-card"><h3 style="margin-bottom:0; color:white;">🤖 LLM 策略战情室</h3><p style="color:#888;">多模态视觉引擎已就绪，体验沉浸式全流体工作流。</p></div>',
         unsafe_allow_html=True)
 
     with st.container():
@@ -372,45 +337,40 @@ elif page == "🤖 AI 策略引擎 (LLM)":
         st.markdown('</div>', unsafe_allow_html=True)
 
     # 聊天记录显示区域
-    chat_container = st.container(height=420)
+    chat_container = st.container(height=380)
     with chat_container:
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"])
 
-    # === 附件上传按钮 (贴近底部聊天框) ===
+    # === 🔥 紧贴底部的附件上传区 (完美搭配悬浮输入框) ===
     st.markdown("<br>", unsafe_allow_html=True)
-    col_menu, col_empty = st.columns([1.5, 6])
-    with col_menu:
-        with st.popover("📎 呈递图文附件", use_container_width=True):
-            st.caption("🚀 支持 TXT/CSV/图片，发送后即焚")
-            uploaded_files = st.file_uploader(
-                "上传文件",
-                accept_multiple_files=True,
-                type=['png', 'jpg', 'jpeg', 'csv', 'txt'],
-                label_visibility="collapsed"
-            )
+
+    # 用 Expander 做收纳，让它跟底部的 Chat Input 距离非常贴近
+    with st.expander("📎 展开添加图文附件 (支持图片/CSV/TXT，发送后即焚)", expanded=False):
+        uploaded_files = st.file_uploader("呈递军情附件", accept_multiple_files=True,
+                                          type=['png', 'jpg', 'jpeg', 'csv', 'txt'], label_visibility="collapsed")
 
     # 解析文件内容
     file_context = ""
     if uploaded_files:
-        with st.expander("👀 附件预览 (已悬挂至当前对话上下文)", expanded=True):
-            cols = st.columns(min(len(uploaded_files), 3))
-            for idx, file in enumerate(uploaded_files):
-                with cols[idx % 3]:
-                    if file.type.startswith('image/'):
-                        img = Image.open(file)
-                        st.image(img, caption=file.name, use_container_width=True)
-                        file_context += f"\n[用户上传了图片: {file.name}，请结合视觉能力分析]"
-                    elif file.type == 'text/csv':
-                        df_upload = pd.read_csv(file)
-                        st.dataframe(df_upload.head(2), use_container_width=True)
-                        file_context += f"\n【附件 CSV {file.name} 前两行】:\n{df_upload.head(2).to_string()}\n"
-                    elif file.type == 'text/plain':
-                        content = file.read().decode("utf-8")
-                        st.text(content[:50] + "...")
-                        file_context += f"\n【附件文本 {file.name} 内容】:\n{content}\n"
+        st.success("✅ 附件已挂载入内存，可直接在下方输入框向 AI 下达分析指令！")
+        cols = st.columns(min(len(uploaded_files), 3))
+        for idx, file in enumerate(uploaded_files):
+            with cols[idx % 3]:
+                if file.type.startswith('image/'):
+                    img = Image.open(file)
+                    st.image(img, caption=file.name, use_container_width=True)
+                    file_context += f"\n[用户上传了图片: {file.name}，请结合视觉能力分析]"
+                elif file.type == 'text/csv':
+                    df_upload = pd.read_csv(file)
+                    st.dataframe(df_upload.head(2), use_container_width=True)
+                    file_context += f"\n【附件 CSV {file.name} 前两行】:\n{df_upload.head(2).to_string()}\n"
+                elif file.type == 'text/plain':
+                    content = file.read().decode("utf-8")
+                    st.text(content[:50] + "...")
+                    file_context += f"\n【附件文本 {file.name} 内容】:\n{content}\n"
 
-    # === 聊天输入框 (已通过上方 CSS 渲染为千问风格) ===
+    # === 聊天输入框 (已通过 CSS 渲染为千问风格) ===
     if raw_prompt := st.chat_input("向小吕布量化架构师发送军令..."):
         full_prompt_for_ai = raw_prompt
         if file_context: full_prompt_for_ai = f"以下是参考附件信息：\n{file_context}\n\n需求：{raw_prompt}"
@@ -487,7 +447,8 @@ elif page == "🤖 AI 策略引擎 (LLM)":
 # 📈 页面 3: 深度静态全量回测
 # ==========================================
 elif page == "📈 深度静态全量回测":
-    st.markdown('<div class="glass-card"><h3>📊 历史回测全量审计与归因分析</h3></div>', unsafe_allow_html=True)
+    st.markdown('<div class="glass-card"><h3 style="color:white;">📊 历史回测全量审计与归因分析</h3></div>',
+                unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 3])
     with col_l:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
@@ -560,7 +521,8 @@ elif page == "📈 深度静态全量回测":
 # ⚡ 页面 4: 实时高频交易 (Live)
 # ==========================================
 elif page == "⚡ 实时高频交易 (Live)":
-    st.markdown('<div class="glass-card"><h3>⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>', unsafe_allow_html=True)
+    st.markdown('<div class="glass-card"><h3 style="color:white;">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
+                unsafe_allow_html=True)
     c_ctrl, c_chart = st.columns([1, 2.5])
     with c_ctrl:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
@@ -610,7 +572,8 @@ elif page == "⚡ 实时高频交易 (Live)":
 # 🧠 页面 5: 深度学习预测 (LSTM)
 # ==========================================
 elif page == "🧠 深度学习预测 (LSTM)":
-    st.markdown('<div class="glass-card"><h3>🧠 深度神经网络时序建模中心 (LSTM)</h3></div>', unsafe_allow_html=True)
+    st.markdown('<div class="glass-card"><h3 style="color:white;">🧠 深度神经网络时序建模中心 (LSTM)</h3></div>',
+                unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 2.5])
     with col_l:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
@@ -680,7 +643,8 @@ elif page == "🧠 深度学习预测 (LSTM)":
 # 🛡️ 页面 6: 论文审计日志
 # ==========================================
 elif page == "🛡️ 论文审计日志":
-    st.markdown('<div class="glass-card"><h3>🛡️ 实验数据采集与多维审计中心</h3></div>', unsafe_allow_html=True)
+    st.markdown('<div class="glass-card"><h3 style="color:white;">🛡️ 实验数据采集与多维审计中心</h3></div>',
+                unsafe_allow_html=True)
     c1, c2 = st.columns([1, 1.2])
     with c1:
         if os.path.exists(GLOBAL_LOG_FILE): st.download_button("📁 导出中期汇报审计日志",
