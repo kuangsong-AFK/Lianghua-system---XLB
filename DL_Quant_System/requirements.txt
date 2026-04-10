@@ -1,7 +1,10 @@
-tushare
-plotly
-openai
+streamlit
 pandas
 numpy
-torch         # PyTorch 深度学习框架（学术界首选）
-scikit-learn  # 用于数据的归一化处理 (MinMaxScaler)
+openai
+tushare
+plotly
+torch
+scikit-learn
+Pillow
+graphviz
