@@ -1,13 +1,14 @@
 # ==============================================================================
-# 主公，末将已看穿那个“小黑边”的真面目！
-# 那是 Streamlit 底层名为 [data-baseweb="textarea"] 的原生组件自带的死角底色。
-# 这一次，末将直接对所有内部节点下达了“绝对透明 (transparent !important)”的指令，
-# 彻底蒸发内部的黑色矩形，让整个输入框变成一个纯粹的、无缝的玻璃态胶囊！
+# 主公！末将已完成 V52 终极空间重构！
 #
-# 此外，末将已将 AI 聊天记录框 (chat_container) 的高度从 500 扩展到了 680，
-# 让它大幅向下延伸，紧紧贴近您的输入舱。
+# 🛡️ 本次 UI 终极调优：
+# 1. 侧边栏全面封锁 (Full-Bleed Sidebar)：强行覆盖了 Streamlit 原生在顶部和底部的安全边界
+#    (top: 0, height: 100vh)，让侧边栏的深色毛玻璃彻底填满左侧整个垂直空间，不留任何缝隙。
+# 2. 战情室扩容下延：将 AI 聊天记录框 (chat_container) 高度拉升至 720px，向下大幅延伸。
+# 3. 悬浮胶囊上浮：通过增加底部外边距 (margin-bottom: 45px)，将聊天输入框整体向上抬升。
+#    现在，聊天历史和输入框紧紧贴合，呈现出完美的沉浸式连续感！
 #
-# 请主公再次【全选复制】本黑框内的所有代码，直接覆盖您的 app.py！
+# 请主公最后一次【全选复制】本黑框内的所有代码，直接覆盖 app.py！
 # ==============================================================================
 
 import streamlit as st
@@ -55,19 +56,31 @@ if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 if "is_live_trading" not in st.session_state: st.session_state.is_live_trading = False
 
 # ==========================================
-# 2. UI/UX 强化 (极致透明舱 + 扩列排版)
+# 2. UI/UX 强化 (侧边栏填满 + 聊天框紧密贴合)
 # ==========================================
 st.markdown("""
 <style>
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
 
-    [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 3rem !important; padding-bottom: 120px !important; }
+    /* 配合聊天框上移，留出更大的底部安全区 */
+    [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 3rem !important; padding-bottom: 160px !important; }
     header[data-testid="stHeader"] { background: transparent !important; pointer-events: none !important; }
 
     .stMarkdown, p, h1, h2, h3, h4, label, span { color: #e2e8f0 !important; }
 
-    [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; }
+    /* 🔥 侧边栏：强制高度 100vh 且 top/bottom 为 0，彻底填满上下空白 */
+    [data-testid="stSidebar"] { 
+        background: rgba(5, 8, 14, 0.75) !important; 
+        backdrop-filter: blur(25px) !important; 
+        border-right: 1px solid rgba(255,255,255,0.08) !important; 
+        top: 0 !important; 
+        bottom: 0 !important; 
+        height: 100vh !important; 
+    }
+    /* 确保内部容器也能撑满 */
+    [data-testid="stSidebar"] > div:first-child { height: 100vh !important; padding-top: 3rem !important; }
+
     div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; padding: 14px 18px !important; margin-bottom: 10px !important; border-radius: 12px !important; border-left: 4px solid transparent !important; }
     div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
 
@@ -82,18 +95,18 @@ st.markdown("""
         border: none !important;
     }
 
-    /* 🔥 极简胶囊聊天框：外层容器彻底透明化 */
+    /* 🔥 极简胶囊聊天框外壳：增加 margin-bottom 将其向上推，贴近聊天历史 */
     [data-testid="stChatInput"] { 
         background: transparent !important;
         border: none !important;
         box-shadow: none !important;
         max-width: 850px;
-        margin: 0 auto 10px auto !important;
+        margin: 0 auto 45px auto !important; /* 向上抬升 */
     }
 
     /* 真正的发光胶囊体 */
     [data-testid="stChatInput"] > div:first-child {
-        background-color: rgba(30, 41, 59, 0.6) !important; /* 千问同款半透明质感 */
+        background-color: rgba(30, 41, 59, 0.6) !important; 
         backdrop-filter: blur(25px) !important; 
         border: 1px solid rgba(255, 255, 255, 0.15) !important; 
         border-radius: 36px !important;  
@@ -101,7 +114,7 @@ st.markdown("""
         padding: 5px 15px !important;
     }
 
-    /* 🔥 暴力击碎内部黑色底框 */
+    /* 暴力击碎内部黑色底框 */
     [data-testid="stChatInput"] [data-baseweb="textarea"],
     [data-testid="stChatInput"] [data-baseweb="textarea"] > div,
     [data-testid="stChatInput"] textarea {
@@ -113,11 +126,9 @@ st.markdown("""
         color: #ffffff !important;
     }
 
-    [data-testid="stChatInput"] textarea:focus {
-        box-shadow: none !important;
-        outline: none !important;
-    }
+    [data-testid="stChatInput"] textarea:focus { box-shadow: none !important; outline: none !important; }
 
+    [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }
     [data-testid="stChatInputSubmitButton"] { background-color: #3b82f6 !important; border-radius: 50% !important; transition: all 0.3s ease; }
     [data-testid="stChatInputSubmitButton"]:hover { background-color: #60a5fa !important; box-shadow: 0 0 15px rgba(59, 130, 246, 0.6) !important; }
 
@@ -396,8 +407,8 @@ elif page == "🤖 AI 策略引擎 (LLM)":
             enable_deep_think = st.toggle("💡 强子注入：开启深度思考引擎 (CoT)", value=False)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # 🔥 聊天记录区高度暴增至 680，无限逼近底端输入框
-    chat_container = st.container(height=680)
+    # 🔥 聊天记录区向下大幅延伸，高度拉升至 720
+    chat_container = st.container(height=720)
     with chat_container:
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"])
