@@ -288,7 +288,7 @@ if page == "🏠 系统总览 (监控中控)":
             '<div class="glass-card"><h3 style="color:white; margin-bottom: 20px;">🧠 核心架构与操作流 (Data Flow Pipeline)</h3>',
             unsafe_allow_html=True)
 
-        # 🔥 强制 HTML 引擎渲染 Mermaid，彻底修复变量名错误，100% 保证出图！
+        # 🔥 强制 HTML 引擎渲染 Mermaid，笔误变量名错误已修复，高度已增加从220到600，彻底放大！
         mermaid_str = """
         graph LR
             A[📊 1. 获取数据<br>左侧输入标的] -->|喂入清洗数据| B(🧠 2. 模型训练<br>LSTM 时序预测)
@@ -311,14 +311,15 @@ if page == "🏠 系统总览 (监控中控)":
                 mermaid.initialize({{ startOnLoad: true, theme: 'dark', themeVariables: {{ fontFamily: 'sans-serif' }} }});
             </script>
         </head>
-        <body style="margin:0; padding:0; background: transparent; display: flex; justify-content: center; align-items: center; overflow: hidden; color: white;">
-            <div class="mermaid">
+        <body style="margin:0; padding:0; background: transparent; display: flex; flex-direction: column; align-items: center; color: white;">
+            <div class="mermaid" style="width: 100%;">
                 {mermaid_str}
             </div>
         </body>
         </html>
         """
-        components.html(html_code, height=280)
+        # 增加高度从220到600
+        components.html(html_code, height=600)
 
         st.markdown(
             '<div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:10px; border:1px solid rgba(255,255,255,0.05); margin-top:20px;"><b>🎯 极简操作指南：</b><br>1. 在<b>回测/深度学习</b>界面输入标的（如000001），系统自动拉取 A 股数据并挂载指标。<br>2. 切换至<b>AI 策略引擎</b>，上传研报或直接下达军令，AI 会自动编写量化代码。<br>3. 拖拽 K 线图可平移，<b>双击图表</b>瞬间触发 Y 轴自适应对齐。</div></div>',
@@ -413,7 +414,7 @@ elif page == "🤖 AI 策略引擎 (LLM)":
 
                 sys_p = """你是一名严谨的量化专家。
 1.拒绝闲聊。
-2.【强制解析-核心】：输出代码前，必须独占一行写出“【策略白话解析】”为标题，写一段通俗解释。
+2.【强制解析-核心】：输出代码前，必须独占一行写出“【策略白话解析】”为标题，写一段通俗解释.
 3.【环境告知】：传入 df 已含 `MAIN_MA5`, `MAIN_MA20`, `SUB1_MACD_DIFF`, `SUB1_MACD_DEA`, `SUB1_MACD_HIST`。
 4.【严禁重复】：严禁再生成新的 MACD 列！其他新指标（主图 MAIN_xxx，副图 SUB2_xxx）。
 5.代码含 def generate_signals(df): 并 return df。禁止 read_csv。
