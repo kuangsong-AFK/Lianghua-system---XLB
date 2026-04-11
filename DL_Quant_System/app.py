@@ -1,11 +1,13 @@
 # ==============================================================================
-# 主公，末将已洞察秋毫！那是 Streamlit 底层组件（BaseWeb）自带的输入框底色和边框。
-# 这一次，末将动用了最高权限的 CSS 穿透指令（Deep Penetration），
-# 将聊天框内部的所有原生外壳、底色、描边【全部暴力粉碎为透明 (transparent)】！
+# 主公，末将已看穿那个“小黑边”的真面目！
+# 那是 Streamlit 底层名为 [data-baseweb="textarea"] 的原生组件自带的死角底色。
+# 这一次，末将直接对所有内部节点下达了“绝对透明 (transparent !important)”的指令，
+# 彻底蒸发内部的黑色矩形，让整个输入框变成一个纯粹的、无缝的玻璃态胶囊！
 #
-# 现在的聊天框，内部将如千问一样，完全是一个无缝、无边框的沉浸式极简胶囊！
+# 此外，末将已将 AI 聊天记录框 (chat_container) 的高度从 500 扩展到了 680，
+# 让它大幅向下延伸，紧紧贴近您的输入舱。
 #
-# 同样，请直接【全选复制】本黑框内的所有代码，直接覆盖您的 app.py！
+# 请主公再次【全选复制】本黑框内的所有代码，直接覆盖您的 app.py！
 # ==============================================================================
 
 import streamlit as st
@@ -53,14 +55,14 @@ if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 if "is_live_trading" not in st.session_state: st.session_state.is_live_trading = False
 
 # ==========================================
-# 2. UI/UX 强化 (千问级无边框胶囊舱)
+# 2. UI/UX 强化 (极致透明舱 + 扩列排版)
 # ==========================================
 st.markdown("""
 <style>
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
 
-    [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 3rem !important; padding-bottom: 150px !important; }
+    [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 3rem !important; padding-bottom: 120px !important; }
     header[data-testid="stHeader"] { background: transparent !important; pointer-events: none !important; }
 
     .stMarkdown, p, h1, h2, h3, h4, label, span { color: #e2e8f0 !important; }
@@ -80,35 +82,42 @@ st.markdown("""
         border: none !important;
     }
 
-    /* 🔥 千问级别：沉浸式大胶囊聊天框 (外壳) */
+    /* 🔥 极简胶囊聊天框：外层容器彻底透明化 */
     [data-testid="stChatInput"] { 
-        background-color: rgba(30, 41, 59, 0.85) !important; 
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        max-width: 850px;
+        margin: 0 auto 10px auto !important;
+    }
+
+    /* 真正的发光胶囊体 */
+    [data-testid="stChatInput"] > div:first-child {
+        background-color: rgba(30, 41, 59, 0.6) !important; /* 千问同款半透明质感 */
         backdrop-filter: blur(25px) !important; 
         border: 1px solid rgba(255, 255, 255, 0.15) !important; 
         border-radius: 36px !important;  
         box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; 
-        padding: 8px 16px !important;
-        max-width: 850px;
-        margin: 0 auto 30px auto !important;
+        padding: 5px 15px !important;
     }
 
-    /* 🔥 暴力粉碎 Streamlit 底层的所有内部矩形底色和边框！实现内部绝对无缝 */
-    [data-testid="stChatInput"] > div:first-child,
-    [data-testid="stChatInput"] [data-baseweb],
-    [data-testid="stChatInput"] [data-baseweb] > div {
+    /* 🔥 暴力击碎内部黑色底框 */
+    [data-testid="stChatInput"] [data-baseweb="textarea"],
+    [data-testid="stChatInput"] [data-baseweb="textarea"] > div,
+    [data-testid="stChatInput"] textarea {
         background-color: transparent !important;
         background: transparent !important;
         border: none !important;
         box-shadow: none !important;
+        outline: none !important;
+        color: #ffffff !important;
     }
 
-    /* 移除输入聚焦时的轮廓线 */
     [data-testid="stChatInput"] textarea:focus {
         box-shadow: none !important;
         outline: none !important;
     }
 
-    [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }
     [data-testid="stChatInputSubmitButton"] { background-color: #3b82f6 !important; border-radius: 50% !important; transition: all 0.3s ease; }
     [data-testid="stChatInputSubmitButton"]:hover { background-color: #60a5fa !important; box-shadow: 0 0 15px rgba(59, 130, 246, 0.6) !important; }
 
@@ -387,8 +396,8 @@ elif page == "🤖 AI 策略引擎 (LLM)":
             enable_deep_think = st.toggle("💡 强子注入：开启深度思考引擎 (CoT)", value=False)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # 聊天记录显示区域
-    chat_container = st.container(height=500)
+    # 🔥 聊天记录区高度暴增至 680，无限逼近底端输入框
+    chat_container = st.container(height=680)
     with chat_container:
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"])
@@ -410,40 +419,45 @@ elif page == "🤖 AI 策略引擎 (LLM)":
             const popovers = Array.from(doc.querySelectorAll('div[data-testid="stPopover"]'));
             const attachPopover = popovers.find(p => p.textContent.includes('📎'));
 
-            if (chatInput && attachPopover && attachPopover.parentElement !== chatInput) {
-                // 将胶囊外壳变为 Flex 容器，实现完美居中平齐
-                chatInput.style.display = 'flex';
-                chatInput.style.flexDirection = 'row';
-                chatInput.style.alignItems = 'center';
-                chatInput.style.gap = '8px';
+            if (chatInput && attachPopover) {
+                // 找到真正的输入舱内层
+                const innerPill = chatInput.children[0];
 
-                // 去除附件按钮的一切外界边距，让它纯粹就是一个图标
-                attachPopover.style.position = 'static';
-                attachPopover.style.marginBottom = '0';
-                attachPopover.style.width = 'auto'; 
+                if (innerPill && attachPopover.parentElement !== innerPill) {
+                    // 将胶囊内层变为 Flex 容器，实现完美居中平齐
+                    innerPill.style.display = 'flex';
+                    innerPill.style.flexDirection = 'row';
+                    innerPill.style.alignItems = 'center';
+                    innerPill.style.gap = '8px';
 
-                const btn = attachPopover.querySelector('button');
-                if (btn) {
-                    btn.style.background = 'transparent';
-                    btn.style.border = 'none';
-                    btn.style.boxShadow = 'none';
-                    btn.style.color = '#a1a1aa';
-                    btn.style.fontSize = '1.4rem';
-                    btn.style.padding = '0 5px';
-                    btn.style.minWidth = '0';
-                    btn.style.width = 'auto';
-                    // 抹除难看的向下小箭头
-                    const svgs = btn.querySelectorAll('svg');
-                    if (svgs.length > 0) svgs[svgs.length - 1].style.display = 'none';
-                }
+                    // 去除附件按钮的一切外界边距
+                    attachPopover.style.position = 'static';
+                    attachPopover.style.marginBottom = '0';
+                    attachPopover.style.width = 'auto'; 
 
-                // 物理转移：插到输入框最前面
-                chatInput.insertBefore(attachPopover, chatInput.firstChild);
+                    const btn = attachPopover.querySelector('button');
+                    if (btn) {
+                        btn.style.background = 'transparent';
+                        btn.style.border = 'none';
+                        btn.style.boxShadow = 'none';
+                        btn.style.color = '#a1a1aa';
+                        btn.style.fontSize = '1.4rem';
+                        btn.style.padding = '0 5px';
+                        btn.style.minWidth = '0';
+                        btn.style.width = 'auto';
+                        // 抹除难看的向下小箭头
+                        const svgs = btn.querySelectorAll('svg');
+                        if (svgs.length > 0) svgs[svgs.length - 1].style.display = 'none';
+                    }
 
-                // 确保文本框撑满剩余空间
-                if(chatInput.children.length > 1) {
-                    chatInput.children[1].style.flexGrow = '1';
-                    chatInput.children[1].style.width = '100%';
+                    // 物理转移：插到输入框最前面
+                    innerPill.insertBefore(attachPopover, innerPill.firstChild);
+
+                    // 确保文本框撑满剩余空间
+                    if(innerPill.children.length > 1) {
+                        innerPill.children[1].style.flexGrow = '1';
+                        innerPill.children[1].style.width = '100%';
+                    }
                 }
             }
         }, 500);
