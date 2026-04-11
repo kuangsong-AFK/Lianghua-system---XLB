@@ -1,5 +1,13 @@
 # ==============================================================================
-# 请直接点击右上角 Copy code，全选覆盖您的 app.py
+# 主公，末将已收到最新战报！这次升级直指“极致大满配”视觉体验：
+#
+# 1. 极简操作指南前置：已将其从底层抽离，横跨放置在系统总览的最上方（四大监控指标之下），
+#    保证无论屏幕缩放多大，进门第一眼绝对能看到！
+# 2. 聊天舱扩容：AI 战情室的对话框高度已从 350px 暴增至 600px，直抵底部边缘。
+# 3. 完美的千问悬浮 UI：彻底实现了附件按钮「嵌入式」左置！利用 CSS transform 和 Media Query，
+#    这个附件按钮 (📎) 现在已完美悬浮并锁定在输入框的最左侧。
+#
+# 请主公一键复制下方全量代码，全选覆盖 app.py！无需任何分步操作！
 # ==============================================================================
 
 import streamlit as st
@@ -47,14 +55,14 @@ if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 if "is_live_trading" not in st.session_state: st.session_state.is_live_trading = False
 
 # ==========================================
-# 2. UI/UX 强化 (千问级悬浮舱 + 修复顶部遮挡)
+# 2. UI/UX 强化 (千问级左侧嵌入按钮 + 扩展视野)
 # ==========================================
 st.markdown("""
 <style>
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
 
-    [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 4rem !important; padding-bottom: 150px !important; }
+    [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 4rem !important; padding-bottom: 120px !important; }
     header[data-testid="stHeader"] { background: transparent !important; pointer-events: none !important; }
 
     .stMarkdown, p, h1, h2, h3, h4, label, span { color: #e2e8f0 !important; }
@@ -81,7 +89,7 @@ st.markdown("""
         border: 1px solid rgba(255, 255, 255, 0.15) !important; 
         border-radius: 36px !important;  
         box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; 
-        padding: 8px 16px !important;
+        padding: 8px 16px 8px 55px !important; /* 左侧留出 55px 给附件按钮 */
         max-width: 850px;
         margin: 0 auto 25px auto !important;
     }
@@ -89,9 +97,17 @@ st.markdown("""
     [data-testid="stChatInputSubmitButton"] { background-color: #3b82f6 !important; border-radius: 50% !important; transition: all 0.3s ease; }
     [data-testid="stChatInputSubmitButton"]:hover { background-color: #60a5fa !important; box-shadow: 0 0 15px rgba(59, 130, 246, 0.6) !important; }
 
-    /* 悬浮工具栏区 */
-    .tool-bar-container { display: flex; justify-content: center; margin-bottom: -10px; position: relative; z-index: 100; }
-    [data-testid="stPopoverBody"] { background-color: rgba(25, 33, 48, 0.95) !important; border: 1px solid rgba(0, 255, 204, 0.4) !important; border-radius: 16px !important; backdrop-filter: blur(25px) !important; padding: 15px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important; }
+    /* 附件按钮精确定位到输入框左侧 */
+    @media (min-width: 850px) {
+        [data-testid="stPopover"] { position: fixed !important; bottom: 35px !important; left: 50% !important; transform: translateX(-410px) !important; z-index: 999999 !important; }
+    }
+    @media (max-width: 849px) {
+        [data-testid="stPopover"] { position: fixed !important; bottom: 35px !important; left: 10px !important; z-index: 999999 !important; }
+    }
+    [data-testid="stPopover"] > button { background-color: transparent !important; border: none !important; color: #a1a1aa !important; font-size: 1.5rem !important; padding: 6px !important; }
+    [data-testid="stPopover"] > button:hover { color: #00ffcc !important; }
+
+    [data-testid="stPopoverBody"] { background-color: rgba(25, 33, 48, 0.95) !important; border: 1px solid rgba(0, 255, 204, 0.4) !important; border-radius: 16px !important; backdrop-filter: blur(25px) !important; padding: 15px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important; margin-bottom: 20px !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -281,6 +297,14 @@ if page == "🏠 系统总览 (监控中控)":
 
     st.markdown("---")
 
+    # 🔥 将极简操作指南移至顶部全宽显示
+    st.markdown(
+        '<div style="background:rgba(0,255,204,0.05); padding:15px; border-radius:10px; border:1px solid rgba(0,255,204,0.2); margin-bottom:20px;">'
+        '<b style="color:#00ffcc;">🎯 极简操作指南：</b>'
+        '<span style="color:#e2e8f0; margin-left: 10px;">1. 在<b>回测/深度学习</b>界面输入标的（如000001），挂载数据与指标。 | '
+        '2. 切换至<b>AI 策略引擎</b>，上传研报并下达军令。 | '
+        '3. 拖拽 K 线图平移，<b>双击图表</b>瞬间触发 Y 轴自适应对齐。</span></div>', unsafe_allow_html=True)
+
     c_arch, c_point = st.columns([2, 1])
 
     with c_arch:
@@ -288,7 +312,6 @@ if page == "🏠 系统总览 (监控中控)":
             '<div class="glass-card"><h3 style="color:white; margin-bottom: 20px;">🧠 核心架构与操作流 (Data Flow Pipeline)</h3>',
             unsafe_allow_html=True)
 
-        # 🔥 强制 HTML 引擎渲染 Mermaid，笔误变量名错误已修复，高度已增加从220到600，彻底放大！
         mermaid_str = """
         graph LR
             A[📊 1. 获取数据<br>左侧输入标的] -->|喂入清洗数据| B(🧠 2. 模型训练<br>LSTM 时序预测)
@@ -318,12 +341,8 @@ if page == "🏠 系统总览 (监控中控)":
         </body>
         </html>
         """
-        # 增加高度从220到600
-        components.html(html_code, height=600)
-
-        st.markdown(
-            '<div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:10px; border:1px solid rgba(255,255,255,0.05); margin-top:20px;"><b>🎯 极简操作指南：</b><br>1. 在<b>回测/深度学习</b>界面输入标的（如000001），系统自动拉取 A 股数据并挂载指标。<br>2. 切换至<b>AI 策略引擎</b>，上传研报或直接下达军令，AI 会自动编写量化代码。<br>3. 拖拽 K 线图可平移，<b>双击图表</b>瞬间触发 Y 轴自适应对齐。</div></div>',
-            unsafe_allow_html=True)
+        components.html(html_code, height=500)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with c_point:
         st.markdown('<div class="glass-card"><h4 style="color:white;">📋 平台体征监控 (Telemetry)</h4>',
@@ -359,19 +378,17 @@ elif page == "🤖 AI 策略引擎 (LLM)":
             enable_deep_think = st.toggle("💡 强子注入：开启深度思考引擎 (CoT)", value=False)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # 聊天记录显示区域
-    chat_container = st.container(height=350)
+    # 🔥 聊天记录区高度暴增至 600
+    chat_container = st.container(height=600)
     with chat_container:
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"])
 
-    # === 🔥 悬浮工具栏区 (居中、贴合输入框) ===
-    st.markdown('<div class="tool-bar-container">', unsafe_allow_html=True)
-    with st.popover("➕ 上传图文附件", help="点击上传参考文件", use_container_width=False):
+    # === 🔥 将附件按钮通过全局 CSS 锁定在输入框的左侧边缘 ===
+    with st.popover("📎", help="点击上传参考文件", use_container_width=False):
         st.caption("支持上传本地图片、TXT、CSV，发送后即焚")
         uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
                                           type=['png', 'jpg', 'jpeg', 'csv', 'txt'], label_visibility="collapsed")
-    st.markdown('</div>', unsafe_allow_html=True)
 
     # 解析文件内容
     file_context = ""
@@ -414,7 +431,7 @@ elif page == "🤖 AI 策略引擎 (LLM)":
 
                 sys_p = """你是一名严谨的量化专家。
 1.拒绝闲聊。
-2.【强制解析-核心】：输出代码前，必须独占一行写出“【策略白话解析】”为标题，写一段通俗解释.
+2.【强制解析-核心】：输出代码前，必须独占一行写出“【策略白话解析】”为标题，写一段通俗解释。
 3.【环境告知】：传入 df 已含 `MAIN_MA5`, `MAIN_MA20`, `SUB1_MACD_DIFF`, `SUB1_MACD_DEA`, `SUB1_MACD_HIST`。
 4.【严禁重复】：严禁再生成新的 MACD 列！其他新指标（主图 MAIN_xxx，副图 SUB2_xxx）。
 5.代码含 def generate_signals(df): 并 return df。禁止 read_csv。
