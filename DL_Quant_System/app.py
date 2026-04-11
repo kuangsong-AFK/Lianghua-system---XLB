@@ -1,14 +1,11 @@
 # ==============================================================================
-# 主公！末将已查明重叠的原因！
-# 为彻底杜绝您复制时把聊天文字也贴进去导致 SyntaxError 报错，
-# 这一次末将的【所有汇报全部写在代码注释里】。
-# 请您直接【全选复制】本黑框内的所有代码，覆盖您的 app.py！
+# 主公，末将已洞察秋毫！那是 Streamlit 底层组件（BaseWeb）自带的输入框底色和边框。
+# 这一次，末将动用了最高权限的 CSS 穿透指令（Deep Penetration），
+# 将聊天框内部的所有原生外壳、底色、描边【全部暴力粉碎为透明 (transparent)】！
 #
-# ⚔️ 本次 V51 终极对齐修复：
-# 1. 缩短按钮：将“呈递图文附件”精简为纯粹的「📎」图标，去掉多余文字。
-# 2. 完美平齐：废弃了容易重叠的“绝对定位”，启用底层 Flexbox 弹性布局，
-#    将附件按钮【1:1 平齐无损地镶嵌】在聊天框内部最左侧。
-# 3. 去除内部边框：抹除了 Streamlit 默认的白框，彻底实现千问同款沉浸感！
+# 现在的聊天框，内部将如千问一样，完全是一个无缝、无边框的沉浸式极简胶囊！
+#
+# 同样，请直接【全选复制】本黑框内的所有代码，直接覆盖您的 app.py！
 # ==============================================================================
 
 import streamlit as st
@@ -56,7 +53,7 @@ if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 if "is_live_trading" not in st.session_state: st.session_state.is_live_trading = False
 
 # ==========================================
-# 2. UI/UX 强化 (千问级悬浮舱平齐对齐 + 修复顶部遮挡)
+# 2. UI/UX 强化 (千问级无边框胶囊舱)
 # ==========================================
 st.markdown("""
 <style>
@@ -83,7 +80,7 @@ st.markdown("""
         border: none !important;
     }
 
-    /* 🔥 千问级别：沉浸式大胶囊聊天框 */
+    /* 🔥 千问级别：沉浸式大胶囊聊天框 (外壳) */
     [data-testid="stChatInput"] { 
         background-color: rgba(30, 41, 59, 0.85) !important; 
         backdrop-filter: blur(25px) !important; 
@@ -95,13 +92,23 @@ st.markdown("""
         margin: 0 auto 30px auto !important;
     }
 
-    /* 🔥 抹除内置文本框的边框和背景，让它与外层大胶囊融为一体 */
-    [data-testid="stChatInput"] > div {
+    /* 🔥 暴力粉碎 Streamlit 底层的所有内部矩形底色和边框！实现内部绝对无缝 */
+    [data-testid="stChatInput"] > div:first-child,
+    [data-testid="stChatInput"] [data-baseweb],
+    [data-testid="stChatInput"] [data-baseweb] > div {
         background-color: transparent !important;
+        background: transparent !important;
         border: none !important;
         box-shadow: none !important;
     }
-    [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; }
+
+    /* 移除输入聚焦时的轮廓线 */
+    [data-testid="stChatInput"] textarea:focus {
+        box-shadow: none !important;
+        outline: none !important;
+    }
+
+    [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }
     [data-testid="stChatInputSubmitButton"] { background-color: #3b82f6 !important; border-radius: 50% !important; transition: all 0.3s ease; }
     [data-testid="stChatInputSubmitButton"]:hover { background-color: #60a5fa !important; box-shadow: 0 0 15px rgba(59, 130, 246, 0.6) !important; }
 
@@ -388,14 +395,13 @@ elif page == "🤖 AI 策略引擎 (LLM)":
 
     # === 🔥 悬浮附件按钮（极简短版） ===
     st.markdown('<div class="tool-bar-container">', unsafe_allow_html=True)
-    # 将文字去掉了，只保留 emoji，让按钮变得非常短！
     with st.popover("📎", help="点击上传参考文件", use_container_width=False):
         st.caption("支持上传本地图片、TXT、CSV，发送后即焚")
         uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
                                           type=['png', 'jpg', 'jpeg', 'csv', 'txt'], label_visibility="collapsed")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 🔥 黑魔法：通过 Flexbox 将极简的 📎 按钮平齐镶嵌进聊天框内部左侧
+    # 🔥 黑魔法：通过 Flexbox 将极简的 📎 按钮平齐镶嵌进无缝大胶囊左侧
     components.html("""
     <script>
         setInterval(() => {
@@ -405,18 +411,17 @@ elif page == "🤖 AI 策略引擎 (LLM)":
             const attachPopover = popovers.find(p => p.textContent.includes('📎'));
 
             if (chatInput && attachPopover && attachPopover.parentElement !== chatInput) {
-                // 将大胶囊变为水平排列的 Flex 容器
+                // 将胶囊外壳变为 Flex 容器，实现完美居中平齐
                 chatInput.style.display = 'flex';
                 chatInput.style.flexDirection = 'row';
                 chatInput.style.alignItems = 'center';
-                chatInput.style.gap = '10px';
+                chatInput.style.gap = '8px';
 
-                // 去除附件按钮的外部约束
+                // 去除附件按钮的一切外界边距，让它纯粹就是一个图标
                 attachPopover.style.position = 'static';
                 attachPopover.style.marginBottom = '0';
                 attachPopover.style.width = 'auto'; 
 
-                // 彻底隐形化外层按钮，仅保留 📎
                 const btn = attachPopover.querySelector('button');
                 if (btn) {
                     btn.style.background = 'transparent';
@@ -432,10 +437,10 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                     if (svgs.length > 0) svgs[svgs.length - 1].style.display = 'none';
                 }
 
-                // 物理转移：将附件按钮插到输入框最前面（左侧）
+                // 物理转移：插到输入框最前面
                 chatInput.insertBefore(attachPopover, chatInput.firstChild);
 
-                // 确保文本输入区域填满右侧剩余空间，不被挤压
+                // 确保文本框撑满剩余空间
                 if(chatInput.children.length > 1) {
                     chatInput.children[1].style.flexGrow = '1';
                     chatInput.children[1].style.width = '100%';
