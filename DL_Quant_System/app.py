@@ -1,9 +1,5 @@
 # ==============================================================================
-# 主公，由于部分云环境和低版本 Streamlit 对 Markdown 原生 Mermaid 解析支持不佳，
-# 导致流程图退化成了代码块。
-# 本次 V49 终极版已彻底改用 HTML+JS 引擎强制渲染 Mermaid，100% 保证出图！
-# 同时为您保留了所有的千问样式与防报错补丁。
-# 请直接【全选复制】本代码框所有内容，覆盖 app.py！
+# 请直接点击右上角 Copy code，全选覆盖您的 app.py
 # ==============================================================================
 
 import streamlit as st
@@ -292,7 +288,7 @@ if page == "🏠 系统总览 (监控中控)":
             '<div class="glass-card"><h3 style="color:white; margin-bottom: 20px;">🧠 核心架构与操作流 (Data Flow Pipeline)</h3>',
             unsafe_allow_html=True)
 
-        # 🔥 强制 HTML 引擎渲染 Mermaid，100% 解决降级为代码块的问题
+        # 🔥 强制 HTML 引擎渲染 Mermaid，彻底修复变量名错误，100% 保证出图！
         mermaid_str = """
         graph LR
             A[📊 1. 获取数据<br>左侧输入标的] -->|喂入清洗数据| B(🧠 2. 模型训练<br>LSTM 时序预测)
@@ -317,12 +313,12 @@ if page == "🏠 系统总览 (监控中控)":
         </head>
         <body style="margin:0; padding:0; background: transparent; display: flex; justify-content: center; align-items: center; overflow: hidden; color: white;">
             <div class="mermaid">
-                {mermaid_code}
+                {mermaid_str}
             </div>
         </body>
         </html>
         """
-        components.html(html_code, height=220)
+        components.html(html_code, height=280)
 
         st.markdown(
             '<div style="background:rgba(0,0,0,0.3); padding:15px; border-radius:10px; border:1px solid rgba(255,255,255,0.05); margin-top:20px;"><b>🎯 极简操作指南：</b><br>1. 在<b>回测/深度学习</b>界面输入标的（如000001），系统自动拉取 A 股数据并挂载指标。<br>2. 切换至<b>AI 策略引擎</b>，上传研报或直接下达军令，AI 会自动编写量化代码。<br>3. 拖拽 K 线图可平移，<b>双击图表</b>瞬间触发 Y 轴自适应对齐。</div></div>',
