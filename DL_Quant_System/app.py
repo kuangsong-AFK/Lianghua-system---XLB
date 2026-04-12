@@ -74,7 +74,7 @@ prev_idx, curr_idx = PAGES.index(st.session_state.prev_page), PAGES.index(st.ses
 anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr_idx < prev_idx else "fogFadeIn")
 
 # ==========================================
-# 3. 宗师级 JS 引擎：零损耗 MutationObserver (废除死循环)
+# 3. 宗师级 JS 引擎：零损耗 MutationObserver
 # ==========================================
 scroll_script = "window.parent.scrollTo({top: 0, behavior: 'instant'});" if st.session_state.just_switched else ""
 
@@ -155,9 +155,10 @@ st.markdown("""
     div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important;}
     div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
 
+    /* 仅保留核心展示框的玻璃特效，杜绝包裹原生组件 */
     .glass-card { background: rgba(20, 28, 45, 0.65) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
     .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; }
-    [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); }
+    [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); margin-bottom: 20px !important; }
 
     [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
     [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; display: flex !important; align-items: center !important; }
@@ -303,7 +304,7 @@ def render_smart_charts(df):
                     row=row_idx, col=1)
         row_idx += 1
     fig.update_layout(height=500 + len(sub_groups) * 150, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
-                      plot_bgcolor='rgba(0,0,0,0.1)', xaxis_rangeslider_visible=False, dragmode='pan', hovermode='x',
+                      plot_bgcolor='rgba(0,0,0,0)', xaxis_rangeslider_visible=False, dragmode='pan', hovermode='x',
                       showlegend=False)
     return fig
 
@@ -315,9 +316,10 @@ def format_ts_code(raw):
 
 
 # ==========================================
-# 6. 各页面业务逻辑 (按需加载重装甲)
+# 6. 各页面业务逻辑 (除尽所有幽灵空包)
 # ==========================================
 if selected_page == PAGES[0]:
+    # 仅将原生 HTML 放进 glass-card，绝不包裹原生组件
     st.markdown(
         '<div class="glass-card"><h1 style="margin-bottom:0; color:var(--text-color);">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
         unsafe_allow_html=True)
@@ -337,32 +339,30 @@ if selected_page == PAGES[0]:
     c_arch, c_point = st.columns([2, 1])
     with c_arch:
         st.markdown(
-            '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom: 20px;">🧠 核心架构与操作流 (Data Flow Pipeline)</h3>',
+            '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom: 0px;">🧠 核心架构与操作流 (Data Flow Pipeline)</h3></div>',
             unsafe_allow_html=True)
         mermaid_str = "graph LR\nA[📊 1. 获取数据] -->|喂入| B(🧠 2. 模型预测)\nB -->|信号| C{📈 3. 全量回测}\nC -->|报告| D[🤖 4. AI 解读]"
         components.html(
             f"""<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs'; mermaid.initialize({{ startOnLoad: true, theme: 'dark' }});</script><div class="mermaid" style="text-align:center;">{mermaid_str}</div>""",
             height=350)
-        st.markdown('</div>', unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**内存池占用率**<br>🟢 4% (完全释放)<br><br>**答辩核心创新点：**<br>✅ <span class="highlight-text">多模型融合 (Ensemble)</span><br>✅ MutationObserver 零消耗<br>✅ 回测矩阵原子级缓存</div>',
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**内存池占用率**<br>🟢 4% (完全释放)<br><br>**答辩核心创新点：**<br>✅ 幽灵空包彻底清除<br>✅ MutationObserver 零消耗<br>✅ 回测矩阵原子级缓存</div>',
             unsafe_allow_html=True)
 
 elif selected_page == PAGES[1]:
     st.markdown(
         '<div class="glass-card"><h3 style="margin-bottom:0; color:var(--text-color);">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与 Agent 自愈模块已就绪，体验沉浸式工作流。</p></div>',
         unsafe_allow_html=True)
-    with st.container():
-        st.markdown('<div class="glass-card" style="padding:15px; margin-bottom:15px;">', unsafe_allow_html=True)
-        ctrl_col1, ctrl_col2 = st.columns([1, 1])
-        with ctrl_col1: selected_model = st.selectbox("🧠 选择大模型算力通道",
-                                                      ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
-                                                      index=0)
-        with ctrl_col2: st.markdown("<div style='height: 32px;'></div>",
-                                    unsafe_allow_html=True); enable_deep_think = st.toggle(
+
+    # 移除了包裹 columns 的破损毛玻璃框，使其原生自然展现
+    ctrl_col1, ctrl_col2 = st.columns([1, 1])
+    with ctrl_col1:
+        selected_model = st.selectbox("🧠 选择大模型算力通道", ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
+                                      index=0)
+    with ctrl_col2:
+        st.markdown("<div style='height: 32px;'></div>", unsafe_allow_html=True); enable_deep_think = st.toggle(
             "💡 强子注入：开启深度思考引擎 (CoT)", value=False)
-        st.markdown('</div>', unsafe_allow_html=True)
 
     chat_container = st.container(height=650)
     with chat_container:
@@ -465,11 +465,12 @@ def generate_signals(df):
         st.rerun()
 
 elif selected_page == PAGES[2]:
-    st.markdown('<div class="glass-card"><h3 style="color:var(--text-color);">📊 历史回测全量审计与归因分析</h3></div>',
-                unsafe_allow_html=True)
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">📊 历史回测全量审计与归因分析</h3></div>',
+        unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 3])
     with col_l:
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        # 已清除幽灵空包
         ts_code = format_ts_code(st.text_input("🎯 回测标的代码", value="000001"))
         adj_p = st.selectbox("⚖️ 复权模式", ["qfq", "hfq", "None"]).split(" ")[0]
         if st.button("🚀 启动全量归因回测", use_container_width=True, type="primary"):
@@ -479,7 +480,6 @@ elif selected_page == PAGES[2]:
                     st.session_state.bt_result = run_backtest_metrics(df_raw, st.session_state.generated_code)
                 except Exception as e:
                     st.error(f"异常: {e}")
-        st.markdown('</div>', unsafe_allow_html=True)
 
     with col_r:
         if st.session_state.bt_result:
@@ -497,25 +497,21 @@ elif selected_page == PAGES[2]:
             c4.markdown(
                 f'<div class="metric-box"><p>夏普比率</p><h2 class="highlight-text">{m["sharpe"]:.2f}</h2></div>',
                 unsafe_allow_html=True)
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            # 移除图表外的多余标签，让其自然融入背景
             st.plotly_chart(render_smart_charts(df), use_container_width=True, config={'scrollZoom': True})
-            st.markdown('</div>', unsafe_allow_html=True)
 
 elif selected_page == PAGES[3]:
     st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color);">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
         unsafe_allow_html=True)
     c_ctrl, c_chart = st.columns([1, 2.5])
     with c_ctrl:
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         live_code = st.text_input("🎯 动态推送标的", value="000001")
         freq = st.slider("⏱️ 刷新间隔 (秒)", 0.1, 2.0, 0.5)
         st.button("▶️ 开启高频推演", on_click=lambda: st.session_state.update({"is_live_trading": True}),
                   type="primary")
         st.button("⏹️ 强行停止", on_click=lambda: st.session_state.update({"is_live_trading": False}))
-        st.markdown('</div>', unsafe_allow_html=True)
     with c_chart:
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         met_ph, cht_ph = st.empty(), st.empty()
         if st.session_state.is_live_trading:
             stream = fetch_and_clean_data(format_ts_code(live_code), 'qfq', '20230101').tail(120).reset_index(drop=True)
@@ -537,9 +533,7 @@ elif selected_page == PAGES[3]:
                 except Exception as e:
                     st.error(f"高频熔断: {e}"); st.session_state.is_live_trading = False; break
                 time.sleep(freq)
-        st.markdown('</div>', unsafe_allow_html=True)
 
-# 🔥 核心：增加未来时空预测 (Auto-regressive) 和 Kimi 智能解盘舱 🔥
 elif selected_page == PAGES[4]:
     with st.spinner("唤醒深度学习底层张量引擎..."):
         import torch
@@ -547,12 +541,11 @@ elif selected_page == PAGES[4]:
         from sklearn.preprocessing import MinMaxScaler
 
     st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color);">🧠 深度神经网络时序建模矩阵 (多模型融合)</h3></div>',
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (多模型融合)</h3></div>',
         unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 2.5])
 
     with col_l:
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         st_code = st.text_input("🎯 训练模型标的", value="000001")
         model_choices = st.multiselect("🧠 选择预测模型 (支持多选融合)", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"])
         slen = st.slider("📏 滑窗长度", 5, 60, 20)
@@ -606,9 +599,7 @@ elif selected_page == PAGES[4]:
 
                         preds_dict, future_preds_dict = {}, {}
                         lbox, pbar = st.empty(), st.progress(0)
-
-                        # 基于最后一个窗口提取，用于预测未来 5 天
-                        last_window_orig = X_t[-1].clone().unsqueeze(0)  # [1, slen, 1]
+                        last_window_orig = X_t[-1].clone().unsqueeze(0)
 
                         for m_idx, m_name in enumerate(model_choices):
                             lbox.markdown(f"**正在训练 {m_name} 模型...**")
@@ -633,18 +624,14 @@ elif selected_page == PAGES[4]:
                                 lbox.markdown(f"**{m_name}** | Epoch {e + 1}/{eps} | Loss: {loss.item():.6f}")
 
                             model.eval()
-                            # 重构过去 100 天
                             test_p = model(X_t[-100:]).detach().numpy()
                             preds_dict[m_name] = scaler.inverse_transform(test_p).flatten()
 
-                            # 🔥 核心：自回归预测未来 5 天 🔥
                             curr_win = last_window_orig.clone()
                             m_future = []
                             for _ in range(5):
-                                with torch.no_grad():
-                                    p_future = model(curr_win)
+                                with torch.no_grad(): p_future = model(curr_win)
                                 m_future.append(p_future.item())
-                                # 滑动窗口，将新预测值拼接到末尾
                                 curr_win = torch.cat((curr_win[:, 1:, :], p_future.unsqueeze(-1)), dim=1)
                             future_preds_dict[m_name] = scaler.inverse_transform(
                                 np.array(m_future).reshape(-1, 1)).flatten()
@@ -659,14 +646,12 @@ elif selected_page == PAGES[4]:
                         }
                     except Exception as e:
                         st.error(f"DL 张量异常: {e}")
-        st.markdown('</div>', unsafe_allow_html=True)
 
     with col_r:
         if st.session_state.dl_result:
             res = st.session_state.dl_result
             latest_price = res['actual'].iloc[-1]
 
-            # 如果是集成学习，则计算未来5天均值，否则取单一模型
             if len(res['models_used']) > 1:
                 f_preds = np.mean(list(res['future'].values()), axis=0)
                 model_desc = f"LSTM/GRU/CNN 均值集成 ({len(res['models_used'])}模型)"
@@ -676,7 +661,6 @@ elif selected_page == PAGES[4]:
 
             day1_pred, day5_pred = f_preds[0], f_preds[4]
 
-            # 🔥 Kimi 智能解盘舱 (Expander) 🔥
             with st.expander("🤖 AI 深度预测白话解析舱 (点击展开/收起)", expanded=True):
                 st.markdown(
                     f"**📈 极速解盘预览**：当前实盘价 `<span class='highlight-text'>{latest_price:.2f}</span>` | 模型: {model_desc}",
@@ -706,7 +690,6 @@ elif selected_page == PAGES[4]:
                     except Exception as e:
                         ai_ph.error(f"Kimi 连线中断: {e}")
 
-            # 画图部分
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹 (Actual)',
                                      line=dict(color='#00ffcc', width=2)))
@@ -720,15 +703,15 @@ elif selected_page == PAGES[4]:
                                          line=dict(color='#ff4b4b', width=3)))
 
             fig.update_layout(height=450, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
-                              plot_bgcolor='rgba(0,0,0,0.1)', dragmode='pan', hovermode='x',
+                              plot_bgcolor='rgba(0,0,0,0)', dragmode='pan', hovermode='x',
                               legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            # 已清除包裹图表的幽灵空包
             st.plotly_chart(fig, use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
 
 elif selected_page == PAGES[5]:
-    st.markdown('<div class="glass-card"><h3 style="color:var(--text-color);">🛡️ 实验数据采集与多维审计中心</h3></div>',
-                unsafe_allow_html=True)
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>',
+        unsafe_allow_html=True)
     c1, c2 = st.columns([1, 1.2])
     with c1:
         if os.path.exists("user_logs/global_master_log.csv"): st.download_button("📁 导出审计日志", data=pd.read_csv(
