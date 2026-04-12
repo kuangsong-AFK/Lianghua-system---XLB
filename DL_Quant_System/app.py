@@ -14,10 +14,20 @@ import uuid
 import math
 from PIL import Image
 
+# 🔥 新增：全模态文档解析引擎的底层依赖 🔥
+try:
+    import PyPDF2
+except ImportError:
+    PyPDF2 = None
+try:
+    import docx
+except ImportError:
+    docx = None
+
 # 物理级防呆补丁
 pd.np = np
 
-# 🔥 预编译正则表达式，榨干 CPU 性能 🔥
+# 预编译正则表达式，榨干 CPU 性能
 SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 
 # ==========================================
@@ -99,35 +109,24 @@ components.html(f"""
                 }}
             }}
 
-            // 🔥 绝杀修复：绝对坐标锚定法，强制钉死在输入框左下角同一水平线 🔥
             const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
             if (chatInputOuter) {{
                 const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.firstElementChild; 
                 const realPopoverBtn = doc.querySelector('.real-popover-wrapper button');
 
                 if (innerPill && realPopoverBtn && !doc.getElementById('fake-attach-btn')) {{
-
-                    // 赋予输入舱相对坐标系，作为绝对定位的“地基”
                     innerPill.style.setProperty('position', 'relative', 'important');
-
                     const fakeBtn = doc.createElement('div');
                     fakeBtn.id = 'fake-attach-btn';
                     fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
-
-                    // 绝对定位：左侧留白 16px，底部死死贴住 12px，与输入光标同一基准线！永不乱飘！
                     fakeBtn.style.cssText = 'position: absolute !important; left: 16px !important; bottom: 12px !important; z-index: 9999 !important; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;';
-
                     fakeBtn.onclick = () => realPopoverBtn.click();
                     fakeBtn.onmouseover = () => {{ fakeBtn.style.opacity = '0.6'; }};
                     fakeBtn.onmouseout = () => {{ fakeBtn.style.opacity = '1'; }};
-
                     innerPill.appendChild(fakeBtn);
 
-                    // 强迫原生输入框内的文字向右避让 40px，防止文字与按钮重叠
                     const textAreaWrap = innerPill.querySelector('[data-baseweb="textarea"]');
-                    if(textAreaWrap) {{
-                        textAreaWrap.style.setProperty('padding-left', '40px', 'important');
-                    }}
+                    if(textAreaWrap) textAreaWrap.style.setProperty('padding-left', '40px', 'important');
                 }}
             }}
             isUpdating = false;
@@ -367,12 +366,12 @@ if selected_page == PAGES[0]:
             height=350)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**内存池占用率**<br>🟢 4% (完全释放)<br><br>**答辩核心创新点：**<br>✅ 绝对坐标锚定布局<br>✅ 数据直连大模型<br>✅ 全域提取防截断</div>',
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**内存池占用率**<br>🟢 4% (完全释放)<br><br>**答辩核心创新点：**<br>✅ 全模态文档解析<br>✅ AI 策略白盒化<br>✅ 绝对坐标错位免疫</div>',
             unsafe_allow_html=True)
 
 elif selected_page == PAGES[1]:
     st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0; color:var(--text-color);">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与 Agent 自愈模块已就绪，体验沉浸式工作流。</p></div>',
+        '<div class="glass-card"><h3 style="margin-bottom:0; color:var(--text-color);">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与全域文档解析模块已就绪，体验沉浸式工作流。</p></div>',
         unsafe_allow_html=True)
 
     ctrl_col1, ctrl_col2 = st.columns([1, 1])
@@ -388,32 +387,68 @@ elif selected_page == PAGES[1]:
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
 
+    # 真实的附件容器被高度为1px且隐形的 wrapper 包裹，就地等待
     st.markdown('<div class="real-popover-wrapper">', unsafe_allow_html=True)
+    # 🔥 核心升级 1：扩充全模态文件支持种类 🔥
     with st.popover("📎", help="上传附件", use_container_width=False):
         uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
-                                          type=['png', 'jpg', 'jpeg', 'csv', 'txt'], label_visibility="collapsed")
+                                          type=['pdf', 'doc', 'docx', 'csv', 'txt', 'png', 'jpg', 'jpeg'],
+                                          label_visibility="collapsed")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 🔥 真·多模态直通车：读取真实数据传递给 AI 🔥
+    # 🔥 核心升级 2：深度解析各类文档内容，装填至 file_context_text 供大模型咀嚼 🔥
     file_context_text = ""
     if 'uploaded_files' in locals() and uploaded_files:
         cols = st.columns(3)
         for idx, file in enumerate(uploaded_files):
             with cols[idx % 3]:
+                fname_lower = file.name.lower()
+                # 1. 解析图片
                 if file.type.startswith('image/'):
                     st.image(Image.open(file), use_container_width=True)
-                    file_context_text += f"[用户上传了一张图片: {file.name}。提示：当前普通模型侧重数据与文本解析，若图片包含关键策略，请您在文字中简述。]\n"
-                elif file.type == 'text/csv':
+                    file_context_text += f"[用户上传了一张图片: {file.name}。提示：当前模型无法直接看图，请依赖其余文档数据。]\n"
+
+                # 2. 解析 CSV 数据矩阵
+                elif fname_lower.endswith('.csv'):
                     df_upload = pd.read_csv(file)
                     st.dataframe(df_upload.head(2))
-                    file_context_text += f"【CSV 数据源 {file.name} (前100行特征样本)】:\n{df_upload.head(100).to_string()}\n"
-                elif file.type == 'text/plain' or file.name.endswith('.txt'):
+                    file_context_text += f"【CSV 数据源 {file.name} (前100行特征)】:\n{df_upload.head(100).to_string()}\n"
+
+                # 3. 解析 TXT 纯文本
+                elif fname_lower.endswith('.txt'):
                     content = file.getvalue().decode('utf-8', errors='replace')
-                    st.text(f"📝 研报 {file.name} 已挂载核心数据")
+                    st.success(f"📝 {file.name} 挂载成功")
                     file_context_text += f"【TXT 研报核心片段 {file.name}】:\n{content[:5000]}\n"
 
+                # 4. 解析 PDF 券商研报 (需依赖 PyPDF2)
+                elif fname_lower.endswith('.pdf'):
+                    if PyPDF2:
+                        try:
+                            pdf_reader = PyPDF2.PdfReader(file)
+                            text = "".join(
+                                [page.extract_text() for page in pdf_reader.pages[:10] if page.extract_text()])
+                            st.success(f"📄 PDF 研报 {file.name} 解析成功")
+                            file_context_text += f"【PDF 研报核心片段 {file.name}】:\n{text[:5000]}\n"
+                        except Exception as e:
+                            st.error(f"PDF 损坏: {e}")
+                    else:
+                        st.warning(f"⚠️ 缺少 PyPDF2 库，无法读取 {file.name}。请运行 pip install PyPDF2")
+
+                # 5. 解析 Word 宏观分析 (需依赖 python-docx)
+                elif fname_lower.endswith(('.doc', '.docx')):
+                    if docx:
+                        try:
+                            doc_obj = docx.Document(file)
+                            text = "\n".join([para.text for para in doc_obj.paragraphs])
+                            st.success(f"📘 Word 文档 {file.name} 解析成功")
+                            file_context_text += f"【Word 文档核心片段 {file.name}】:\n{text[:5000]}\n"
+                        except Exception as e:
+                            st.error(f"Word 损坏: {e}")
+                    else:
+                        st.warning(f"⚠️ 缺少 python-docx 库，无法读取 {file.name}。请运行 pip install python-docx")
+
     if raw_prompt := st.chat_input("向小吕布量化架构师发送军令..."):
-        # 将真实读取的数据内容与用户 Prompt 拼接
+        # 🔥 将提取到的全模态真实数据，强行拼接到用户的提问指令前 🔥
         full_prompt_for_ai = f"以下是您需要重点参考的附件原始数据：\n{file_context_text}\n\n我的指令：{raw_prompt}" if file_context_text else raw_prompt
         st.session_state.messages.append({"role": "user", "content": raw_prompt})
 
@@ -465,10 +500,9 @@ def generate_signals(df):
                         if code_match:
                             extracted_code = code_match.group(1).strip()
 
-                            # 🔥 全域捕获网：暴力提取所有非代码的人话作为解析，杜绝漏抓 🔥
-                            resp_clean = re.sub(r"<think>.*?</think>", "", full_resp, flags=re.DOTALL)  # 剔除思考过程
-                            explanation = re.sub(r"`{3}python\s*.*?`{3}", "", resp_clean,
-                                                 flags=re.DOTALL).strip()  # 剔除代码块
+                            # 暴力提取所有非代码的人话作为解析，杜绝漏抓
+                            resp_clean = re.sub(r"<think>.*?</think>", "", full_resp, flags=re.DOTALL)
+                            explanation = re.sub(r"`{3}python\s*.*?`{3}", "", resp_clean, flags=re.DOTALL).strip()
                             explanation = explanation.replace("【策略白话解析】", "").replace("【策略白话解析】:",
                                                                                             "").replace(
                                 "【策略白话解析】：", "").strip()
