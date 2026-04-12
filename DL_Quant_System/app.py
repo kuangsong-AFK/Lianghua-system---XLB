@@ -155,7 +155,6 @@ st.markdown("""
     div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important;}
     div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
 
-    /* 仅保留核心展示框的玻璃特效，杜绝包裹原生组件 */
     .glass-card { background: rgba(20, 28, 45, 0.65) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
     .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; }
     [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); margin-bottom: 20px !important; }
@@ -316,10 +315,9 @@ def format_ts_code(raw):
 
 
 # ==========================================
-# 6. 各页面业务逻辑 (除尽所有幽灵空包)
+# 6. 各页面业务逻辑
 # ==========================================
 if selected_page == PAGES[0]:
-    # 仅将原生 HTML 放进 glass-card，绝不包裹原生组件
     st.markdown(
         '<div class="glass-card"><h1 style="margin-bottom:0; color:var(--text-color);">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
         unsafe_allow_html=True)
@@ -347,7 +345,7 @@ if selected_page == PAGES[0]:
             height=350)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**内存池占用率**<br>🟢 4% (完全释放)<br><br>**答辩核心创新点：**<br>✅ 幽灵空包彻底清除<br>✅ MutationObserver 零消耗<br>✅ 回测矩阵原子级缓存</div>',
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**内存池占用率**<br>🟢 4% (完全释放)<br><br>**答辩核心创新点：**<br>✅ AI 白盒透视解析<br>✅ MutationObserver 零消耗<br>✅ 回测矩阵原子级缓存</div>',
             unsafe_allow_html=True)
 
 elif selected_page == PAGES[1]:
@@ -355,7 +353,6 @@ elif selected_page == PAGES[1]:
         '<div class="glass-card"><h3 style="margin-bottom:0; color:var(--text-color);">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与 Agent 自愈模块已就绪，体验沉浸式工作流。</p></div>',
         unsafe_allow_html=True)
 
-    # 移除了包裹 columns 的破损毛玻璃框，使其原生自然展现
     ctrl_col1, ctrl_col2 = st.columns([1, 1])
     with ctrl_col1:
         selected_model = st.selectbox("🧠 选择大模型算力通道", ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
@@ -470,7 +467,6 @@ elif selected_page == PAGES[2]:
         unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 3])
     with col_l:
-        # 已清除幽灵空包
         ts_code = format_ts_code(st.text_input("🎯 回测标的代码", value="000001"))
         adj_p = st.selectbox("⚖️ 复权模式", ["qfq", "hfq", "None"]).split(" ")[0]
         if st.button("🚀 启动全量归因回测", use_container_width=True, type="primary"):
@@ -497,7 +493,6 @@ elif selected_page == PAGES[2]:
             c4.markdown(
                 f'<div class="metric-box"><p>夏普比率</p><h2 class="highlight-text">{m["sharpe"]:.2f}</h2></div>',
                 unsafe_allow_html=True)
-            # 移除图表外的多余标签，让其自然融入背景
             st.plotly_chart(render_smart_charts(df), use_container_width=True, config={'scrollZoom': True})
 
 elif selected_page == PAGES[3]:
@@ -541,7 +536,7 @@ elif selected_page == PAGES[4]:
         from sklearn.preprocessing import MinMaxScaler
 
     st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (多模型融合)</h3></div>',
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>',
         unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 2.5])
 
@@ -651,32 +646,48 @@ elif selected_page == PAGES[4]:
         if st.session_state.dl_result:
             res = st.session_state.dl_result
             latest_price = res['actual'].iloc[-1]
+            actual_vals = res['actual'].values
 
+            # 提取历史拟合数据与未来预测数据，计算胜率与偏差度
             if len(res['models_used']) > 1:
                 f_preds = np.mean(list(res['future'].values()), axis=0)
+                h_preds = np.mean(list(res['preds'].values()), axis=0)
                 model_desc = f"LSTM/GRU/CNN 均值集成 ({len(res['models_used'])}模型)"
             else:
                 f_preds = list(res['future'].values())[0]
+                h_preds = list(res['preds'].values())[0]
                 model_desc = res['models_used'][0]
+
+            # 🔥 计算测谎仪指标 🔥
+            act_diff = np.diff(actual_vals)
+            pred_diff = np.diff(h_preds)
+            success_rate = np.mean(np.sign(act_diff) == np.sign(pred_diff)) * 100
+            mape = np.mean(np.abs((actual_vals - h_preds) / (actual_vals + 1e-8))) * 100
 
             day1_pred, day5_pred = f_preds[0], f_preds[4]
 
-            with st.expander("🤖 AI 深度预测白话解析舱 (点击展开/收起)", expanded=True):
+            with st.expander("🤖 AI 深度预测白盒解析舱 (点击展开/收起)", expanded=True):
                 st.markdown(
-                    f"**📈 极速解盘预览**：当前实盘价 `<span class='highlight-text'>{latest_price:.2f}</span>` | 模型: {model_desc}",
+                    f"**📈 极速解盘预览**：当前实盘价 `<span class='highlight-text'>{latest_price:.2f}</span>` | 驱动核心: {model_desc}",
                     unsafe_allow_html=True)
-                c_f1, c_f2 = st.columns(2)
-                c_f1.metric("未来 1 天预测价 (T+1)", f"{day1_pred:.2f}",
-                            f"{(day1_pred - latest_price) / latest_price * 100:.2f}%")
-                c_f2.metric("未来 5 天预测价 (T+5)", f"{day5_pred:.2f}",
-                            f"{(day5_pred - latest_price) / latest_price * 100:.2f}%")
 
-                if st.button("✨ 召唤 Kimi 生成走势人话解析", use_container_width=True):
+                # 使用 4 列排版，加入胜率与偏差度
+                c_f1, c_f2, c_f3, c_f4 = st.columns(4)
+                c_f1.metric("未来 1 天预测 (T+1)", f"{day1_pred:.2f}",
+                            f"{(day1_pred - latest_price) / latest_price * 100:.2f}%")
+                c_f2.metric("未来 5 天预测 (T+5)", f"{day5_pred:.2f}",
+                            f"{(day5_pred - latest_price) / latest_price * 100:.2f}%")
+                c_f3.metric("🎯 历史方向胜率", f"{success_rate:.1f}%", "涨跌准确度")
+                c_f4.metric("⚖️ 平均预测偏差", f"{mape:.2f}%", "绝对偏离度", delta_color="inverse")
+
+                if st.button("✨ 召唤 Kimi 结合胜率生成人话解盘", use_container_width=True):
                     ai_ph = st.empty()
-                    prompt = f"""你是一个顶级的量化分析师，专门为小白用户提供白话解盘。
+                    prompt = f"""你是一个顶级的量化分析师，专门为小白用户提供白话解盘，且必须客观提示风险。
 已知某标的当前收盘价为 {latest_price:.2f}元。
-基于【{model_desc}】深度学习架构的自回归推演，预测得出：未来1天价格约为 {day1_pred:.2f}元，未来5天价格约为 {day5_pred:.2f}元。
-请你用大白话（绝对不能包含任何代码，限200字以内），向毫无基础的小白用户解释这个预测代表着怎样的走势（涨/跌/震荡），并结合你的量化经验给出操作上的风险提示。语气要专业但通俗。"""
+基于【{model_desc}】深度学习架构的自回归推演，得出：未来1天预测价为 {day1_pred:.2f}元，未来5天预测价为 {day5_pred:.2f}元。
+【模型信誉档案】：该模型在过去100天的历史拟合中，涨跌方向预测胜率为 {success_rate:.1f}%，平均绝对价格偏差度为 {mape:.2f}%。
+请你用大白话（限200字以内，绝对不能包含代码），向小白用户解释这个预测走势。
+关键要求：必须明确提到“{success_rate:.1f}%的胜率”和“{mape:.2f}%的偏差度”，并以此作为依据告诉用户这个预测结论“可信度有多高”，给出您的终极操作建议（比如胜率低就建议观望，胜率高也需谨慎）。"""
                     try:
                         stream = client.chat.completions.create(model="moonshot-v1-8k",
                                                                 messages=[{"role": "user", "content": prompt}],
@@ -705,7 +716,6 @@ elif selected_page == PAGES[4]:
             fig.update_layout(height=450, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
                               plot_bgcolor='rgba(0,0,0,0)', dragmode='pan', hovermode='x',
                               legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-            # 已清除包裹图表的幽灵空包
             st.plotly_chart(fig, use_container_width=True)
 
 elif selected_page == PAGES[5]:
