@@ -25,7 +25,7 @@ pd.np = np
 # /// 1. 初始化与核心兵符 ///
 st.set_page_config(page_title="小吕布量化 Pro - 毕设版", layout="wide", initial_sidebar_state="expanded")
 
-# 🔥 全局跨域主题嗅探雷达：实时监听 Streamlit 原生主题切换
+# 全局跨域主题嗅探雷达
 components.html("""
 <script>
     setInterval(() => {
@@ -33,13 +33,12 @@ components.html("""
             const doc = window.parent.document;
             const app = doc.querySelector('.stApp');
             if (app) {
-                // 根据原生字体的明暗度，反向推导当前处于 Dark 还是 Light 模式
                 const color = window.getComputedStyle(app).color;
                 const rgb = color.match(/\d+/g);
                 let isLight = false;
                 if (rgb && rgb.length >= 3) {
                     const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
-                    isLight = brightness < 128; // 字体颜色暗(黑灰)说明是 Light Theme
+                    isLight = brightness < 128;
                 }
                 const themeAttr = isLight ? 'light' : 'dark';
                 if (app.getAttribute('data-custom-theme') !== themeAttr) {
@@ -66,18 +65,16 @@ if "bt_result" not in st.session_state: st.session_state.bt_result = None
 if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 if "is_live_trading" not in st.session_state: st.session_state.is_live_trading = False
 
-# /// 2. UI/UX 强化 (光暗双生引擎 + 悬浮舱) ///
+# /// 2. UI/UX 强化 (光暗双生引擎 + 悬浮舱 + Agent战报) ///
 st.markdown("""
 <style>
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
 
-    /* ======== 基础全局布局 ======== */
     [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 3rem !important; padding-bottom: 120px !important; }
     header[data-testid="stHeader"] { background: transparent !important; pointer-events: none !important; }
     [data-testid="stBottomBlock"], [data-testid="stBottom"], [data-testid="stBottom"] > div { background-color: transparent !important; background: transparent !important; border: none !important; }
     .tool-bar-container { display: none; }
 
-    /* ======== 暗色主题 (默认基底) ======== */
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
     .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
     .highlight-text { color: #00ffcc !important; }
@@ -101,33 +98,41 @@ st.markdown("""
     div[data-testid="stPopover"] button { background-color: transparent !important; border: none !important; box-shadow: none !important; color: #a1a1aa !important; }
     [data-testid="stPopoverBody"] { background-color: rgba(25, 33, 48, 0.95) !important; border: 1px solid rgba(0, 255, 204, 0.4) !important; border-radius: 16px !important; backdrop-filter: blur(25px) !important; padding: 15px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important; margin-bottom: 10px !important; }
 
-    /* ======== 浅色主题强力覆盖 (Light Mode Engine) ======== */
+    /* 浅色主题强力覆盖 */
     .stApp[data-custom-theme='light'] { background-image: linear-gradient(132deg, #f1f5f9, #e2e8f0, #ffffff, #cbd5e1, #f8f9fa, #e2e8f0, #f1f5f9) !important; }
     .stApp[data-custom-theme='light'] .stMarkdown, .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] h4, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div { color: #1e293b !important; }
     .stApp[data-custom-theme='light'] .highlight-text { color: #0284c7 !important; }
     .stApp[data-custom-theme='light'] .sub-text { color: #475569 !important; }
     .stApp[data-custom-theme='light'] .danger-text { color: #dc2626 !important; }
-
     .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.06) !important; }
     .stApp[data-custom-theme='light'] .metric-box { background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; }
     .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.9) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }
     .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.85) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
-
     .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.8) !important; border-left: 4px solid transparent !important; }
     .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
-
     .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.85) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08) !important; }
     .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea { color: #1e293b !important; }
     .stApp[data-custom-theme='light'] div[data-testid="stPopover"] button { color: #64748b !important; }
     .stApp[data-custom-theme='light'] [data-testid="stPopoverBody"] { background-color: rgba(255, 255, 255, 0.98) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 10px 40px rgba(0,0,0,0.1) !important; }
+    .stApp[data-custom-theme='light'] .js-plotly-plot .g-gtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-xtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-ytitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .xtick text, .stApp[data-custom-theme='light'] .js-plotly-plot .ytick text, .stApp[data-custom-theme='light'] .js-plotly-plot .legendtext { fill: #1e293b !important; }
 
-    /* 强行修改 Plotly 坐标系适配浅色 */
-    .stApp[data-custom-theme='light'] .js-plotly-plot .g-gtitle text,
-    .stApp[data-custom-theme='light'] .js-plotly-plot .g-xtitle text,
-    .stApp[data-custom-theme='light'] .js-plotly-plot .g-ytitle text,
-    .stApp[data-custom-theme='light'] .js-plotly-plot .xtick text,
-    .stApp[data-custom-theme='light'] .js-plotly-plot .ytick text,
-    .stApp[data-custom-theme='light'] .js-plotly-plot .legendtext { fill: #1e293b !important; }
+    /* Agent 战报状态节点美化 */
+    .agent-status-node {
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        margin: 5px 0;
+        border-left: 4px solid transparent;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .agent-status-node.success { background: rgba(0, 255, 204, 0.1); border-left-color: #00ffcc; color: #00ffcc; }
+    .agent-status-node.error { background: rgba(255, 75, 75, 0.1); border-left-color: #ff4b4b; color: #ff4b4b; }
+    .agent-status-node.retry { background: rgba(255, 165, 0, 0.1); border-left-color: #ffa500; color: #ffa500; }
+    .stApp[data-custom-theme='light'] .agent-status-node.success { background: rgba(16, 185, 129, 0.1); border-left-color: #10b981; color: #047857; }
+    .stApp[data-custom-theme='light'] .agent-status-node.error { background: rgba(239, 68, 68, 0.1); border-left-color: #ef4444; color: #b91c1c; }
+    .stApp[data-custom-theme='light'] .agent-status-node.retry { background: rgba(245, 158, 11, 0.1); border-left-color: #f59e0b; color: #b45309; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -343,16 +348,10 @@ if page == "🏠 系统总览 (监控中控)":
         <head>
             <script type="module">
                 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-
                 const checkTheme = () => {{
-                    try {{
-                        const parentApp = window.parent.document.querySelector('.stApp');
-                        return parentApp && parentApp.getAttribute('data-custom-theme') === 'light' ? 'default' : 'dark';
-                    }} catch(e) {{ return 'dark'; }}
+                    try {{ const parentApp = window.parent.document.querySelector('.stApp'); return parentApp && parentApp.getAttribute('data-custom-theme') === 'light' ? 'default' : 'dark'; }} catch(e) {{ return 'dark'; }}
                 }};
-
                 window.lastTheme = checkTheme();
-
                 const render = async () => {{
                     const theme = checkTheme();
                     mermaid.initialize({{ startOnLoad: false, theme: theme, themeVariables: {{ fontFamily: 'sans-serif' }} }});
@@ -361,15 +360,10 @@ if page == "🏠 系统总览 (监控中控)":
                     const {{ svg }} = await mermaid.render('graphDiv', code);
                     element.innerHTML = svg;
                 }};
-
                 render();
-
                 setInterval(() => {{
                     const currentTheme = checkTheme();
-                    if(window.lastTheme !== currentTheme) {{
-                        window.lastTheme = currentTheme;
-                        render();
-                    }}
+                    if(window.lastTheme !== currentTheme) {{ window.lastTheme = currentTheme; render(); }}
                 }}, 500);
             </script>
         </head>
@@ -436,11 +430,8 @@ elif page == "🤖 AI 策略引擎 (LLM)":
 
             if (innerPill && attachPopover && attachPopover.parentElement !== innerPill) {
                 innerPill.style.position = 'relative';
-
                 const baseweb = chatInputOuter.querySelector('[data-baseweb="textarea"]');
-                if(baseweb) {
-                    baseweb.style.paddingLeft = '40px'; 
-                }
+                if(baseweb) { baseweb.style.paddingLeft = '40px'; }
 
                 attachPopover.style.position = 'absolute';
                 attachPopover.style.left = '12px';
@@ -461,7 +452,6 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                     const svgs = btn.querySelectorAll('svg');
                     if (svgs.length > 0) svgs[svgs.length - 1].style.display = 'none';
                 }
-
                 innerPill.appendChild(attachPopover);
             }
         }, 500);
@@ -530,10 +520,13 @@ def generate_signals(df):
 
                 max_retries = 2
                 last_error = ""
+                agent_logs = []  # 记录 Agent 的战报
 
                 for attempt in range(max_retries + 1):
                     if attempt > 0:
                         st.warning(f"⚠️ 沙盒预检拦截了错误：`{last_error}`。Agent 启动第 {attempt} 次自愈重构...")
+                        agent_logs.append(
+                            f'<div class="agent-status-node retry">🔄 <b>尝试 {attempt}:</b> 沙盒拦截异常 (<code>{last_error}</code>) -> Agent 发起重构</div>')
                         fix_prompt = f"刚才生成的代码运行报错：`{last_error}`。\n请严格遵循骨架模板，检查 Pandas 语法（特别注意 & | 运算符及括号），不要道歉，只输出修复后的完整代码块。"
                         messages_to_send.append({"role": "assistant", "content": full_resp})
                         messages_to_send.append({"role": "user", "content": fix_prompt})
@@ -592,14 +585,21 @@ def generate_signals(df):
                                                       re.DOTALL | re.IGNORECASE)
                                 st.session_state.strategy_explanation = exp_match.group(
                                     1).strip() if exp_match else "该策略无特定白话解析，请参考代码内部注释。"
+
+                                # 🔥 Agent 战报：绿灯通过
+                                agent_logs.append(
+                                    f'<div class="agent-status-node success">✅ <b>尝试 {attempt + 1}:</b> 代码通过系统沙盒预检 -> 策略已安全装载</div>')
+                                st.markdown("".join(agent_logs), unsafe_allow_html=True)
+
                                 st.toast("✅ 军令推演与沙盒预检全部通过！", icon="🚀")
                                 break
 
                             except Exception as e:
                                 last_error = str(e)
                                 if attempt == max_retries:
-                                    st.error(
-                                        f"❌ 经过 {max_retries} 次重构仍失败，最终报错: {last_error}。代码已强制输出，请人工检查。")
+                                    agent_logs.append(
+                                        f'<div class="agent-status-node error">❌ <b>最终结果:</b> 经过 {max_retries} 次重构仍失败，最终报错: <code>{last_error}</code>。强制中止自动化流程，需人工介入。</div>')
+                                    st.markdown("".join(agent_logs), unsafe_allow_html=True)
                                     st.session_state.generated_code = extracted_code
                         else:
                             break
@@ -608,6 +608,9 @@ def generate_signals(df):
                         st.error(f"通信链路断开: {e}")
                         break
 
+                # 将战报追加入消息历史
+                if agent_logs:
+                    full_resp += "\n\n" + "".join(agent_logs)
                 st.session_state.messages.append({"role": "assistant", "content": full_resp})
         st.rerun()
 
