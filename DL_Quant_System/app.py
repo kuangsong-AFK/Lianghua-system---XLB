@@ -55,7 +55,6 @@ TUSHARE_TOKEN = "ba486af7606bc2f6018f1d592251a49674132225f59d37b3473d676e"
 
 ts.set_token(TUSHARE_TOKEN)
 pro = ts.pro_api()
-# 🔥 将超时时间延长至 60 秒，防止 AI 深度思考时被中途切断
 client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=60.0)
 
 if "user_id" not in st.session_state: st.session_state.user_id = f"User_{str(uuid.uuid4())[:6]}"
@@ -66,7 +65,7 @@ if "bt_result" not in st.session_state: st.session_state.bt_result = None
 if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 if "is_live_trading" not in st.session_state: st.session_state.is_live_trading = False
 
-# /// 2. UI/UX 强化 (光暗双生引擎 + 悬浮舱 + Agent战报) ///
+# /// 2. UI/UX 强化 (光暗双生引擎 + 悬浮舱 + 满屏侧边栏) ///
 st.markdown("""
 <style>
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
@@ -82,7 +81,22 @@ st.markdown("""
     .sub-text { color: #cbd5e1 !important; }
     .danger-text { color: #ff4b4b !important; }
 
-    [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; }
+    /* 🔥 暴力强制侧边栏满屏：高度 100vh，无视上下预留区 */
+    section[data-testid="stSidebar"] { 
+        top: 0 !important; 
+        bottom: 0 !important; 
+        height: 100vh !important; 
+        min-height: 100vh !important; 
+        background: rgba(5, 8, 14, 0.75) !important; 
+        backdrop-filter: blur(25px) !important; 
+        border-right: 1px solid rgba(255,255,255,0.08) !important; 
+    }
+    /* 强迫其内部容器也占满高度 */
+    section[data-testid="stSidebar"] > div {
+        height: 100vh !important;
+        padding-top: 2rem !important; 
+    }
+
     div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; padding: 14px 18px !important; margin-bottom: 10px !important; border-radius: 12px !important; border-left: 4px solid transparent !important; }
     div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
 
@@ -108,7 +122,10 @@ st.markdown("""
     .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.06) !important; }
     .stApp[data-custom-theme='light'] .metric-box { background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; }
     .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.9) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }
-    .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.85) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
+
+    /* 浅色满屏侧边栏 */
+    .stApp[data-custom-theme='light'] section[data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.85) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
+
     .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.8) !important; border-left: 4px solid transparent !important; }
     .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
     .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.85) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08) !important; }
@@ -118,16 +135,7 @@ st.markdown("""
     .stApp[data-custom-theme='light'] .js-plotly-plot .g-gtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-xtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-ytitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .xtick text, .stApp[data-custom-theme='light'] .js-plotly-plot .ytick text, .stApp[data-custom-theme='light'] .js-plotly-plot .legendtext { fill: #1e293b !important; }
 
     /* Agent 战报状态节点美化 */
-    .agent-status-node {
-        padding: 8px 12px;
-        border-radius: 8px;
-        font-size: 0.9rem;
-        margin: 5px 0;
-        border-left: 4px solid transparent;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
+    .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; }
     .agent-status-node.success { background: rgba(0, 255, 204, 0.1); border-left-color: #00ffcc; color: #00ffcc; }
     .agent-status-node.error { background: rgba(255, 75, 75, 0.1); border-left-color: #ff4b4b; color: #ff4b4b; }
     .agent-status-node.retry { background: rgba(255, 165, 0, 0.1); border-left-color: #ffa500; color: #ffa500; }
@@ -336,6 +344,11 @@ if page == "🏠 系统总览 (监控中控)":
             B -->|输出预测信号| C{📈 3. 策略回测<br>全量审计与归因}
             C -->|上传回测结果| D[🤖 4. AI 战情室<br>大模型多模态解读]
             A -.->|研报/原始数据| D
+
+            style A fill:#1e293b,stroke:#00ffcc,stroke-width:2px,color:#fff
+            style B fill:#1e293b,stroke:#00ffcc,stroke-width:2px,color:#fff
+            style C fill:#1e293b,stroke:#00ffcc,stroke-width:2px,color:#fff
+            style D fill:#3b0764,stroke:#ff00ff,stroke-width:2px,color:#fff
         """
 
         html_code = f"""
@@ -416,7 +429,6 @@ elif page == "🤖 AI 策略引擎 (LLM)":
     chat_container = st.container(height=650)
     with chat_container:
         for m in st.session_state.messages:
-            # 🔥 修复关键点：强制渲染 HTML 战报节点
             with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
 
     st.markdown('<div class="tool-bar-container">', unsafe_allow_html=True)
@@ -441,7 +453,9 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                 innerPill.style.position = 'relative';
 
                 const baseweb = chatInputOuter.querySelector('[data-baseweb="textarea"]');
-                if(baseweb) baseweb.style.paddingLeft = '40px'; 
+                if(baseweb) {
+                    baseweb.style.paddingLeft = '40px'; 
+                }
 
                 attachPopover.style.position = 'absolute';
                 attachPopover.style.left = '12px';
@@ -602,7 +616,6 @@ def generate_signals(df):
                                 st.session_state.strategy_explanation = exp_match.group(
                                     1).strip() if exp_match else "该策略无特定白话解析，请参考代码内部注释。"
 
-                                # 🔥 Agent 战报：绿灯通过
                                 agent_logs.append(
                                     f'<div class="agent-status-node success">✅ <b>尝试 {attempt + 1}:</b> 代码通过系统沙盒预检 -> 策略已安全装载</div>')
                                 st.markdown("".join(agent_logs), unsafe_allow_html=True)
