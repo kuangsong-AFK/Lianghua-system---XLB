@@ -828,7 +828,7 @@ elif selected_page == PAGES[5]:
             "user_logs/global_master_log.csv").to_csv(index=False).encode('utf-8'), file_name='Audit_Logs.csv',
                                                                                  type="primary")
     with c2:
-        st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350
+        st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350）
 
         # ==========================================
         # 🌟 终极彩蛋：水豚噜噜 (全域悬浮虚拟宠物) 🌟
