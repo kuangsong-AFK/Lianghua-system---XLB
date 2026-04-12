@@ -41,16 +41,15 @@ if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 if "is_live_trading" not in st.session_state: st.session_state.is_live_trading = False
 
 # ==========================================
-# 2. 全局涡轮 JS 引擎 (仅注入一次)
+# 2. 全局涡轮 JS 引擎 (仅注入一次，不臃肿)
 # ==========================================
-# 包含：光暗主题嗅探 + 📎按钮克隆替身法(杜绝乱跑) + 顶栏防隐藏
 components.html("""
 <script>
     const runGlobalEngine = () => {
         const doc = window.parent.document;
-        const app = doc.querySelector('.stApp');
 
         // 1. 光暗主题跨域嗅探
+        const app = doc.querySelector('.stApp');
         if (app) {
             const color = window.getComputedStyle(app).color;
             const rgb = color.match(/\d+/g);
@@ -63,45 +62,51 @@ components.html("""
             }
         }
 
-        // 2. 🔥 克隆替身法：安全无损将 📎 嵌入聊天框，彻底解决乱跑！ 🔥
+        // 2. 🔥 相对-绝对锚定法：让 📎 按钮永不乱跑 🔥
         const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
-        if (chatInputOuter) {
-            const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.children[0]; 
-            const realPopoverWrapper = doc.querySelector('.tool-bar-container');
-            const realPopoverBtn = realPopoverWrapper ? realPopoverWrapper.querySelector('button') : null;
+        const popovers = Array.from(doc.querySelectorAll('div[data-testid="stPopover"]'));
+        const attachPopover = popovers.find(p => p && p.textContent && p.textContent.includes('📎'));
 
-            if (innerPill && realPopoverBtn && !doc.getElementById('fake-attach-btn')) {
-                // 将输入舱变为 Flex 布局
-                innerPill.style.display = 'flex';
-                innerPill.style.alignItems = 'center';
+        if (chatInputOuter && attachPopover && attachPopover.parentElement !== chatInputOuter) {
+            // 将整个聊天胶囊变为相对坐标系
+            chatInputOuter.style.position = 'relative';
 
-                // 创建原生替身按钮
-                const fakeBtn = doc.createElement('div');
-                fakeBtn.id = 'fake-attach-btn';
-                fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; margin-left: 15px; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
+            // 将按钮设为绝对定位，吸附在聊天胶囊内部左下角
+            attachPopover.style.position = 'absolute';
+            attachPopover.style.left = '15px';
+            attachPopover.style.bottom = '12px'; // 与发送按钮底边平齐
+            attachPopover.style.zIndex = '999';
+            attachPopover.style.margin = '0';
 
-                // 点击替身，暗中触发真实的上传菜单
-                fakeBtn.onclick = () => realPopoverBtn.click();
+            // 剥离丑陋的原生样式
+            const btn = attachPopover.querySelector('button');
+            if (btn) {
+                btn.style.setProperty('background', 'transparent', 'important');
+                btn.style.setProperty('border', 'none', 'important');
+                btn.style.setProperty('box-shadow', 'none', 'important');
+                btn.style.setProperty('color', '#8b9bb4', 'important');
+                btn.style.setProperty('padding', '0', 'important');
+                const svgs = btn.querySelectorAll('svg');
+                if (svgs.length > 1) svgs[svgs.length - 1].style.display = 'none'; // 隐藏箭头
+            }
 
-                fakeBtn.onmouseover = () => { fakeBtn.style.opacity = '0.7'; };
-                fakeBtn.onmouseout = () => { fakeBtn.style.opacity = '1'; };
+            // 将按钮物理转移进胶囊内
+            chatInputOuter.appendChild(attachPopover);
 
-                // 插入到文本框最前面
-                innerPill.insertBefore(fakeBtn, innerPill.firstChild);
-
-                // 微调内部文本框缩进，防止重叠
-                const textArea = innerPill.querySelector('[data-baseweb="textarea"]');
-                if(textArea) { textArea.style.paddingLeft = '5px'; }
+            // 强迫输入框文本向右避让，防重叠
+            const textAreaContainer = chatInputOuter.querySelector('.stChatInputContainer');
+            if (textAreaContainer) {
+                textAreaContainer.style.setProperty('padding-left', '40px', 'important');
             }
         }
     };
-    const loop = () => { runGlobalEngine(); setTimeout(() => requestAnimationFrame(loop), 50); };
-    requestAnimationFrame(loop);
+    // 降低刷新频率至 200ms 节省性能，因为原生定位已经不需要高频重绘了
+    setInterval(runGlobalEngine, 200);
 </script>
 """, height=0, width=0)
 
 # ==========================================
-# 3. 全局 CSS 样式表 (极度精简，仅渲染一次)
+# 3. 全局 CSS 样式表 (恢复侧边栏原生推挤)
 # ==========================================
 st.markdown("""
 <style>
@@ -111,28 +116,20 @@ st.markdown("""
     .block-container { 
         animation: fadeIn 0.45s ease-out forwards; 
         background: transparent !important; 
-        padding-top: 4.5rem !important; /* 给常驻顶栏留出空间 */
+        padding-top: 4.5rem !important; 
         padding-bottom: 120px !important; 
     }
 
-    /* 🔥 永远置顶顶栏，解除 Streamlit 下拉隐藏机制 🔥 */
-    header[data-testid="stHeader"] { 
-        position: fixed !important;
-        top: 0px !important; 
-        transform: translateY(0px) !important; 
-        opacity: 1 !important;      
-        visibility: visible !important; 
-        background: transparent !important;
-    }
-    [data-testid="collapsedControl"], [data-testid="stToolbar"] { pointer-events: auto !important; opacity: 1 !important; visibility: visible !important; }
+    /* 永远置顶顶栏，保留汉堡菜单 */
+    header[data-testid="stHeader"] { position: fixed !important; top: 0px !important; transform: none !important; opacity: 1 !important; visibility: visible !important; background: transparent !important; }
+    [data-testid="collapsedControl"], [data-testid="stToolbar"] { pointer-events: auto !important; opacity: 1 !important; visibility: visible !important; display: flex !important; transform: none !important;}
 
     /* 去除恼人的锚点链接 */
     .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
 
     [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
 
-    /* 隐藏真实的附件按钮容器，让 JS 替身发光发热 */
-    .tool-bar-container { display: none !important; }
+    .tool-bar-container { display: none !important; } /* 隐藏真实的附件按钮容器 */
 
     /* ---------------- 基础深色/浅色核心设定 ---------------- */
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
@@ -141,13 +138,13 @@ st.markdown("""
     .sub-text { color: #cbd5e1 !important; }
     .danger-text { color: #ff4b4b !important; }
 
-    /* 🔥 恢复侧边栏的原生“推挤”特性，去除 fixed，仅保留高度与透明度 🔥 */
+    /* 🔥 撤销 fixed，恢复原生侧边栏“推挤主页”功能，仅保留高度沉浸 🔥 */
     [data-testid="stSidebar"] { 
         background: rgba(5, 8, 14, 0.75) !important; 
         backdrop-filter: blur(25px) !important; 
         border-right: 1px solid rgba(255,255,255,0.08) !important; 
+        min-height: 100vh !important; 
     }
-    [data-testid="stSidebar"] > div:first-child { background: transparent !important; }
 
     div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important;}
     div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
@@ -347,7 +344,7 @@ elif selected_page == PAGES[1]:
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
 
-    # 真实的附件容器被隐藏
+    # 真实的附件容器被隐藏，JS 替身接管
     st.markdown('<div class="tool-bar-container">', unsafe_allow_html=True)
     with st.popover("📎", help="上传附件", use_container_width=False):
         uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
