@@ -88,7 +88,21 @@ prev_idx, curr_idx = PAGES.index(st.session_state.prev_page), PAGES.index(st.ses
 anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr_idx < prev_idx else "fogFadeIn")
 
 # ==========================================
-# 3. 宗师级 JS 引擎：零损耗 + 水豚噜噜虚拟宠物
+# 🔥🔥🔥 主公！请在此处填入您的水豚 Base64 核心！ 🔥🔥🔥
+# ==========================================
+# 1. 日常呆萌形态 (image_4f1a62.png) 的 Base64 字符串填在下面引号里：
+LULU_IDLE_IMG = "data:image/png;base64,这里填入您第一张图片的Base64超长字符串"
+
+# 2. 被抓震惊形态 (image_4f1a81.png) 的 Base64 字符串填在下面引号里：
+LULU_DRAG_IMG = "data:image/png;base64,这里填入您第二张震惊图片的Base64超长字符串"
+
+# 3. 说话星星眼形态 (image_4f1abb.png) 的 Base64 字符串填在下面引号里：
+LULU_TALK_IMG = "data:image/png;base64,这里填入您第三张星星眼图片的Base64超长字符串"
+# ==========================================
+
+
+# ==========================================
+# 3. 宗师级 JS 引擎：零损耗 + 水豚噜噜完全体
 # ==========================================
 scroll_script = "window.parent.scrollTo({top: 0, behavior: 'instant'});" if st.session_state.just_switched else ""
 
@@ -96,6 +110,12 @@ components.html(f"""
 <script>
     {scroll_script}
     let isUpdating = false;
+
+    // 将 Python 中的 Base64 图片传递给 JS
+    const idleImgSrc = "{LULU_IDLE_IMG}";
+    const dragImgSrc = "{LULU_DRAG_IMG}";
+    const talkImgSrc = "{LULU_TALK_IMG}";
+
     const runGlobalEngine = () => {{
         if(isUpdating) return;
         isUpdating = true;
@@ -137,13 +157,14 @@ components.html(f"""
                 }}
             }}
 
-            // 🔥 注入悬浮水豚宠物：噜噜 🔥
+            // 🔥 注入悬浮水豚宠物：噜噜完全体 🔥
             if (!doc.getElementById('lulu-pet-container')) {{
                 const luluBox = doc.createElement('div');
                 luluBox.id = 'lulu-pet-container';
+                // 增加 user-select: none 防止拖拽时选中图片
                 luluBox.style.cssText = `
                     position: fixed; bottom: 80px; right: 40px; z-index: 999999;
-                    cursor: grab; user-select: none; display: flex; flex-direction: column;
+                    cursor: grab; user-select: none; -webkit-user-select: none; display: flex; flex-direction: column;
                     align-items: center; transition: transform 0.1s ease;
                 `;
 
@@ -155,18 +176,11 @@ components.html(f"""
                         transition: opacity 0.3s ease; pointer-events: none;
                     ">主公，噜噜在呢~ 🦦</div>
 
-                    <div id="lulu-body" style="
-                        width: 60px; height: 60px; background: #8B5A2B; border-radius: 40% 40% 30% 30%;
-                        position: relative; box-shadow: inset -5px -5px 10px rgba(0,0,0,0.3), 0 10px 20px rgba(0,0,0,0.4);
-                    ">
-                        <div style="position:absolute; width:6px; height:6px; background:#000; border-radius:50%; top:20px; left:15px;"></div>
-                        <div style="position:absolute; width:6px; height:6px; background:#000; border-radius:50%; top:20px; right:15px;"></div>
-                        <div style="position:absolute; width:12px; height:8px; background:#3d2314; border-radius:50%; top:28px; left:24px;"></div>
-                        <div style="position:absolute; width:20px; height:15px; background:#ff8c00; border-radius:50%; top:-8px; left:20px; box-shadow:inset -2px -2px 5px rgba(0,0,0,0.2);"></div>
-                    </div>
+                    <img id="lulu-img" src="${idleImgSrc}" style="width: 85px; height: auto; pointer-events: none; user-select: none; -webkit-user-drag: none;">
                 `;
                 doc.body.appendChild(luluBox);
 
+                const luluImgElement = doc.getElementById('lulu-img');
                 let isDragging = false, isClick = true;
                 let startX, startY, initLeft, initTop;
 
@@ -176,10 +190,12 @@ components.html(f"""
                     const rect = luluBox.getBoundingClientRect();
                     initLeft = rect.left; initTop = rect.top;
 
+                    // 抓起时：切换为震惊图，并带上发抖倾斜特效
+                    luluImgElement.src = dragImgSrc;
                     luluBox.style.bottom = 'auto'; luluBox.style.right = 'auto';
                     luluBox.style.left = initLeft + 'px'; luluBox.style.top = initTop + 'px';
                     luluBox.style.cursor = 'grabbing';
-                    luluBox.style.transform = 'scale(1.1) rotate(-5deg)';
+                    luluBox.style.transform = 'scale(1.1) rotate(-8deg)';
                 }});
 
                 doc.addEventListener('mousemove', (e) => {{
@@ -196,12 +212,21 @@ components.html(f"""
                     luluBox.style.cursor = 'grab';
                     luluBox.style.transform = 'scale(1) rotate(0deg)';
 
+                    // 放下时：如果不是点击，先恢复默认图
+                    if (!isClick) luluImgElement.src = idleImgSrc;
+
                     if (isClick) {{
+                        // 点击时：切换为星星眼说话图
+                        luluImgElement.src = talkImgSrc;
                         const bubble = doc.getElementById('lulu-bubble');
-                        const dialogues = ["主公，今天量化赚钱了吗？🦦", "均线金叉了！冲冲冲！🚀", "噜噜看不懂代码，但噜噜陪着主公~❤️", "不要满仓！注意回撤呀主公！🛡️", "好困...想吃橘子...🍊", "正在调用 Kimi 脑细胞...🧠"];
+                        const dialogues = ["主公，今天量化赚钱了吗？✨", "均线金叉了！冲冲冲！🚀", "噜噜看不懂代码，但噜噜陪着主公~❤️", "不要满仓！注意回撤呀主公！🛡️", "好困...想吃橘子...🍊", "正在调用 Kimi 脑细胞...🧠", "哇！这个策略好厉害的样子！😮"];
                         bubble.innerText = dialogues[Math.floor(Math.random() * dialogues.length)];
                         bubble.style.opacity = '1';
-                        setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
+                        // 3秒后气泡消失，并变回默认呆萌图
+                        setTimeout(() => {{ 
+                            bubble.style.opacity = '0'; 
+                            luluImgElement.src = idleImgSrc;
+                        }}, 3000);
                     }}
                 }});
             }}
@@ -446,7 +471,7 @@ if selected_page == PAGES[0]:
         """, unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 静默降级护盾运行中<br><br>**答辩核心创新点：**<br>✅ 原生一键直连上传<br>✅ 水豚噜噜虚拟宠物<br>✅ 全栈代码级防崩溃</div>',
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 静默降级护盾运行中<br><br>**答辩核心创新点：**<br>✅ 原生一键直连上传<br>✅ 水豚噜噜完全体<br>✅ 全栈代码级防崩溃</div>',
             unsafe_allow_html=True)
 
 elif selected_page == PAGES[1]:
@@ -894,5 +919,4 @@ elif selected_page == PAGES[5]:
             "user_logs/global_master_log.csv").to_csv(index=False).encode('utf-8'), file_name='Audit_Logs.csv',
                                                                                  type="primary")
     with c2:
-        # 🔥 完美补全漏掉的右括号，彻底消灭 SyntaxError 🔥
         st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
