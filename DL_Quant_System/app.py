@@ -115,30 +115,23 @@ components.html(f"""
 
             const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
 
-            // 🔥 终极杀手锏：全域搜捕原生 popover 按钮，强行物理隐身，杜绝乱跑！ 🔥
-            const popovers = Array.from(doc.querySelectorAll('div[data-testid="stPopover"]'));
-            const realPopoverContainer = popovers.find(p => p.textContent && p.textContent.includes('📎'));
+            // 🔥 直捣黄龙：直接抓取原生的 file input 元素 🔥
+            const fileInput = doc.querySelector('.real-uploader-wrapper input[type="file"]');
 
-            if (realPopoverContainer && !realPopoverContainer.style.position) {{
-                realPopoverContainer.style.setProperty('position', 'fixed', 'important');
-                realPopoverContainer.style.setProperty('top', '-9999px', 'important');
-                realPopoverContainer.style.setProperty('opacity', '0.01', 'important');
-                realPopoverContainer.style.setProperty('z-index', '-9999', 'important');
-            }}
-
-            if (chatInputOuter && realPopoverContainer) {{
+            if (chatInputOuter && fileInput) {{
                 const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.firstElementChild; 
-                const realPopoverBtn = realPopoverContainer.querySelector('button');
 
-                if (innerPill && realPopoverBtn && !doc.getElementById('fake-attach-btn')) {{
+                if (innerPill && !doc.getElementById('fake-attach-btn')) {{
                     innerPill.style.setProperty('position', 'relative', 'important');
                     const fakeBtn = doc.createElement('div');
                     fakeBtn.id = 'fake-attach-btn';
                     fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
 
+                    // 强制左侧垂直居中，与输入光标同一基准线
                     fakeBtn.style.cssText = 'position: absolute !important; left: 16px !important; top: 50% !important; transform: translateY(-50%) !important; z-index: 9999 !important; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;';
 
-                    fakeBtn.onclick = () => realPopoverBtn.click();
+                    // 🔥 一键直连操作系统的文件选择器，废除所有二级弹窗 🔥
+                    fakeBtn.onclick = () => fileInput.click();
                     fakeBtn.onmouseover = () => {{ fakeBtn.style.opacity = '0.6'; }};
                     fakeBtn.onmouseout = () => {{ fakeBtn.style.opacity = '1'; }};
                     innerPill.appendChild(fakeBtn);
@@ -172,6 +165,9 @@ st.markdown("""
     .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
     [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
 
+    /* 🔥 物理级隐身真实文件上传器，绝对不可见 🔥 */
+    .real-uploader-wrapper { position: fixed !important; top: -9999px !important; left: -9999px !important; opacity: 0.01 !important; z-index: -9999 !important; height: 1px !important; width: 1px !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important; }
+
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
     .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
     .highlight-text { color: #00ffcc !important; }
@@ -190,11 +186,10 @@ st.markdown("""
     [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); margin-bottom: 20px !important; }
 
     [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
-    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; display: flex !important; align-items: center !important; }
+    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; }
     [data-testid="stChatInput"] [data-baseweb="textarea"], [data-testid="stChatInput"] [data-baseweb="textarea"] > div { background-color: transparent !important; border: none !important; box-shadow: none !important; outline: none !important; }
     [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }
     [data-testid="stChatInputSubmitButton"] { background-color: #3b82f6 !important; border-radius: 50% !important; transition: all 0.3s ease; }
-    [data-testid="stPopoverBody"] { background-color: rgba(25, 33, 48, 0.95) !important; border: 1px solid rgba(0, 255, 204, 0.4) !important; border-radius: 16px !important; backdrop-filter: blur(25px) !important; padding: 15px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important; margin-bottom: 10px !important; }
 
     .stApp[data-custom-theme='light'] { background-image: linear-gradient(132deg, #ffffff, #dbeafe, #e0e7ff, #f3e8ff, #ffffff) !important; background-size: 400% 400% !important; animation: fluidFlow 10s ease infinite !important; }
     .stApp[data-custom-theme='light'] .stMarkdown, .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] h4, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div { color: #1e293b !important; }
@@ -210,7 +205,6 @@ st.markdown("""
     .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
     .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.85) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08) !important; }
     .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea { color: #1e293b !important; }
-    .stApp[data-custom-theme='light'] [data-testid="stPopoverBody"] { background-color: rgba(255, 255, 255, 0.98) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 10px 40px rgba(0,0,0,0.1) !important; }
     .stApp[data-custom-theme='light'] .js-plotly-plot .g-gtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-xtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-ytitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .xtick text, .stApp[data-custom-theme='light'] .js-plotly-plot .ytick text, .stApp[data-custom-theme='light'] .js-plotly-plot .legendtext { fill: #1e293b !important; font-weight: 500 !important; }
     .stApp[data-custom-theme='light'] [data-testid="collapsedControl"] svg, .stApp[data-custom-theme='light'] [data-testid="stToolbar"] svg { fill: #1e293b !important; color: #1e293b !important; }
     .stApp[data-custom-theme='dark'] [data-testid="collapsedControl"] svg, .stApp[data-custom-theme='dark'] [data-testid="stToolbar"] svg { fill: #e2e8f0 !important; color: #e2e8f0 !important; }
@@ -370,7 +364,6 @@ if selected_page == PAGES[0]:
         st.metric("AI 神经网络", "🟢 融合学习待命")
     st.markdown("---")
 
-    # 🔥 核心重构：移除复杂的流程图，换成简介明了的平台文字介绍 🔥
     c_arch, c_point = st.columns([2, 1])
     with c_arch:
         st.markdown("""
@@ -379,7 +372,7 @@ if selected_page == PAGES[0]:
             <p style="color:var(--text-color); line-height: 1.8; font-size: 1.05rem;">
                 欢迎来到 <b>小吕布量化 Pro</b>，这是一个专为现代极客打造的智能投研终端。<br><br>
                 在这里，传统手写代码的繁琐已被彻底颠覆。您可以：<br>
-                • <b>📝 全模态投研</b>：上传 PDF/Word 研报或 CSV 矩阵，让大模型直接提取精髓。<br>
+                • <b>📝 全模态投研</b>：一键无缝上传 PDF/Word 研报或 CSV 矩阵，让大模型直接提取精髓。<br>
                 • <b>🤖 零代码写策略</b>：通过自然语言对话，Agent 将自动为您生成并修复交易代码。<br>
                 • <b>📈 穿越牛熊回测</b>：长达 10 年的全局历史回测，并附带 AI 胜率归因与白话解析。<br>
                 • <b>🧠 时序张量预测</b>：利用 LSTM/GRU 融合矩阵，自回归推演未来 5 天的价格轨迹。<br>
@@ -388,7 +381,7 @@ if selected_page == PAGES[0]:
         """, unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**答辩核心创新点：**<br>✅ 全模态文档自解析<br>✅ 物理隔离重叠防线<br>✅ 全栈语义防截断</div>',
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**答辩核心创新点：**<br>✅ 原生一键直连上传<br>✅ 全模态文档自解析<br>✅ 全栈语义防截断</div>',
             unsafe_allow_html=True)
 
 elif selected_page == PAGES[1]:
@@ -409,11 +402,12 @@ elif selected_page == PAGES[1]:
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
 
-    # 真实的附件容器会由 JS 直接拦截隐藏，无需繁琐的 div 包裹
-    with st.popover("📎", help="上传附件", use_container_width=False):
-        uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
-                                          type=['pdf', 'doc', 'docx', 'csv', 'txt', 'png', 'jpg', 'jpeg'],
-                                          label_visibility="collapsed")
+    # 🔥 核心：直接使用 file_uploader，彻底废除 popover 弹窗，在外部隐身 🔥
+    st.markdown('<div class="real-uploader-wrapper">', unsafe_allow_html=True)
+    uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
+                                      type=['pdf', 'doc', 'docx', 'csv', 'txt', 'png', 'jpg', 'jpeg'],
+                                      label_visibility="collapsed")
+    st.markdown('</div>', unsafe_allow_html=True)
 
     file_context_text = ""
     if 'uploaded_files' in locals() and uploaded_files:
@@ -481,7 +475,6 @@ def generate_signals(df):
                     {"role": "user", "content": full_prompt_for_ai}]
                 max_retries, last_error, agent_logs = 2, "", []
 
-                # 🔥 致命漏洞修复：初始化 full_resp 防止断线时抛出 NameError 🔥
                 full_resp = ""
                 msg_box = st.empty()
 
@@ -496,7 +489,7 @@ def generate_signals(df):
                         stream = client.chat.completions.create(model=selected_model, messages=messages_to_send,
                                                                 stream=True,
                                                                 temperature=0.3 if enable_deep_think else 0.7)
-                        full_resp = ""  # 成功连线后清空旧内容重新装填
+                        full_resp = ""
                         for chunk in stream:
                             if chunk.choices[0].delta.content:
                                 full_resp += chunk.choices[0].delta.content
@@ -507,10 +500,8 @@ def generate_signals(df):
                             full_resp.replace("<think>", "🧠 深度思考过程：\n").replace("</think>", "\n---\n"),
                             unsafe_allow_html=True)
 
-                        # 解析是否包含代码
                         code_match = re.search(r"`{3}python\s*(.*?)\s*`{3}", full_resp, re.DOTALL)
 
-                        # 🔥 无代码的纯粹人话提取防线 🔥
                         resp_clean = re.sub(r"<think>.*?</think>", "", full_resp, flags=re.DOTALL)
                         explanation = re.sub(r"`{3}python\s*.*?\s*`{3}", "", resp_clean, flags=re.DOTALL).strip()
                         explanation = explanation.replace("【策略白话解析】", "").replace("【策略白话解析】:", "").replace(
@@ -521,11 +512,9 @@ def generate_signals(df):
                         else:
                             st.session_state.strategy_explanation = "该策略完全由硬核代码驱动，未返回额外人话分析。"
 
-                        # 如果没有生成代码（比如用户只是让解读文档），直接跳出沙盒验证，视为成功！
                         if not code_match:
                             break
 
-                        # 如果生成了代码，进入沙盒验证
                         extracted_code = code_match.group(1).strip()
                         try:
                             dummy_df = pd.DataFrame(
