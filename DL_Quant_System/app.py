@@ -25,6 +25,32 @@ pd.np = np
 # /// 1. 初始化与核心兵符 ///
 st.set_page_config(page_title="小吕布量化 Pro - 毕设版", layout="wide", initial_sidebar_state="expanded")
 
+# 🔥 全局跨域主题嗅探雷达：实时监听 Streamlit 原生主题切换
+components.html("""
+<script>
+    setInterval(() => {
+        try {
+            const doc = window.parent.document;
+            const app = doc.querySelector('.stApp');
+            if (app) {
+                // 根据原生字体的明暗度，反向推导当前处于 Dark 还是 Light 模式
+                const color = window.getComputedStyle(app).color;
+                const rgb = color.match(/\d+/g);
+                let isLight = false;
+                if (rgb && rgb.length >= 3) {
+                    const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
+                    isLight = brightness < 128; // 字体颜色暗(黑灰)说明是 Light Theme
+                }
+                const themeAttr = isLight ? 'light' : 'dark';
+                if (app.getAttribute('data-custom-theme') !== themeAttr) {
+                    app.setAttribute('data-custom-theme', themeAttr);
+                }
+            }
+        } catch(e) {}
+    }, 500);
+</script>
+""", height=0, width=0)
+
 KIMI_API_KEY = "sk-yS2foVgWtvnFMWKRTLnI6l8NFqFrRiB8ojre75g2mK2P8LBk"
 TUSHARE_TOKEN = "ba486af7606bc2f6018f1d592251a49674132225f59d37b3473d676e"
 
@@ -40,70 +66,62 @@ if "bt_result" not in st.session_state: st.session_state.bt_result = None
 if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 if "is_live_trading" not in st.session_state: st.session_state.is_live_trading = False
 
-# /// 2. UI/UX 强化 (光暗双生双驱引擎 + 悬浮舱) ///
+# /// 2. UI/UX 强化 (光暗双生引擎 + 悬浮舱) ///
 st.markdown("""
 <style>
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
 
-    /* ---------------- 基础排版 ---------------- */
+    /* ======== 基础全局布局 ======== */
     [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 3rem !important; padding-bottom: 120px !important; }
     header[data-testid="stHeader"] { background: transparent !important; pointer-events: none !important; }
     [data-testid="stBottomBlock"], [data-testid="stBottom"], [data-testid="stBottom"] > div { background-color: transparent !important; background: transparent !important; border: none !important; }
-    .tool-bar-container { display: none; } /* 隐藏初始位置的附件按钮 */
+    .tool-bar-container { display: none; }
 
-    /* ---------------- 黑暗模式 (默认基底) ---------------- */
-    .stApp, .stApp[data-custom-theme='dark'] { 
-        background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; 
-        background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; 
-    }
-    /* 智能字体颜色适配 (跟随原生变量) */
-    .stMarkdown, p, h1, h2, h3, h4, label, span { color: var(--text-color) !important; }
-
-    /* 高亮色彩变量 */
+    /* ======== 暗色主题 (默认基底) ======== */
+    .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
+    .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
     .highlight-text { color: #00ffcc !important; }
-    .sub-text { color: #e2e8f0 !important; }
+    .sub-text { color: #cbd5e1 !important; }
     .danger-text { color: #ff4b4b !important; }
 
-    /* 深色组件样式 */
     [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; }
     div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; padding: 14px 18px !important; margin-bottom: 10px !important; border-radius: 12px !important; border-left: 4px solid transparent !important; }
     div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
+
     .glass-card { background: rgba(20, 28, 45, 0.65) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
     .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; }
     [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); }
 
-    /* 深色聊天胶囊 */
     [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
     [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; }
-    [data-testid="stChatInput"] [data-baseweb="textarea"], [data-testid="stChatInput"] [data-baseweb="textarea"] > div { background: transparent !important; border: none !important; box-shadow: none !important; outline: none !important; }
-    [data-testid="stChatInput"] textarea { background: transparent !important; border: none !important; color: var(--text-color) !important; font-size: 16px !important; line-height: 1.5 !important; padding-left: 40px !important; }
+    [data-testid="stChatInput"] [data-baseweb="textarea"], [data-testid="stChatInput"] [data-baseweb="textarea"] > div { background-color: transparent !important; border: none !important; box-shadow: none !important; outline: none !important; }
+    [data-testid="stChatInput"] textarea { background-color: transparent !important; border: none !important; color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; padding-left: 40px !important; }
     [data-testid="stChatInput"] textarea:focus { box-shadow: none !important; outline: none !important; }
     [data-testid="stChatInputSubmitButton"] { background-color: #3b82f6 !important; border-radius: 50% !important; transition: all 0.3s ease; }
-    [data-testid="stChatInputSubmitButton"]:hover { background-color: #60a5fa !important; box-shadow: 0 0 15px rgba(59, 130, 246, 0.6) !important; }
-    div[data-testid="stPopover"] button { background: transparent !important; border: none !important; box-shadow: none !important; color: #a1a1aa !important; }
+    div[data-testid="stPopover"] button { background-color: transparent !important; border: none !important; box-shadow: none !important; color: #a1a1aa !important; }
     [data-testid="stPopoverBody"] { background-color: rgba(25, 33, 48, 0.95) !important; border: 1px solid rgba(0, 255, 204, 0.4) !important; border-radius: 16px !important; backdrop-filter: blur(25px) !important; padding: 15px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important; margin-bottom: 10px !important; }
 
-    /* ---------------- 浅色模式 (Light Mode 覆盖) ---------------- */
-    .stApp[data-custom-theme='light'] {
-        background-image: linear-gradient(132deg, #f8f9fa, #e2e8f0, #cbd5e1, #f1f5f9, #ffffff, #e2e8f0, #f8f9fa) !important;
-    }
-    .stApp[data-custom-theme='light'] .highlight-text { color: #0284c7 !important; } /* 浅色下的高亮蓝 */
+    /* ======== 浅色主题强力覆盖 (Light Mode Engine) ======== */
+    .stApp[data-custom-theme='light'] { background-image: linear-gradient(132deg, #f1f5f9, #e2e8f0, #ffffff, #cbd5e1, #f8f9fa, #e2e8f0, #f1f5f9) !important; }
+    .stApp[data-custom-theme='light'] .stMarkdown, .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] h4, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div { color: #1e293b !important; }
+    .stApp[data-custom-theme='light'] .highlight-text { color: #0284c7 !important; }
     .stApp[data-custom-theme='light'] .sub-text { color: #475569 !important; }
     .stApp[data-custom-theme='light'] .danger-text { color: #dc2626 !important; }
 
-    .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.1); box-shadow: 0 12px 48px rgba(0, 0, 0, 0.05); }
-    .stApp[data-custom-theme='light'] .metric-box { background: rgba(2, 132, 199, 0.05); border: 1px solid rgba(2, 132, 199, 0.2); }
-    .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.8) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }
+    .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.06) !important; }
+    .stApp[data-custom-theme='light'] .metric-box { background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.9) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }
     .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.85) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
 
-    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.6) !important; border-left: 4px solid transparent !important; }
-    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.1), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.8) !important; border-left: 4px solid transparent !important; }
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
 
-    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.85) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.1) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.85) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea { color: #1e293b !important; }
     .stApp[data-custom-theme='light'] div[data-testid="stPopover"] button { color: #64748b !important; }
     .stApp[data-custom-theme='light'] [data-testid="stPopoverBody"] { background-color: rgba(255, 255, 255, 0.98) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 10px 40px rgba(0,0,0,0.1) !important; }
 
-    /* 强行穿透 Plotly 坐标轴颜色以适配浅色模式 */
+    /* 强行修改 Plotly 坐标系适配浅色 */
     .stApp[data-custom-theme='light'] .js-plotly-plot .g-gtitle text,
     .stApp[data-custom-theme='light'] .js-plotly-plot .g-xtitle text,
     .stApp[data-custom-theme='light'] .js-plotly-plot .g-ytitle text,
@@ -270,7 +288,7 @@ with st.sidebar:
 # /// 🏠 页面 1: 系统总览 ///
 if page == "🏠 系统总览 (监控中控)":
     st.markdown(
-        '<div class="glass-card"><h1 style="margin-bottom:0; color:var(--text-color);">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
+        '<div class="glass-card"><h1 style="margin-bottom:0;">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
         unsafe_allow_html=True)
 
     try:
@@ -303,7 +321,7 @@ if page == "🏠 系统总览 (监控中控)":
 
     with c_arch:
         st.markdown(
-            '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom: 20px;">🧠 核心架构与操作流 (Data Flow Pipeline)</h3>',
+            '<div class="glass-card"><h3 style="margin-bottom: 20px;">🧠 核心架构与操作流 (Data Flow Pipeline)</h3>',
             unsafe_allow_html=True)
 
         mermaid_str = """
@@ -312,9 +330,13 @@ if page == "🏠 系统总览 (监控中控)":
             B -->|输出预测信号| C{📈 3. 策略回测<br>全量审计与归因}
             C -->|上传回测结果| D[🤖 4. AI 战情室<br>大模型多模态解读]
             A -.->|研报/原始数据| D
+
+            style A fill:#1e293b,stroke:#00ffcc,stroke-width:2px,color:#fff
+            style B fill:#1e293b,stroke:#00ffcc,stroke-width:2px,color:#fff
+            style C fill:#1e293b,stroke:#00ffcc,stroke-width:2px,color:#fff
+            style D fill:#3b0764,stroke:#ff00ff,stroke-width:2px,color:#fff
         """
 
-        # 🔥 光暗双生双轨 Mermaid 渲染引擎
         html_code = f"""
         <!DOCTYPE html>
         <html>
@@ -361,14 +383,13 @@ if page == "🏠 系统总览 (监控中控)":
         st.markdown('</div>', unsafe_allow_html=True)
 
     with c_point:
-        st.markdown('<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台体征监控 (Telemetry)</h4>',
-                    unsafe_allow_html=True)
+        st.markdown('<div class="glass-card"><h4>📋 平台体征监控 (Telemetry)</h4>', unsafe_allow_html=True)
         st.markdown("**内存池占用率 (预估)**")
         st.progress(0.35)
         st.markdown("**UI 实时通信帧率**")
         st.progress(0.96)
         st.markdown(
-            '<br><h4 style="color:var(--text-color);">💡 答辩终极杀手锏</h4>✅ <b>类型强制归一 (New)</b>: 自动剿灭 AI 产生的浮点数买卖信号报错。<br>✅ <b>全局物理补丁</b>: pd.np = np，永久杜绝旧语法崩溃。<br>✅ <b>平移自适应缩放</b>: 左右拖拽平移，双击瞬间对齐Y轴。</div>',
+            '<br><h4>💡 答辩终极杀手锏</h4>✅ <b>类型强制归一 (New)</b>: 自动剿灭 AI 产生的浮点数买卖信号报错。<br>✅ <b>全局物理补丁</b>: pd.np = np，永久杜绝旧语法崩溃。<br>✅ <b>平移自适应缩放</b>: 左右拖拽平移，双击瞬间对齐Y轴。</div>',
             unsafe_allow_html=True)
 
 # /// 🤖 页面 2: AI 策略引擎 (LLM) ///
@@ -376,7 +397,7 @@ elif page == "🤖 AI 策略引擎 (LLM)":
     if "messages" not in st.session_state: st.session_state.messages = []
 
     st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0; color:var(--text-color);">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与 Agent 自愈模块已就绪，体验沉浸式工作流。</p></div>',
+        '<div class="glass-card"><h3 style="margin-bottom:0;">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与 Agent 自愈模块已就绪，光暗双生沉浸式体验。</p></div>',
         unsafe_allow_html=True)
 
     with st.container():
@@ -402,24 +423,10 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                                           type=['png', 'jpg', 'jpeg', 'csv', 'txt'], label_visibility="collapsed")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 🔥 黑魔法：光暗模式动态嗅探 + 悬浮舱平齐重组
     components.html("""
     <script>
         setInterval(() => {
             const doc = window.parent.document;
-            const app = doc.querySelector('.stApp');
-
-            // 1. 光暗主题跨域嗅探
-            if (app) {
-                const bgColor = window.getComputedStyle(doc.body).backgroundColor;
-                const isLight = bgColor === 'rgb(255, 255, 255)' || bgColor.includes('255, 255, 255') || bgColor === 'rgb(240, 242, 246)';
-                const themeAttr = isLight ? 'light' : 'dark';
-                if (app.getAttribute('data-custom-theme') !== themeAttr) {
-                    app.setAttribute('data-custom-theme', themeAttr);
-                }
-            }
-
-            // 2. 附件按钮 DOM 物理平齐镶嵌
             const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
             if(!chatInputOuter) return;
 
@@ -431,7 +438,9 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                 innerPill.style.position = 'relative';
 
                 const baseweb = chatInputOuter.querySelector('[data-baseweb="textarea"]');
-                if(baseweb) baseweb.style.paddingLeft = '40px'; 
+                if(baseweb) {
+                    baseweb.style.paddingLeft = '40px'; 
+                }
 
                 attachPopover.style.position = 'absolute';
                 attachPopover.style.left = '12px';
@@ -446,7 +455,6 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                     btn.style.background = 'transparent';
                     btn.style.border = 'none';
                     btn.style.boxShadow = 'none';
-                    btn.style.color = '#8b9bb4';
                     btn.style.fontSize = '1.4rem';
                     btn.style.padding = '0';
                     btn.style.minWidth = '0';
@@ -605,8 +613,7 @@ def generate_signals(df):
 
 # /// 📈 页面 3: 深度静态全量回测 ///
 elif page == "📈 深度静态全量回测":
-    st.markdown('<div class="glass-card"><h3 style="color:var(--text-color);">📊 历史回测全量审计与归因分析</h3></div>',
-                unsafe_allow_html=True)
+    st.markdown('<div class="glass-card"><h3>📊 历史回测全量审计与归因分析</h3></div>', unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 3])
     with col_l:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
@@ -677,9 +684,7 @@ elif page == "📈 深度静态全量回测":
 
 # /// ⚡ 页面 4: 实时高频交易 (Live) ///
 elif page == "⚡ 实时高频交易 (Live)":
-    st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color);">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
-        unsafe_allow_html=True)
+    st.markdown('<div class="glass-card"><h3>⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>', unsafe_allow_html=True)
     c_ctrl, c_chart = st.columns([1, 2.5])
     with c_ctrl:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
@@ -727,9 +732,7 @@ elif page == "⚡ 实时高频交易 (Live)":
 
 # /// 🧠 页面 5: 深度学习预测 (LSTM) ///
 elif page == "🧠 深度学习预测 (LSTM)":
-    st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color);">🧠 深度神经网络时序建模中心 (LSTM)</h3></div>',
-        unsafe_allow_html=True)
+    st.markdown('<div class="glass-card"><h3>🧠 深度神经网络时序建模中心 (LSTM)</h3></div>', unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 2.5])
     with col_l:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
@@ -797,8 +800,7 @@ elif page == "🧠 深度学习预测 (LSTM)":
 
 # /// 6. 论文审计日志 ///
 elif page == "🛡️ 论文审计日志":
-    st.markdown('<div class="glass-card"><h3 style="color:var(--text-color);">🛡️ 实验数据采集与多维审计中心</h3></div>',
-                unsafe_allow_html=True)
+    st.markdown('<div class="glass-card"><h3>🛡️ 实验数据采集与多维审计中心</h3></div>', unsafe_allow_html=True)
     c1, c2 = st.columns([1, 1.2])
     with c1:
         if os.path.exists(GLOBAL_LOG_FILE): st.download_button("📁 导出中期汇报审计日志",
