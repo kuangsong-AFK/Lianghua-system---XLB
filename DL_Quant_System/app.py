@@ -828,4 +828,143 @@ elif selected_page == PAGES[5]:
             "user_logs/global_master_log.csv").to_csv(index=False).encode('utf-8'), file_name='Audit_Logs.csv',
                                                                                  type="primary")
     with c2:
-        st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
+        st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350
+
+        # ==========================================
+        # 🌟 终极彩蛋：水豚噜噜 (全域悬浮虚拟宠物) 🌟
+        # ==========================================
+        components.html("""
+        <script>
+            const runPetEngine = () => {
+                const doc = window.parent.document;
+
+                // 防止重复注入
+                if (doc.getElementById('lulu-pet-container')) return;
+
+                // 1. 创建噜噜的物理容器
+                const luluBox = doc.createElement('div');
+                luluBox.id = 'lulu-pet-container';
+
+                // 赋予全域最高层级的 CSS 属性
+                luluBox.style.cssText = `
+                    position: fixed;
+                    bottom: 50px;
+                    right: 50px;
+                    z-index: 999999;
+                    cursor: grab;
+                    user-select: none;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    transition: transform 0.1s ease;
+                `;
+
+                // 2. 注入噜噜的本体 (SVG 水豚) 与 气泡
+                luluBox.innerHTML = `
+                    <div id="lulu-bubble" style="
+                        opacity: 0;
+                        background: rgba(20, 28, 45, 0.9);
+                        border: 1px solid #00ffcc;
+                        color: #e2e8f0;
+                        padding: 8px 12px;
+                        border-radius: 12px;
+                        font-size: 13px;
+                        margin-bottom: 10px;
+                        white-space: nowrap;
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+                        transition: opacity 0.3s ease;
+                        pointer-events: none;
+                    ">
+                        主公，噜噜在呢~ 🦦
+                    </div>
+
+                    <div id="lulu-body" style="
+                        width: 60px;
+                        height: 60px;
+                        background: #8B5A2B;
+                        border-radius: 40% 40% 30% 30%;
+                        position: relative;
+                        box-shadow: inset -5px -5px 10px rgba(0,0,0,0.3), 0 10px 20px rgba(0,0,0,0.4);
+                    ">
+                        <div style="position:absolute; width:6px; height:6px; background:#000; border-radius:50%; top:20px; left:15px;"></div>
+                        <div style="position:absolute; width:6px; height:6px; background:#000; border-radius:50%; top:20px; right:15px;"></div>
+                        <div style="position:absolute; width:12px; height:8px; background:#3d2314; border-radius:50%; top:28px; left:24px;"></div>
+                        <div style="position:absolute; width:20px; height:15px; background:#ff8c00; border-radius:50%; top:-8px; left:20px; box-shadow:inset -2px -2px 5px rgba(0,0,0,0.2);"></div>
+                    </div>
+                `;
+
+                doc.body.appendChild(luluBox);
+
+                // 3. 物理拖拽引擎
+                let isDragging = false;
+                let startX, startY, initialLeft, initialTop;
+                let isClick = true; // 用于区分是“拖拽”还是“点击”
+
+                luluBox.addEventListener('mousedown', (e) => {
+                    isDragging = true;
+                    isClick = true;
+                    startX = e.clientX;
+                    startY = e.clientY;
+
+                    // 获取当前坐标
+                    const rect = luluBox.getBoundingClientRect();
+                    initialLeft = rect.left;
+                    initialTop = rect.top;
+
+                    // 切换为绝对定位以跟随鼠标
+                    luluBox.style.bottom = 'auto';
+                    luluBox.style.right = 'auto';
+                    luluBox.style.left = initialLeft + 'px';
+                    luluBox.style.top = initialTop + 'px';
+                    luluBox.style.cursor = 'grabbing';
+                    luluBox.style.transform = 'scale(1.1) rotate(-5deg)'; // 抓起时的可爱动效
+                });
+
+                doc.addEventListener('mousemove', (e) => {
+                    if (!isDragging) return;
+
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+
+                    // 如果移动距离超过 5 像素，判定为拖拽而非点击
+                    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+                        isClick = false; 
+                    }
+
+                    luluBox.style.left = (initialLeft + dx) + 'px';
+                    luluBox.style.top = (initialTop + dy) + 'px';
+                });
+
+                doc.addEventListener('mouseup', () => {
+                    if (!isDragging) return;
+                    isDragging = false;
+                    luluBox.style.cursor = 'grab';
+                    luluBox.style.transform = 'scale(1) rotate(0deg)'; // 放下恢复
+
+                    // 4. 交互状态机：如果是点击，则触发对话
+                    if (isClick) {
+                        const bubble = doc.getElementById('lulu-bubble');
+                        const dialogues = [
+                            "主公，今天量化赚钱了吗？🦦",
+                            "均线金叉了！冲冲冲！🚀",
+                            "噜噜看不懂代码，但噜噜陪着主公~❤️",
+                            "不要满仓！注意回撤呀主公！🛡️",
+                            "好困...想吃橘子...🍊",
+                            "正在调用 Kimi 脑细胞...🧠"
+                        ];
+                        // 随机抽取一句台词
+                        bubble.innerText = dialogues[Math.floor(Math.random() * dialogues.length)];
+
+                        // 显示气泡，3秒后消失
+                        bubble.style.opacity = '1';
+                        setTimeout(() => {
+                            bubble.style.opacity = '0';
+                        }, 3000);
+                    }
+                });
+            };
+
+            // 延时加载，确保 DOM 已完全准备好
+            setTimeout(runPetEngine, 1000);
+        </script>
+        """, height=0, width=0)
