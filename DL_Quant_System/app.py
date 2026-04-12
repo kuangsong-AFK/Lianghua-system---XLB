@@ -156,7 +156,12 @@ st.markdown("""
     div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
 
     .glass-card { background: rgba(20, 28, 45, 0.65) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
-    .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; }
+
+    /* 🔥 修复排版塌陷：精准控制边距，防溢出 🔥 */
+    .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px; overflow: hidden; }
+    .metric-box p { margin: 0 !important; font-size: 0.9rem; color: #cbd5e1; }
+    .metric-box h2 { margin: 8px 0 0 0 !important; font-size: 1.8rem; line-height: 1.2; }
+
     [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); margin-bottom: 20px !important; }
 
     [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
@@ -173,6 +178,7 @@ st.markdown("""
     .stApp[data-custom-theme='light'] .danger-text { color: #dc2626 !important; }
     .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.06) !important; }
     .stApp[data-custom-theme='light'] .metric-box { background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; }
+    .stApp[data-custom-theme='light'] .metric-box p { color: #475569; }
     .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.9) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }
     .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.85) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
     .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.8) !important; border-left: 4px solid transparent !important; }
@@ -442,6 +448,15 @@ def generate_signals(df):
                         code_match = re.search(r"`{3}python\s*(.*?)\s*`{3}", full_resp, re.DOTALL)
                         if code_match:
                             extracted_code = code_match.group(1).strip()
+
+                            # 🔥 核心修复：重新挂载正则提取引擎，捕获 AI 的白话解析 🔥
+                            exp_match = re.search(r"【策略白话解析】(.*?)(?=`{3}python|$)", full_resp,
+                                                  re.DOTALL | re.IGNORECASE)
+                            if exp_match:
+                                st.session_state.strategy_explanation = exp_match.group(1).strip()
+                            else:
+                                st.session_state.strategy_explanation = "该策略无特定白话解析，请参考代码内部注释。"
+
                             try:
                                 dummy_df = pd.DataFrame({'trade_date': pd.date_range('20230101', periods=50),
                                                          'Open': np.random.rand(50) * 10,
@@ -502,8 +517,11 @@ elif selected_page == PAGES[2]:
                 f'<div class="metric-box"><p>夏普比率</p><h2 class="highlight-text">{m["sharpe"]:.2f}</h2></div>',
                 unsafe_allow_html=True)
 
-            # 🔥 回归补丁：把 AI 白话解析加回来 🔥
-            if st.session_state.generated_code and st.session_state.strategy_explanation:
+            # 🔥 增加物理隔离带，防止下方 expander 向上穿模 🔥
+            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+
+            # 恢复白话解析模块展示
+            if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
                 with st.expander("💡 展开：AI 策略白话解析", expanded=False):
                     st.markdown(st.session_state.strategy_explanation)
 
@@ -521,8 +539,7 @@ elif selected_page == PAGES[3]:
                   type="primary")
         st.button("⏹️ 强行停止", on_click=lambda: st.session_state.update({"is_live_trading": False}))
     with c_chart:
-        # 🔥 回归补丁：把 AI 白话解析加回来 🔥
-        if st.session_state.generated_code and st.session_state.strategy_explanation:
+        if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
             with st.expander("💡 当前军令：策略白话解析", expanded=False):
                 st.markdown(st.session_state.strategy_explanation)
 
