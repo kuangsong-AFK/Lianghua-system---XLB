@@ -79,7 +79,7 @@ elif curr_idx < prev_idx:
 else:
     anim_name = "fadeIn"
 
-# 🔥 页面切换时，强行瞬间滚动到最顶端！
+# 🔥 页面切换时，强行瞬间滚动到最顶端，保证锚点永远锁定顶部！
 if st.session_state.just_switched:
     components.html("""
     <script>
@@ -109,47 +109,55 @@ components.html("""
             }
         }
 
-        // 2. 聊天舱附件按钮悬浮重构
+        // 2. 🔥 终极附件按钮悬浮雷达 (彻底解决乱跑问题) 🔥
         const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
         if (chatInputOuter) {
-            const innerPill = chatInputOuter.children[0]; 
+            const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.children[0]; 
             const popovers = Array.from(doc.querySelectorAll('div[data-testid="stPopover"]'));
             const attachPopover = popovers.find(p => p && p.textContent && p.textContent.includes('📎'));
 
             if (innerPill && attachPopover && attachPopover.parentElement !== innerPill) {
+                // 强行把输入框文字往右挤，给按钮留出安全区
+                const baseweb = innerPill.querySelector('[data-baseweb="textarea"]');
+                if(baseweb) { baseweb.style.paddingLeft = '45px'; }
+
+                // 获取精准物理坐标
                 const rect = innerPill.getBoundingClientRect();
+                const btnHeight = attachPopover.offsetHeight || 38;
+
+                // 精准数学计算，抛弃 transform，彻底避免手机端偏移
                 attachPopover.style.position = 'fixed';
-                attachPopover.style.left = (rect.left + 12) + 'px';
-                attachPopover.style.top = (rect.top + rect.height/2) + 'px';
-                attachPopover.style.transform = 'translateY(-50%)';
-                attachPopover.style.zIndex = '9999';
-                attachPopover.style.width = 'auto';
+                attachPopover.style.left = (rect.left + 15) + 'px';
+                attachPopover.style.top = (rect.top + (rect.height / 2) - (btnHeight / 2)) + 'px';
+                attachPopover.style.bottom = 'auto';
+                attachPopover.style.transform = 'none';
+                attachPopover.style.zIndex = '999999';
                 attachPopover.style.margin = '0';
 
-                const baseweb = chatInputOuter.querySelector('[data-baseweb="textarea"]');
-                if(baseweb) { baseweb.style.paddingLeft = '40px'; }
-
+                // 暴力摧毁按钮的原生样式
                 const btn = attachPopover.querySelector('button');
                 if (btn) {
-                    btn.style.background = 'transparent';
-                    btn.style.border = 'none';
-                    btn.style.boxShadow = 'none';
-                    btn.style.color = '#8b9bb4';
-                    btn.style.fontSize = '1.4rem';
-                    btn.style.padding = '0';
-                    btn.style.minWidth = '0';
+                    btn.style.setProperty('background', 'transparent', 'important');
+                    btn.style.setProperty('border', 'none', 'important');
+                    btn.style.setProperty('box-shadow', 'none', 'important');
+                    btn.style.setProperty('padding', '0', 'important');
+                    btn.style.setProperty('color', '#8b9bb4', 'important');
+                    btn.style.setProperty('min-height', '0', 'important');
+
                     const svgs = btn.querySelectorAll('svg');
-                    if (svgs.length > 0) svgs[svgs.length - 1].style.display = 'none';
+                    // 隐藏掉那个丑陋的下拉小箭头
+                    if (svgs.length > 1) svgs[svgs.length - 1].style.display = 'none';
                 }
             }
         }
     };
-    const loop = () => { runGlobalEngine(); setTimeout(() => requestAnimationFrame(loop), 100); };
+    // 采用 20ms 高频刷新，无缝贴合输入框，绝不乱跑
+    const loop = () => { runGlobalEngine(); setTimeout(() => requestAnimationFrame(loop), 20); };
     requestAnimationFrame(loop);
 </script>
 """, height=0, width=0)
 
-# /// 4. 终极 CSS 注入 (四大物理防线锁死 Header) ///
+# /// 4. 终极 CSS 注入 ///
 st.markdown(f"""
 <style>
     /* 背景流体动画 */
@@ -162,31 +170,37 @@ st.markdown(f"""
     .block-container {{ 
         animation: {anim_name} 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; 
         background: transparent !important; 
-        padding-top: 4rem !important; /* 🔥 增加顶部距离，防止被绝对固定的 Header 挡住 */
+        padding-top: 4.5rem !important; /* 确保不被置顶 Header 挡住 */
         padding-bottom: 120px !important; 
     }}
 
-    /* 🔥🔥🔥 四大物理防线：绝对锁死顶栏，杜绝消失、隐藏、滑动、变透明 🔥🔥🔥 */
+    /* 🔥🔥🔥 绝对封锁：保证顶部按钮(汉堡菜单、主题切换)永远显形且置顶 🔥🔥🔥 */
     header[data-testid="stHeader"] {{ 
         position: fixed !important;
         top: 0 !important; 
-        transform: none !important; /* 彻底击杀下拉隐藏时的 translateY */
-        opacity: 1 !important;      /* 强制不透明 */
-        visibility: visible !important; /* 强制显示 */
+        transform: translateY(0) !important; 
+        opacity: 1 !important;      
+        visibility: visible !important; 
         z-index: 999999 !important; 
         background: transparent !important;
-        pointer-events: auto !important; /* 恢复点击事件 */
+        pointer-events: none !important; /* 容器透明且不阻挡下方点击 */
     }}
 
-    /* 强制保护右上角工具栏和左上角侧边栏按钮，不许隐身 */
-    [data-testid="stToolbar"], 
-    header[data-testid="stHeader"] button, 
-    header[data-testid="stHeader"] [data-testid="stIcon"] {{
+    /* 单独赋予顶部按钮点击权限和显形特权 */
+    [data-testid="collapsedControl"], 
+    [data-testid="stToolbar"] {{
+        pointer-events: auto !important; 
         opacity: 1 !important;
         visibility: visible !important;
+        display: flex !important;
         transform: none !important;
-        display: inline-flex !important;
     }}
+
+    /* 光暗模式下的顶部按钮图标颜色强行接管 */
+    .stApp[data-custom-theme='light'] [data-testid="collapsedControl"] svg,
+    .stApp[data-custom-theme='light'] [data-testid="stToolbar"] svg {{ fill: #1e293b !important; color: #1e293b !important; }}
+    .stApp[data-custom-theme='dark'] [data-testid="collapsedControl"] svg,
+    .stApp[data-custom-theme='dark'] [data-testid="stToolbar"] svg {{ fill: #e2e8f0 !important; color: #e2e8f0 !important; }}
 
     /* 彻底剿灭 Streamlit 标题旁边的锚点链接防误触滚动 */
     .stMarkdown a.header-anchor {{ display: none !important; pointer-events: none !important; }}
@@ -197,14 +211,31 @@ st.markdown(f"""
     [data-testid="stBottomBlock"], [data-testid="stBottom"], [data-testid="stBottom"] > div {{ background-color: transparent !important; background: transparent !important; border: none !important; }}
     .tool-bar-container {{ display: none; }}
 
+    /* ---------------- 深色基底 ---------------- */
     .stApp {{ background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }}
     .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div {{ color: #e2e8f0 !important; }}
     .highlight-text {{ color: #00ffcc !important; }}
     .sub-text {{ color: #cbd5e1 !important; }}
     .danger-text {{ color: #ff4b4b !important; }}
 
-    [data-testid="stSidebar"] {{ top: 0 !important; bottom: 0 !important; height: 100vh !important; min-height: 100vh !important; background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; display: flex !important; flex-direction: column !important; }}
-    [data-testid="stSidebar"] > div, [data-testid="stSidebarUserContent"] {{ height: 100% !important; min-height: 100vh !important; flex-grow: 1 !important; }}
+    /* 🔥🔥🔥 彻底填满侧边栏的缝隙，使用 100dvh (动态视口) 应对手机端 🔥🔥🔥 */
+    section[data-testid="stSidebar"] {{ 
+        top: 0 !important; 
+        bottom: 0 !important; 
+        height: 100dvh !important; 
+        min-height: 100dvh !important; 
+        background: rgba(5, 8, 14, 0.75) !important; 
+        backdrop-filter: blur(25px) !important; 
+        border-right: 1px solid rgba(255,255,255,0.08) !important; 
+        display: flex !important; 
+        flex-direction: column !important; 
+    }}
+    /* 强行撑满内部，绝不留底边黑条 */
+    section[data-testid="stSidebar"] > div {{ 
+        height: 100dvh !important; 
+        min-height: 100dvh !important; 
+        padding-bottom: 0 !important; 
+    }}
 
     div[role="radiogroup"] > label {{ background: rgba(15, 20, 30, 0.4) !important; padding: 14px 18px !important; margin-bottom: 10px !important; border-radius: 12px !important; border-left: 4px solid transparent !important; }}
     div[role="radiogroup"] > label:has(input:checked) {{ background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }}
@@ -216,13 +247,13 @@ st.markdown(f"""
     [data-testid="stChatInput"] {{ background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }}
     [data-testid="stChatInput"] > div:first-child {{ background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; }}
     [data-testid="stChatInput"] [data-baseweb="textarea"], [data-testid="stChatInput"] [data-baseweb="textarea"] > div {{ background-color: transparent !important; border: none !important; box-shadow: none !important; outline: none !important; }}
-    [data-testid="stChatInput"] textarea {{ background-color: transparent !important; border: none !important; color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; padding-left: 40px !important; }}
+    [data-testid="stChatInput"] textarea {{ background-color: transparent !important; border: none !important; color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; padding-left: 45px !important; }}
     [data-testid="stChatInput"] textarea:focus {{ box-shadow: none !important; outline: none !important; }}
     [data-testid="stChatInputSubmitButton"] {{ background-color: #3b82f6 !important; border-radius: 50% !important; transition: all 0.3s ease; }}
     div[data-testid="stPopover"] button {{ background-color: transparent !important; border: none !important; box-shadow: none !important; color: #a1a1aa !important; }}
     [data-testid="stPopoverBody"] {{ background-color: rgba(25, 33, 48, 0.95) !important; border: 1px solid rgba(0, 255, 204, 0.4) !important; border-radius: 16px !important; backdrop-filter: blur(25px) !important; padding: 15px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important; margin-bottom: 10px !important; }}
 
-    /* 浅色主题强力覆盖 */
+    /* ---------------- 浅色主题强力覆盖 ---------------- */
     .stApp[data-custom-theme='light'] {{ background-image: linear-gradient(132deg, #f1f5f9, #e2e8f0, #ffffff, #cbd5e1, #f8f9fa, #e2e8f0, #f1f5f9) !important; }}
     .stApp[data-custom-theme='light'] .stMarkdown, .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] h4, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div {{ color: #1e293b !important; }}
     .stApp[data-custom-theme='light'] .highlight-text {{ color: #0284c7 !important; }}
@@ -231,7 +262,7 @@ st.markdown(f"""
     .stApp[data-custom-theme='light'] .glass-card {{ background: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.06) !important; }}
     .stApp[data-custom-theme='light'] .metric-box {{ background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; }}
     .stApp[data-custom-theme='light'] [data-testid="stExpander"] {{ background: rgba(255, 255, 255, 0.9) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }}
-    .stApp[data-custom-theme='light'] [data-testid="stSidebar"] {{ background: rgba(248, 250, 252, 0.85) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }}
+    .stApp[data-custom-theme='light'] section[data-testid="stSidebar"] {{ background: rgba(248, 250, 252, 0.85) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }}
     .stApp[data-custom-theme='light'] div[role="radiogroup"] > label {{ background: rgba(241, 245, 249, 0.8) !important; border-left: 4px solid transparent !important; }}
     .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) {{ background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }}
     .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child {{ background-color: rgba(255, 255, 255, 0.85) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08) !important; }}
@@ -240,6 +271,7 @@ st.markdown(f"""
     .stApp[data-custom-theme='light'] [data-testid="stPopoverBody"] {{ background-color: rgba(255, 255, 255, 0.98) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 10px 40px rgba(0,0,0,0.1) !important; }}
     .stApp[data-custom-theme='light'] .js-plotly-plot .g-gtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-xtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-ytitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .xtick text, .stApp[data-custom-theme='light'] .js-plotly-plot .ytick text, .stApp[data-custom-theme='light'] .js-plotly-plot .legendtext {{ fill: #1e293b !important; }}
 
+    /* Agent 战报节点 */
     .agent-status-node {{ padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; }}
     .agent-status-node.success {{ background: rgba(0, 255, 204, 0.1); border-left-color: #00ffcc; color: #00ffcc; }}
     .agent-status-node.error {{ background: rgba(255, 75, 75, 0.1); border-left-color: #ff4b4b; color: #ff4b4b; }}
