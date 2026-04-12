@@ -202,6 +202,19 @@ st.markdown(
 # ==========================================
 # 5. 高速缓存装甲：分离复杂计算
 # ==========================================
+# 🔥 核心修复：在此处单独声明 add_default_indicators 供全局使用 🔥
+def add_default_indicators(df):
+    if 'Close' in df.columns:
+        df['MAIN_MA5'] = df['Close'].rolling(window=5).mean()
+        df['MAIN_MA20'] = df['Close'].rolling(window=20).mean()
+        exp1 = df['Close'].ewm(span=12, adjust=False).mean()
+        exp2 = df['Close'].ewm(span=26, adjust=False).mean()
+        df['SUB1_MACD_DIFF'] = exp1 - exp2
+        df['SUB1_MACD_DEA'] = df['SUB1_MACD_DIFF'].ewm(span=9, adjust=False).mean()
+        df['SUB1_MACD_HIST'] = 2 * (df['SUB1_MACD_DIFF'] - df['SUB1_MACD_DEA'])
+    return df
+
+
 @st.cache_data(ttl=300, show_spinner=False)
 def get_tushare_status():
     try:
@@ -220,15 +233,9 @@ def fetch_and_clean_data(ts_code, adj, start_date):
     for l_case, c_case in mapping_base.items():
         if l_case in df.columns: df[c_case] = df[l_case]
     if 'Volume' not in df.columns and 'vol' in df.columns: df['Volume'] = df['vol']
-    if 'Close' in df.columns:
-        df['MAIN_MA5'] = df['Close'].rolling(window=5).mean()
-        df['MAIN_MA20'] = df['Close'].rolling(window=20).mean()
-        exp1 = df['Close'].ewm(span=12, adjust=False).mean()
-        exp2 = df['Close'].ewm(span=26, adjust=False).mean()
-        df['SUB1_MACD_DIFF'] = exp1 - exp2
-        df['SUB1_MACD_DEA'] = df['SUB1_MACD_DIFF'].ewm(span=9, adjust=False).mean()
-        df['SUB1_MACD_HIST'] = 2 * (df['SUB1_MACD_DIFF'] - df['SUB1_MACD_DEA'])
-    return df
+
+    # 挂载基础指标
+    return add_default_indicators(df)
 
 
 @st.cache_data(show_spinner=False)
@@ -436,10 +443,13 @@ def generate_signals(df):
                         if code_match:
                             extracted_code = code_match.group(1).strip()
                             try:
-                                dummy_df = add_default_indicators(pd.DataFrame(
-                                    {'trade_date': pd.date_range('20230101', periods=50),
-                                     'Open': np.random.rand(50) * 10, 'High': np.random.rand(50) * 12,
-                                     'Low': np.random.rand(50) * 8, 'Close': np.random.rand(50) * 10}))
+                                # 🔥 这里就是彻底解决报错的关键！沙盒测试调用完整的 add_default_indicators 🔥
+                                dummy_df = pd.DataFrame({'trade_date': pd.date_range('20230101', periods=50),
+                                                         'Open': np.random.rand(50) * 10,
+                                                         'High': np.random.rand(50) * 12, 'Low': np.random.rand(50) * 8,
+                                                         'Close': np.random.rand(50) * 10})
+                                dummy_df = add_default_indicators(dummy_df)
+
                                 _ = execute_safely(extracted_code, dummy_df)
                                 st.session_state.generated_code = extracted_code
                                 agent_logs.append(
@@ -648,7 +658,6 @@ elif selected_page == PAGES[4]:
             latest_price = res['actual'].iloc[-1]
             actual_vals = res['actual'].values
 
-            # 提取历史拟合数据与未来预测数据，计算胜率与偏差度
             if len(res['models_used']) > 1:
                 f_preds = np.mean(list(res['future'].values()), axis=0)
                 h_preds = np.mean(list(res['preds'].values()), axis=0)
@@ -658,7 +667,6 @@ elif selected_page == PAGES[4]:
                 h_preds = list(res['preds'].values())[0]
                 model_desc = res['models_used'][0]
 
-            # 🔥 计算测谎仪指标 🔥
             act_diff = np.diff(actual_vals)
             pred_diff = np.diff(h_preds)
             success_rate = np.mean(np.sign(act_diff) == np.sign(pred_diff)) * 100
@@ -671,7 +679,6 @@ elif selected_page == PAGES[4]:
                     f"**📈 极速解盘预览**：当前实盘价 `<span class='highlight-text'>{latest_price:.2f}</span>` | 驱动核心: {model_desc}",
                     unsafe_allow_html=True)
 
-                # 使用 4 列排版，加入胜率与偏差度
                 c_f1, c_f2, c_f3, c_f4 = st.columns(4)
                 c_f1.metric("未来 1 天预测 (T+1)", f"{day1_pred:.2f}",
                             f"{(day1_pred - latest_price) / latest_price * 100:.2f}%")
