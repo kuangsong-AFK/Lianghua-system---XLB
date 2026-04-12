@@ -4,7 +4,8 @@ numpy
 openai
 tushare
 plotly
-torch
-scikit-learn
 Pillow
-graphviz
+scikit-learn
+torch
+PyPDF2
+python-docx
