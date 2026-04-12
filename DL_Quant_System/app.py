@@ -99,23 +99,36 @@ components.html(f"""
                 }}
             }}
 
+            // 🔥 终极修复：物理转移真实 📎 按钮至输入框 Flex 容器内，彻底免疫乱跑 🔥
             const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
-            if (chatInputOuter) {{
-                const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.children[0]; 
-                const realPopoverBtn = doc.querySelector('.real-popover-wrapper button');
+            const popovers = Array.from(doc.querySelectorAll('div[data-testid="stPopover"]'));
+            const attachPopover = popovers.find(p => p && p.textContent && p.textContent.includes('📎'));
 
-                if (innerPill && realPopoverBtn && !doc.getElementById('fake-attach-btn')) {{
-                    const fakeBtn = doc.createElement('div');
-                    fakeBtn.id = 'fake-attach-btn';
-                    fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
-                    fakeBtn.style.cssText = 'display: flex; align-items: center; justify-content: center; margin-right: 10px; margin-left: 5px; height: 100%;';
-                    fakeBtn.onclick = () => realPopoverBtn.click();
-                    fakeBtn.onmouseover = () => {{ fakeBtn.style.opacity = '0.6'; }};
-                    fakeBtn.onmouseout = () => {{ fakeBtn.style.opacity = '1'; }};
+            if (chatInputOuter && attachPopover) {{
+                const chatContainer = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.firstElementChild;
+                if (chatContainer && attachPopover.parentElement !== chatContainer) {{
+                    // 开启弹性布局
+                    chatContainer.style.setProperty('display', 'flex', 'important');
+                    chatContainer.style.setProperty('align-items', 'center', 'important');
 
-                    innerPill.insertBefore(fakeBtn, innerPill.firstChild);
-                    const textArea = innerPill.querySelector('[data-baseweb="textarea"]');
-                    if(textArea) textArea.style.setProperty('padding-left', '5px', 'important');
+                    // 将上传按钮强行插入到输入框内部最左侧
+                    chatContainer.insertBefore(attachPopover, chatContainer.firstChild);
+
+                    // 剥离按钮的外壳样式，使其自然融入
+                    attachPopover.style.setProperty('position', 'static', 'important');
+                    attachPopover.style.setProperty('margin', '0 5px 0 15px', 'important');
+                    attachPopover.style.setProperty('width', 'auto', 'important');
+
+                    const btn = attachPopover.querySelector('button');
+                    if (btn) {{
+                        btn.style.setProperty('background', 'transparent', 'important');
+                        btn.style.setProperty('border', 'none', 'important');
+                        btn.style.setProperty('padding', '0', 'important');
+                        btn.style.setProperty('color', '#8b9bb4', 'important');
+                        btn.style.setProperty('box-shadow', 'none', 'important');
+                        const svgs = btn.querySelectorAll('svg');
+                        if (svgs.length > 1) svgs[svgs.length - 1].style.display = 'none';
+                    }}
                 }}
             }}
             isUpdating = false;
@@ -142,7 +155,6 @@ st.markdown("""
     [data-testid="collapsedControl"], [data-testid="stToolbar"] { pointer-events: auto !important; opacity: 1 !important; visibility: visible !important; display: flex !important; transform: none !important;}
     .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
     [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
-    .real-popover-wrapper { opacity: 0.01 !important; height: 1px !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important; }
 
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
     .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
@@ -162,7 +174,7 @@ st.markdown("""
     [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); margin-bottom: 20px !important; }
 
     [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
-    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; display: flex !important; align-items: center !important; }
+    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; }
     [data-testid="stChatInput"] [data-baseweb="textarea"], [data-testid="stChatInput"] [data-baseweb="textarea"] > div { background-color: transparent !important; border: none !important; box-shadow: none !important; outline: none !important; }
     [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }
     [data-testid="stChatInputSubmitButton"] { background-color: #3b82f6 !important; border-radius: 50% !important; transition: all 0.3s ease; }
@@ -376,11 +388,10 @@ elif selected_page == PAGES[1]:
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
 
-    st.markdown('<div class="real-popover-wrapper">', unsafe_allow_html=True)
+    # 绘制原生附件弹窗，JS会将其移入输入框内
     with st.popover("📎", help="上传附件", use_container_width=False):
         uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
                                           type=['png', 'jpg', 'jpeg', 'csv', 'txt'], label_visibility="collapsed")
-    st.markdown('</div>', unsafe_allow_html=True)
 
     file_context = ""
     if 'uploaded_files' in locals() and uploaded_files:
@@ -404,8 +415,8 @@ elif selected_page == PAGES[1]:
             with st.chat_message("assistant"):
                 st.toast(f"🚀 连线底层算力集群: {selected_model}", icon="⚡")
                 ticks = "`" * 3
-                sys_p = f"""你是一名严谨的量化专家。拒绝闲聊。输出代码前独占一行写出“【策略白话解析】”。
-必须严格遵循骨架：
+                sys_p = f"""你是一名严谨的量化专家。拒绝闲聊。
+必须严格遵循以下代码骨架：
 {ticks}python
 def generate_signals(df):
     buy_condition = (df['MAIN_MA5'] > df['MAIN_MA20']) 
@@ -446,11 +457,17 @@ def generate_signals(df):
                         if code_match:
                             extracted_code = code_match.group(1).strip()
 
-                            # 🔥 修复：重装正则提取器，抓取白话解析 🔥
-                            exp_match = re.search(r"【策略白话解析】(.*?)(?=`{3}python|$)", full_resp,
-                                                  re.DOTALL | re.IGNORECASE)
-                            if exp_match:
-                                st.session_state.strategy_explanation = exp_match.group(1).strip()
+                            # 🔥 终极修复：全域捕获网！不再死板匹配标题，抓取代码块外所有的“人话” 🔥
+                            resp_clean = re.sub(r"<think>.*?</think>", "", full_resp, flags=re.DOTALL)  # 剔除推演过程
+                            explanation = re.sub(r"`{3}python\s*.*?`{3}", "", resp_clean,
+                                                 flags=re.DOTALL).strip()  # 剔除代码块
+                            # 清理AI可能带上的冗余标题
+                            explanation = explanation.replace("【策略白话解析】", "").replace("【策略白话解析】:",
+                                                                                            "").replace(
+                                "【策略白话解析】：", "").strip()
+
+                            if explanation:
+                                st.session_state.strategy_explanation = explanation
                             else:
                                 st.session_state.strategy_explanation = "该策略无特定白话解析，请参考代码内部注释。"
 
@@ -489,7 +506,6 @@ elif selected_page == PAGES[2]:
     with col_l:
         ts_code = format_ts_code(st.text_input("🎯 回测标的代码", value="000001"))
 
-        # 🔥 新增：10 年时空跃迁选择器 🔥
         span_mapping = {"近1年": 1, "近3年": 3, "近5年": 5, "近10年 (极限穿越)": 10}
         span_choice = st.selectbox("⏳ 回测时间跨度", list(span_mapping.keys()), index=1)
         start_year = datetime.now().year - span_mapping[span_choice]
@@ -546,7 +562,6 @@ elif selected_page == PAGES[3]:
 
         met_ph, cht_ph = st.empty(), st.empty()
         if st.session_state.is_live_trading:
-            # 高频模块保持极速，只拉取近期数据
             stream = fetch_and_clean_data(format_ts_code(live_code), 'qfq', '20230101').tail(120).reset_index(drop=True)
             for i in range(20, len(stream)):
                 if not st.session_state.is_live_trading: break
@@ -581,7 +596,6 @@ elif selected_page == PAGES[4]:
     with col_l:
         st_code = st.text_input("🎯 训练模型标的", value="000001")
 
-        # 🔥 新增：深度学习训练集跨度选择器 🔥
         span_mapping_dl = {"近1年 (极速)": 1, "近3年 (标准)": 3, "近5年 (深度)": 5}
         span_choice_dl = st.selectbox("⏳ 训练集时间跨度", list(span_mapping_dl.keys()), index=1)
         start_year_dl = datetime.now().year - span_mapping_dl[span_choice_dl]
