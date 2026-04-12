@@ -25,31 +25,6 @@ pd.np = np
 # /// 1. 初始化与核心兵符 ///
 st.set_page_config(page_title="小吕布量化 Pro - 毕设版", layout="wide", initial_sidebar_state="expanded")
 
-# 全局跨域主题嗅探雷达
-components.html("""
-<script>
-    setInterval(() => {
-        try {
-            const doc = window.parent.document;
-            const app = doc.querySelector('.stApp');
-            if (app) {
-                const color = window.getComputedStyle(app).color;
-                const rgb = color.match(/\d+/g);
-                let isLight = false;
-                if (rgb && rgb.length >= 3) {
-                    const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
-                    isLight = brightness < 128;
-                }
-                const themeAttr = isLight ? 'light' : 'dark';
-                if (app.getAttribute('data-custom-theme') !== themeAttr) {
-                    app.setAttribute('data-custom-theme', themeAttr);
-                }
-            }
-        } catch(e) {}
-    }, 500);
-</script>
-""", height=0, width=0)
-
 KIMI_API_KEY = "sk-yS2foVgWtvnFMWKRTLnI6l8NFqFrRiB8ojre75g2mK2P8LBk"
 TUSHARE_TOKEN = "ba486af7606bc2f6018f1d592251a49674132225f59d37b3473d676e"
 
@@ -65,7 +40,75 @@ if "bt_result" not in st.session_state: st.session_state.bt_result = None
 if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 if "is_live_trading" not in st.session_state: st.session_state.is_live_trading = False
 
-# /// 2. UI/UX 强化 ///
+# /// 2. 涡轮增压引擎：全局唯一常驻 JS 守护进程 (消除切换卡顿) ///
+components.html("""
+<script>
+    const runGlobalEngine = () => {
+        const doc = window.parent.document;
+        const app = doc.querySelector('.stApp');
+
+        // 1. 光暗主题跨域嗅探雷达
+        if (app) {
+            const color = window.getComputedStyle(app).color;
+            const rgb = color.match(/\d+/g);
+            let isLight = false;
+            if (rgb && rgb.length >= 3) {
+                const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
+                isLight = brightness < 128;
+            }
+            const themeAttr = isLight ? 'light' : 'dark';
+            if (app.getAttribute('data-custom-theme') !== themeAttr) {
+                app.setAttribute('data-custom-theme', themeAttr);
+            }
+        }
+
+        // 2. 聊天舱附件按钮悬浮重构 (仅在 AI 战情室生效)
+        const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
+        if (chatInputOuter) {
+            const innerPill = chatInputOuter.children[0]; 
+            const popovers = Array.from(doc.querySelectorAll('div[data-testid="stPopover"]'));
+            const attachPopover = popovers.find(p => p && p.textContent && p.textContent.includes('📎'));
+
+            if (innerPill && attachPopover && attachPopover.parentElement !== innerPill) {
+                const rect = innerPill.getBoundingClientRect();
+
+                attachPopover.style.position = 'fixed';
+                attachPopover.style.left = (rect.left + 12) + 'px';
+                attachPopover.style.top = (rect.top + rect.height/2) + 'px';
+                attachPopover.style.transform = 'translateY(-50%)';
+                attachPopover.style.zIndex = '9999';
+                attachPopover.style.width = 'auto';
+                attachPopover.style.margin = '0';
+
+                const baseweb = chatInputOuter.querySelector('[data-baseweb="textarea"]');
+                if(baseweb) { baseweb.style.paddingLeft = '40px'; }
+
+                const btn = attachPopover.querySelector('button');
+                if (btn) {
+                    btn.style.background = 'transparent';
+                    btn.style.border = 'none';
+                    btn.style.boxShadow = 'none';
+                    btn.style.color = '#8b9bb4';
+                    btn.style.fontSize = '1.4rem';
+                    btn.style.padding = '0';
+                    btn.style.minWidth = '0';
+                    const svgs = btn.querySelectorAll('svg');
+                    if (svgs.length > 0) svgs[svgs.length - 1].style.display = 'none';
+                }
+            }
+        }
+    };
+
+    // 采用 requestAnimationFrame 替代 setInterval，性能提升，杜绝掉帧
+    const loop = () => {
+        runGlobalEngine();
+        setTimeout(() => requestAnimationFrame(loop), 100);
+    };
+    requestAnimationFrame(loop);
+</script>
+""", height=0, width=0)
+
+# /// 3. 全局统一 CSS 预载入 (消灭样式闪烁) ///
 st.markdown("""
 <style>
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
@@ -118,7 +161,7 @@ st.markdown("""
     .stApp[data-custom-theme='light'] [data-testid="stPopoverBody"] { background-color: rgba(255, 255, 255, 0.98) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 10px 40px rgba(0,0,0,0.1) !important; }
     .stApp[data-custom-theme='light'] .js-plotly-plot .g-gtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-xtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-ytitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .xtick text, .stApp[data-custom-theme='light'] .js-plotly-plot .ytick text, .stApp[data-custom-theme='light'] .js-plotly-plot .legendtext { fill: #1e293b !important; }
 
-    /* Agent 战报状态节点美化 */
+    /* Agent 战报节点 */
     .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; }
     .agent-status-node.success { background: rgba(0, 255, 204, 0.1); border-left-color: #00ffcc; color: #00ffcc; }
     .agent-status-node.error { background: rgba(255, 75, 75, 0.1); border-left-color: #ff4b4b; color: #ff4b4b; }
@@ -130,7 +173,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# /// 3. 核心工具函数与审计系统 ///
+# /// 4. 高速数据缓存装甲 (@st.cache_data) 杜绝重复请求 ///
+@st.cache_data(ttl=3600)
+def fetch_and_clean_data(ts_code, adj, start_date):
+    df = ts.pro_bar(ts_code=ts_code, adj=adj, start_date=start_date).sort_values('trade_date').reset_index(drop=True)
+    df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
+    return add_default_indicators(apply_dual_column_armor(df))
+
+
 def apply_dual_column_armor(df):
     mapping_base = {'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'vol': 'Volume', 'amount': 'Amount'}
     for lower_case, camel_case in mapping_base.items():
@@ -269,7 +319,7 @@ GLOBAL_LOG_FILE = os.path.join(LOG_DIR, "global_master_log.csv")
 if not os.path.exists(GLOBAL_LOG_FILE): pd.DataFrame(columns=["Timestamp", "UserID", "ActionType", "Details"]).to_csv(
     GLOBAL_LOG_FILE, index=False)
 
-# /// 4. 侧边栏导航 ///
+# /// 5. 侧边栏导航 ///
 with st.sidebar:
     st.markdown("### 🎓 小吕布量化 Pro")
     st.caption(f"🛡️ 节点 ID: {st.session_state.user_id}")
@@ -328,11 +378,6 @@ if page == "🏠 系统总览 (监控中控)":
             B -->|输出预测信号| C{📈 3. 策略回测<br>全量审计与归因}
             C -->|上传回测结果| D[🤖 4. AI 战情室<br>大模型多模态解读]
             A -.->|研报/原始数据| D
-
-            style A fill:#1e293b,stroke:#00ffcc,stroke-width:2px,color:#fff
-            style B fill:#1e293b,stroke:#00ffcc,stroke-width:2px,color:#fff
-            style C fill:#1e293b,stroke:#00ffcc,stroke-width:2px,color:#fff
-            style D fill:#3b0764,stroke:#ff00ff,stroke-width:2px,color:#fff
         """
 
         html_code = f"""
@@ -341,16 +386,13 @@ if page == "🏠 系统总览 (监控中控)":
         <head>
             <script type="module">
                 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-
                 const checkTheme = () => {{
                     try {{
                         const parentApp = window.parent.document.querySelector('.stApp');
                         return parentApp && parentApp.getAttribute('data-custom-theme') === 'light' ? 'default' : 'dark';
                     }} catch(e) {{ return 'dark'; }}
                 }};
-
                 window.lastTheme = checkTheme();
-
                 const render = async () => {{
                     const theme = checkTheme();
                     mermaid.initialize({{ startOnLoad: false, theme: theme, themeVariables: {{ fontFamily: 'sans-serif' }} }});
@@ -359,9 +401,7 @@ if page == "🏠 系统总览 (监控中控)":
                     const {{ svg }} = await mermaid.render('graphDiv', code);
                     element.innerHTML = svg;
                 }};
-
                 render();
-
                 setInterval(() => {{
                     const currentTheme = checkTheme();
                     if(window.lastTheme !== currentTheme) {{
@@ -421,57 +461,6 @@ elif page == "🤖 AI 策略引擎 (LLM)":
         uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
                                           type=['png', 'jpg', 'jpeg', 'csv', 'txt'], label_visibility="collapsed")
     st.markdown('</div>', unsafe_allow_html=True)
-
-    # 🔥 JS 黑魔法：彻底摒弃 appendChild，采用绝对坐标悬浮跟随，100% 避免白屏崩溃！
-    components.html("""
-    <script>
-        const syncPopover = () => {
-            const doc = window.parent.document;
-            const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
-            if(!chatInputOuter) return;
-
-            const innerPill = chatInputOuter.children[0]; 
-            const popovers = Array.from(doc.querySelectorAll('div[data-testid="stPopover"]'));
-            const attachPopover = popovers.find(p => p.textContent.includes('📎'));
-
-            if (innerPill && attachPopover) {
-                // 获取内层输入框的真实坐标
-                const rect = innerPill.getBoundingClientRect();
-
-                // 将按钮设定为 Fixed，使其悬浮在输入框之上，完全脱离原始文档流
-                attachPopover.style.position = 'fixed';
-                attachPopover.style.left = (rect.left + 12) + 'px';
-                attachPopover.style.top = (rect.top + rect.height/2) + 'px';
-                attachPopover.style.transform = 'translateY(-50%)';
-                attachPopover.style.zIndex = '9999';
-                attachPopover.style.width = 'auto';
-                attachPopover.style.margin = '0';
-
-                // 给真正的输入框留出左侧空间防重叠
-                const baseweb = chatInputOuter.querySelector('[data-baseweb="textarea"]');
-                if(baseweb) {
-                    baseweb.style.paddingLeft = '40px'; 
-                }
-
-                // 美化按钮
-                const btn = attachPopover.querySelector('button');
-                if (btn) {
-                    btn.style.background = 'transparent';
-                    btn.style.border = 'none';
-                    btn.style.boxShadow = 'none';
-                    btn.style.color = '#8b9bb4';
-                    btn.style.fontSize = '1.4rem';
-                    btn.style.padding = '0';
-                    btn.style.minWidth = '0';
-                    const svgs = btn.querySelectorAll('svg');
-                    if (svgs.length > 0) svgs[svgs.length - 1].style.display = 'none';
-                }
-            }
-        };
-        // 高频同步坐标，适配窗口缩放
-        setInterval(syncPopover, 50);
-    </script>
-    """, height=0, width=0)
 
     file_context = ""
     if 'uploaded_files' in locals() and uploaded_files:
@@ -647,10 +636,8 @@ elif page == "📈 深度静态全量回测":
             with st.spinner("调度数据并挂载常驻指标..."):
                 try:
                     adj_p = adj.split(" ")[0] if adj != "None" else None
-                    df = ts.pro_bar(ts_code=ts_code, adj=adj_p, start_date='20220101').sort_values(
-                        'trade_date').reset_index(drop=True)
-                    df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
-                    df = add_default_indicators(apply_dual_column_armor(df))
+                    # 🔥 调用缓存函数，极速闪回
+                    df = fetch_and_clean_data(ts_code, adj_p, '20220101')
                     df_safe = df.copy()
 
                     if st.session_state.generated_code:
@@ -724,13 +711,12 @@ elif page == "⚡ 实时高频交易 (Live)":
                 st.session_state.strategy_explanation)
         met_ph, cht_ph = st.empty(), st.empty()
         if st.session_state.is_live_trading:
-            stream = ts.pro_bar(ts_code=format_ts_code(live_code), adj='qfq', start_date='20230101').sort_values(
-                'trade_date').reset_index(drop=True)
-            stream['trade_date'] = pd.to_datetime(stream['trade_date'])
+            # 🔥 高频交易也接入 Cache 预加载
+            stream = fetch_and_clean_data(format_ts_code(live_code), 'qfq', '20230101')
             stream = stream.tail(120).reset_index(drop=True)
             for i in range(20, len(stream)):
                 if not st.session_state.is_live_trading: break
-                sub = add_default_indicators(apply_dual_column_armor(stream.iloc[:i].copy()))
+                sub = stream.iloc[:i].copy()
                 sub_safe = sub.copy()
                 try:
                     if st.session_state.generated_code:
@@ -767,11 +753,9 @@ elif page == "🧠 深度学习预测 (LSTM)":
         if st.button("🚀 启动张量训练", type="primary", use_container_width=True):
             with st.spinner("神经网络前向传播中..."):
                 try:
-                    df = ts.pro_bar(ts_code=format_ts_code(st_code), adj='qfq', start_date='20210101').sort_values(
-                        'trade_date').reset_index(drop=True)
-                    df['trade_date'] = pd.to_datetime(df['trade_date'])
+                    df = fetch_and_clean_data(format_ts_code(st_code), 'qfq', '20210101')
                     scaler = MinMaxScaler()
-                    scaled = scaler.fit_transform(df['close'].values.reshape(-1, 1))
+                    scaled = scaler.fit_transform(df['Close'].values.reshape(-1, 1))
                     X, y = [], []
                     for i in range(slen, len(scaled)): X.append(scaled[i - slen:i, 0]); y.append(scaled[i, 0])
                     X_t, y_t = torch.tensor(np.array(X), dtype=torch.float32).unsqueeze(-1), torch.tensor(np.array(y),
@@ -803,7 +787,7 @@ elif page == "🧠 深度学习预测 (LSTM)":
                     model.eval();
                     test_p = model(X_t[-100:]).detach().numpy()
                     st.session_state.dl_result = {"dates": df['trade_date'].iloc[-100:],
-                                                  "actual": df['close'].iloc[-100:],
+                                                  "actual": df['Close'].iloc[-100:],
                                                   "pred": scaler.inverse_transform(test_p).flatten()}
                 except Exception as e:
                     st.error(f"DL 张量异常: {e}")
