@@ -41,7 +41,7 @@ if "bt_result" not in st.session_state: st.session_state.bt_result = None
 if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 if "is_live_trading" not in st.session_state: st.session_state.is_live_trading = False
 
-# /// 2. 空间流形导航逻辑 (记录坐标，计算滑动方向) ///
+# /// 2. 空间流形导航逻辑 (记录坐标，计算滑动方向，并强制置顶) ///
 PAGES = [
     "🏠 系统总览 (监控中控)",
     "🤖 AI 策略引擎 (LLM)",
@@ -60,8 +60,10 @@ with st.sidebar:
     st.markdown("---")
     selected_page = st.radio("导航菜单", PAGES, label_visibility="collapsed")
 
-# 动态计算相对位移方向
+# 动态计算相对位移方向，并触发强制滚动置顶
 if selected_page != st.session_state.curr_page:
+    # 🔥 黑魔法：只要切换页面，瞬间平滑滚动到最顶部！
+    components.html("<script>window.parent.scrollTo({top: 0, behavior: 'smooth'});</script>", height=0, width=0)
     st.session_state.prev_page = st.session_state.curr_page
     st.session_state.curr_page = selected_page
 
@@ -69,11 +71,11 @@ prev_idx = PAGES.index(st.session_state.prev_page)
 curr_idx = PAGES.index(st.session_state.curr_page)
 
 if curr_idx > prev_idx:
-    anim_name = "slideUpIn"  # 往下点：新页面从下往上推入
+    anim_name = "slideUpIn"
 elif curr_idx < prev_idx:
-    anim_name = "slideDownIn"  # 往上点：新页面从上往下坠入
+    anim_name = "slideDownIn"
 else:
-    anim_name = "fadeIn"  # 首次加载或原点：单纯淡入
+    anim_name = "fadeIn"
 
 # /// 3. 涡轮增压引擎：全局唯一常驻 JS 守护进程 ///
 components.html("""
@@ -165,13 +167,16 @@ st.markdown(f"""
         padding-bottom: 120px !important; 
     }}
 
-    /* 🔥 彻底剿灭 Streamlit 标题旁边的锚点链接（链条图标）防误触滚动 🔥 */
-    .stMarkdown a.header-anchor {{ display: none !important; pointer-events: none !important; }}
-    .stMarkdown h1 a, .stMarkdown h2 a, .stMarkdown h3 a, .stMarkdown h4 a {{ display: none !important; pointer-events: none !important; }}
-    .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg, .stMarkdown h4 svg {{ display: none !important; }}
+    /* 🔥 修复关键点 1：恢复顶栏点击，侧边栏收缩键满血复活！ */
+    header[data-testid="stHeader"] {{ background: transparent !important; z-index: 99999 !important; }}
+
+    /* 🔥 修复关键点 2：精准隐形标题链条锚点，不伤及无辜 */
+    a.header-anchor {{ display: none !important; pointer-events: none !important; }}
+    .stMarkdown h1:hover a.header-anchor, 
+    .stMarkdown h2:hover a.header-anchor, 
+    .stMarkdown h3:hover a.header-anchor {{ display: none !important; }}
 
     [data-testid="stAppViewContainer"] {{ background: transparent !important; }}
-    header[data-testid="stHeader"] {{ background: transparent !important; pointer-events: none !important; }}
     [data-testid="stBottomBlock"], [data-testid="stBottom"], [data-testid="stBottom"] > div {{ background-color: transparent !important; background: transparent !important; border: none !important; }}
     .tool-bar-container {{ display: none; }}
 
@@ -218,6 +223,7 @@ st.markdown(f"""
     .stApp[data-custom-theme='light'] [data-testid="stPopoverBody"] {{ background-color: rgba(255, 255, 255, 0.98) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 10px 40px rgba(0,0,0,0.1) !important; }}
     .stApp[data-custom-theme='light'] .js-plotly-plot .g-gtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-xtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-ytitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .xtick text, .stApp[data-custom-theme='light'] .js-plotly-plot .ytick text, .stApp[data-custom-theme='light'] .js-plotly-plot .legendtext {{ fill: #1e293b !important; }}
 
+    /* Agent 战报节点 */
     .agent-status-node {{ padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; }}
     .agent-status-node.success {{ background: rgba(0, 255, 204, 0.1); border-left-color: #00ffcc; color: #00ffcc; }}
     .agent-status-node.error {{ background: rgba(255, 75, 75, 0.1); border-left-color: #ff4b4b; color: #ff4b4b; }}
