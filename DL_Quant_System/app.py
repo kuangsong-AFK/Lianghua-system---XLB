@@ -40,88 +40,76 @@ if "bt_result" not in st.session_state: st.session_state.bt_result = None
 if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 if "is_live_trading" not in st.session_state: st.session_state.is_live_trading = False
 
-# /// 2. UI/UX 强化 (无缝胶囊舱 + 手机端防重叠) ///
+# /// 2. UI/UX 强化 (光暗双生双驱引擎 + 悬浮舱) ///
 st.markdown("""
 <style>
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
-    .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
 
+    /* ---------------- 基础排版 ---------------- */
     [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 3rem !important; padding-bottom: 120px !important; }
     header[data-testid="stHeader"] { background: transparent !important; pointer-events: none !important; }
+    [data-testid="stBottomBlock"], [data-testid="stBottom"], [data-testid="stBottom"] > div { background-color: transparent !important; background: transparent !important; border: none !important; }
+    .tool-bar-container { display: none; } /* 隐藏初始位置的附件按钮 */
 
-    .stMarkdown, p, h1, h2, h3, h4, label, span { color: #e2e8f0 !important; }
+    /* ---------------- 黑暗模式 (默认基底) ---------------- */
+    .stApp, .stApp[data-custom-theme='dark'] { 
+        background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; 
+        background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; 
+    }
+    /* 智能字体颜色适配 (跟随原生变量) */
+    .stMarkdown, p, h1, h2, h3, h4, label, span { color: var(--text-color) !important; }
 
+    /* 高亮色彩变量 */
+    .highlight-text { color: #00ffcc !important; }
+    .sub-text { color: #e2e8f0 !important; }
+    .danger-text { color: #ff4b4b !important; }
+
+    /* 深色组件样式 */
     [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; }
     div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; padding: 14px 18px !important; margin-bottom: 10px !important; border-radius: 12px !important; border-left: 4px solid transparent !important; }
     div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
-
     .glass-card { background: rgba(20, 28, 45, 0.65) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
     .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; }
     [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); }
 
-    [data-testid="stBottomBlock"], [data-testid="stBottom"], [data-testid="stBottom"] > div {
-        background-color: transparent !important;
-        background: transparent !important;
-        border: none !important;
-    }
-
-    /* 聊天框大胶囊外壳 */
-    [data-testid="stChatInput"] { 
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        max-width: 850px;
-        margin: 0 auto 10px auto !important;
-    }
-
-    /* 真正的发光内舱 */
-    [data-testid="stChatInput"] > div:first-child {
-        background-color: rgba(30, 41, 59, 0.6) !important; 
-        backdrop-filter: blur(25px) !important; 
-        border: 1px solid rgba(255, 255, 255, 0.15) !important; 
-        border-radius: 36px !important;  
-        box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; 
-        padding: 5px 15px !important;
-    }
-
-    /* 暴力击碎内部黑色底框 */
-    [data-testid="stChatInput"] [data-baseweb="textarea"],
-    [data-testid="stChatInput"] [data-baseweb="textarea"] > div {
-        background-color: transparent !important;
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        outline: none !important;
-    }
-
-    /* 🔥 手机端防重叠核心：强制留出左侧 40px 的安全区给附件按钮！ */
-    [data-testid="stChatInput"] textarea { 
-        background-color: transparent !important;
-        border: none !important;
-        color: #ffffff !important; 
-        font-size: 16px !important; 
-        line-height: 1.5 !important;
-        padding-left: 40px !important; /* 强制光标向右移位 */
-    }
-
+    /* 深色聊天胶囊 */
+    [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
+    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; }
+    [data-testid="stChatInput"] [data-baseweb="textarea"], [data-testid="stChatInput"] [data-baseweb="textarea"] > div { background: transparent !important; border: none !important; box-shadow: none !important; outline: none !important; }
+    [data-testid="stChatInput"] textarea { background: transparent !important; border: none !important; color: var(--text-color) !important; font-size: 16px !important; line-height: 1.5 !important; padding-left: 40px !important; }
     [data-testid="stChatInput"] textarea:focus { box-shadow: none !important; outline: none !important; }
-
     [data-testid="stChatInputSubmitButton"] { background-color: #3b82f6 !important; border-radius: 50% !important; transition: all 0.3s ease; }
     [data-testid="stChatInputSubmitButton"]:hover { background-color: #60a5fa !important; box-shadow: 0 0 15px rgba(59, 130, 246, 0.6) !important; }
-
-    /* 🔥 暴力摧毁附件按钮在手机端的所有原生背景和边框 */
-    div[data-testid="stPopover"] button {
-        background-color: transparent !important;
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        color: #a1a1aa !important;
-    }
-
+    div[data-testid="stPopover"] button { background: transparent !important; border: none !important; box-shadow: none !important; color: #a1a1aa !important; }
     [data-testid="stPopoverBody"] { background-color: rgba(25, 33, 48, 0.95) !important; border: 1px solid rgba(0, 255, 204, 0.4) !important; border-radius: 16px !important; backdrop-filter: blur(25px) !important; padding: 15px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important; margin-bottom: 10px !important; }
 
-    /* 隐藏初始位置的附件按钮容器 */
-    .tool-bar-container { display: none; }
+    /* ---------------- 浅色模式 (Light Mode 覆盖) ---------------- */
+    .stApp[data-custom-theme='light'] {
+        background-image: linear-gradient(132deg, #f8f9fa, #e2e8f0, #cbd5e1, #f1f5f9, #ffffff, #e2e8f0, #f8f9fa) !important;
+    }
+    .stApp[data-custom-theme='light'] .highlight-text { color: #0284c7 !important; } /* 浅色下的高亮蓝 */
+    .stApp[data-custom-theme='light'] .sub-text { color: #475569 !important; }
+    .stApp[data-custom-theme='light'] .danger-text { color: #dc2626 !important; }
+
+    .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.1); box-shadow: 0 12px 48px rgba(0, 0, 0, 0.05); }
+    .stApp[data-custom-theme='light'] .metric-box { background: rgba(2, 132, 199, 0.05); border: 1px solid rgba(2, 132, 199, 0.2); }
+    .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.8) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.85) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
+
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.6) !important; border-left: 4px solid transparent !important; }
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.1), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
+
+    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.85) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.1) !important; }
+    .stApp[data-custom-theme='light'] div[data-testid="stPopover"] button { color: #64748b !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stPopoverBody"] { background-color: rgba(255, 255, 255, 0.98) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 10px 40px rgba(0,0,0,0.1) !important; }
+
+    /* 强行穿透 Plotly 坐标轴颜色以适配浅色模式 */
+    .stApp[data-custom-theme='light'] .js-plotly-plot .g-gtitle text,
+    .stApp[data-custom-theme='light'] .js-plotly-plot .g-xtitle text,
+    .stApp[data-custom-theme='light'] .js-plotly-plot .g-ytitle text,
+    .stApp[data-custom-theme='light'] .js-plotly-plot .xtick text,
+    .stApp[data-custom-theme='light'] .js-plotly-plot .ytick text,
+    .stApp[data-custom-theme='light'] .js-plotly-plot .legendtext { fill: #1e293b !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -282,7 +270,7 @@ with st.sidebar:
 # /// 🏠 页面 1: 系统总览 ///
 if page == "🏠 系统总览 (监控中控)":
     st.markdown(
-        '<div class="glass-card"><h1 style="margin-bottom:0; color:white;">🏛️ 全链路智能量化决策枢纽</h1><p style="color:#00ffcc; font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
+        '<div class="glass-card"><h1 style="margin-bottom:0; color:var(--text-color);">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
         unsafe_allow_html=True)
 
     try:
@@ -305,18 +293,17 @@ if page == "🏠 系统总览 (监控中控)":
 
     st.markdown("---")
 
-    st.markdown(
-        '<div style="background:rgba(0,255,204,0.05); padding:15px; border-radius:10px; border:1px solid rgba(0,255,204,0.2); margin-bottom:20px;">'
-        '<b style="color:#00ffcc;">🎯 极简操作指南：</b>'
-        '<span style="color:#e2e8f0; margin-left: 10px;">1. 在<b>回测/深度学习</b>界面输入标的，自动拉取数据。 | '
-        '2. 切换至<b>AI 策略引擎</b>，上传研报下达军令。 | '
-        '3. 拖拽 K 线图平移，<b>双击图表</b>瞬间触发 Y 轴自适应对齐。</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="glass-card" style="padding:15px; margin-bottom:20px;">'
+                '<b class="highlight-text">🎯 极简操作指南：</b>'
+                '<span class="sub-text" style="margin-left: 10px;">1. 在<b>回测/深度学习</b>界面输入标的，自动拉取数据。 | '
+                '2. 切换至<b>AI 策略引擎</b>，上传研报下达军令。 | '
+                '3. 拖拽 K 线图平移，<b>双击图表</b>瞬间触发 Y 轴自适应对齐。</span></div>', unsafe_allow_html=True)
 
     c_arch, c_point = st.columns([2, 1])
 
     with c_arch:
         st.markdown(
-            '<div class="glass-card"><h3 style="color:white; margin-bottom: 20px;">🧠 核心架构与操作流 (Data Flow Pipeline)</h3>',
+            '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom: 20px;">🧠 核心架构与操作流 (Data Flow Pipeline)</h3>',
             unsafe_allow_html=True)
 
         mermaid_str = """
@@ -325,26 +312,48 @@ if page == "🏠 系统总览 (监控中控)":
             B -->|输出预测信号| C{📈 3. 策略回测<br>全量审计与归因}
             C -->|上传回测结果| D[🤖 4. AI 战情室<br>大模型多模态解读]
             A -.->|研报/原始数据| D
-
-            style A fill:#1e293b,stroke:#00ffcc,stroke-width:2px,color:#fff
-            style B fill:#1e293b,stroke:#00ffcc,stroke-width:2px,color:#fff
-            style C fill:#1e293b,stroke:#00ffcc,stroke-width:2px,color:#fff
-            style D fill:#3b0764,stroke:#ff00ff,stroke-width:2px,color:#fff
         """
 
+        # 🔥 光暗双生双轨 Mermaid 渲染引擎
         html_code = f"""
         <!DOCTYPE html>
         <html>
         <head>
             <script type="module">
                 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-                mermaid.initialize({{ startOnLoad: true, theme: 'dark', themeVariables: {{ fontFamily: 'sans-serif' }} }});
+
+                const checkTheme = () => {{
+                    try {{
+                        const parentApp = window.parent.document.querySelector('.stApp');
+                        return parentApp && parentApp.getAttribute('data-custom-theme') === 'light' ? 'default' : 'dark';
+                    }} catch(e) {{ return 'dark'; }}
+                }};
+
+                window.lastTheme = checkTheme();
+
+                const render = async () => {{
+                    const theme = checkTheme();
+                    mermaid.initialize({{ startOnLoad: false, theme: theme, themeVariables: {{ fontFamily: 'sans-serif' }} }});
+                    const element = document.querySelector('.mermaid-container');
+                    const code = document.getElementById('mermaid-data').textContent;
+                    const {{ svg }} = await mermaid.render('graphDiv', code);
+                    element.innerHTML = svg;
+                }};
+
+                render();
+
+                setInterval(() => {{
+                    const currentTheme = checkTheme();
+                    if(window.lastTheme !== currentTheme) {{
+                        window.lastTheme = currentTheme;
+                        render();
+                    }}
+                }}, 500);
             </script>
         </head>
-        <body style="margin:0; padding:0; background: transparent; display: flex; flex-direction: column; align-items: center; color: white;">
-            <div class="mermaid" style="width: 100%; transform: scale(1.1); transform-origin: top center;">
-                {mermaid_str}
-            </div>
+        <body style="margin:0; padding:0; background: transparent; display: flex; flex-direction: column; align-items: center; color: inherit;">
+            <div id="mermaid-data" style="display:none;">{mermaid_str}</div>
+            <div class="mermaid-container" style="width: 100%; transform: scale(1.1); transform-origin: top center;"></div>
         </body>
         </html>
         """
@@ -352,14 +361,14 @@ if page == "🏠 系统总览 (监控中控)":
         st.markdown('</div>', unsafe_allow_html=True)
 
     with c_point:
-        st.markdown('<div class="glass-card"><h4 style="color:white;">📋 平台体征监控 (Telemetry)</h4>',
+        st.markdown('<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台体征监控 (Telemetry)</h4>',
                     unsafe_allow_html=True)
         st.markdown("**内存池占用率 (预估)**")
         st.progress(0.35)
         st.markdown("**UI 实时通信帧率**")
         st.progress(0.96)
         st.markdown(
-            '<br><h4 style="color:white;">💡 答辩终极杀手锏</h4>✅ <b>类型强制归一 (New)</b>: 自动剿灭 AI 产生的浮点数买卖信号报错。<br>✅ <b>全局物理补丁</b>: pd.np = np，永久杜绝旧语法崩溃。<br>✅ <b>平移自适应缩放</b>: 左右拖拽平移，双击瞬间对齐Y轴。</div>',
+            '<br><h4 style="color:var(--text-color);">💡 答辩终极杀手锏</h4>✅ <b>类型强制归一 (New)</b>: 自动剿灭 AI 产生的浮点数买卖信号报错。<br>✅ <b>全局物理补丁</b>: pd.np = np，永久杜绝旧语法崩溃。<br>✅ <b>平移自适应缩放</b>: 左右拖拽平移，双击瞬间对齐Y轴。</div>',
             unsafe_allow_html=True)
 
 # /// 🤖 页面 2: AI 策略引擎 (LLM) ///
@@ -367,13 +376,11 @@ elif page == "🤖 AI 策略引擎 (LLM)":
     if "messages" not in st.session_state: st.session_state.messages = []
 
     st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0; color:white;">🤖 LLM 策略战情室</h3><p style="color:#888;">多模态视觉引擎与 Agent 自愈模块已就绪，体验沉浸式工作流。</p></div>',
+        '<div class="glass-card"><h3 style="margin-bottom:0; color:var(--text-color);">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与 Agent 自愈模块已就绪，体验沉浸式工作流。</p></div>',
         unsafe_allow_html=True)
 
     with st.container():
-        st.markdown(
-            '<div style="background:rgba(20,30,45,0.5); padding:15px; border-radius:12px; margin-bottom:15px; border:1px solid rgba(0,255,204,0.3);">',
-            unsafe_allow_html=True)
+        st.markdown('<div class="glass-card" style="padding:15px; margin-bottom:15px;">', unsafe_allow_html=True)
         ctrl_col1, ctrl_col2 = st.columns([1, 1])
         with ctrl_col1: selected_model = st.selectbox("🧠 选择大模型算力通道",
                                                       ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
@@ -395,11 +402,24 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                                           type=['png', 'jpg', 'jpeg', 'csv', 'txt'], label_visibility="collapsed")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 🔥 JS 魔法：强力绝对定位 + 左侧对齐，将独立按钮融进同一个框
+    # 🔥 黑魔法：光暗模式动态嗅探 + 悬浮舱平齐重组
     components.html("""
     <script>
         setInterval(() => {
             const doc = window.parent.document;
+            const app = doc.querySelector('.stApp');
+
+            // 1. 光暗主题跨域嗅探
+            if (app) {
+                const bgColor = window.getComputedStyle(doc.body).backgroundColor;
+                const isLight = bgColor === 'rgb(255, 255, 255)' || bgColor.includes('255, 255, 255') || bgColor === 'rgb(240, 242, 246)';
+                const themeAttr = isLight ? 'light' : 'dark';
+                if (app.getAttribute('data-custom-theme') !== themeAttr) {
+                    app.setAttribute('data-custom-theme', themeAttr);
+                }
+            }
+
+            // 2. 附件按钮 DOM 物理平齐镶嵌
             const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
             if(!chatInputOuter) return;
 
@@ -408,30 +428,30 @@ elif page == "🤖 AI 策略引擎 (LLM)":
             const attachPopover = popovers.find(p => p.textContent.includes('📎'));
 
             if (innerPill && attachPopover && attachPopover.parentElement !== innerPill) {
-
-                // 将发光内舱设为相对定位
                 innerPill.style.position = 'relative';
 
-                // 将附件图标化为幽灵，强行注入内舱的最左侧
+                const baseweb = chatInputOuter.querySelector('[data-baseweb="textarea"]');
+                if(baseweb) baseweb.style.paddingLeft = '40px'; 
+
                 attachPopover.style.position = 'absolute';
                 attachPopover.style.left = '12px';
                 attachPopover.style.top = '50%';
                 attachPopover.style.transform = 'translateY(-50%)';
-                attachPopover.style.zIndex = '999';
+                attachPopover.style.zIndex = '100';
                 attachPopover.style.width = 'auto';
                 attachPopover.style.marginBottom = '0';
 
-                // 彻底剥除按钮的所有多余样式
                 const btn = attachPopover.querySelector('button');
                 if (btn) {
                     btn.style.background = 'transparent';
                     btn.style.border = 'none';
                     btn.style.boxShadow = 'none';
-                    btn.style.color = '#a1a1aa';
+                    btn.style.color = '#8b9bb4';
                     btn.style.fontSize = '1.4rem';
                     btn.style.padding = '0';
+                    btn.style.minWidth = '0';
                     const svgs = btn.querySelectorAll('svg');
-                    if (svgs.length > 0) svgs[svgs.length - 1].style.display = 'none'; // 隐藏箭头
+                    if (svgs.length > 0) svgs[svgs.length - 1].style.display = 'none';
                 }
 
                 innerPill.appendChild(attachPopover);
@@ -585,7 +605,7 @@ def generate_signals(df):
 
 # /// 📈 页面 3: 深度静态全量回测 ///
 elif page == "📈 深度静态全量回测":
-    st.markdown('<div class="glass-card"><h3 style="color:white;">📊 历史回测全量审计与归因分析</h3></div>',
+    st.markdown('<div class="glass-card"><h3 style="color:var(--text-color);">📊 历史回测全量审计与归因分析</h3></div>',
                 unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 3])
     with col_l:
@@ -634,16 +654,16 @@ elif page == "📈 深度静态全量回测":
             m, df = st.session_state.bt_result['metrics'], st.session_state.bt_result['df']
             c1, c2, c3, c4 = st.columns(4)
             c1.markdown(
-                f'<div class="metric-box"><p style="margin:0; font-size:0.8rem;">累计收益</p><h2 style="color:#00ffcc;">{m["total"] * 100:.2f}%</h2></div>',
+                f'<div class="metric-box"><p style="margin:0; font-size:0.8rem;">累计收益</p><h2 class="highlight-text">{m["total"] * 100:.2f}%</h2></div>',
                 unsafe_allow_html=True)
             c2.markdown(
-                f'<div class="metric-box"><p style="margin:0; font-size:0.8rem;">年化收益</p><h2 style="color:#00ffcc;">{m["annual"] * 100:.2f}%</h2></div>',
+                f'<div class="metric-box"><p style="margin:0; font-size:0.8rem;">年化收益</p><h2 class="highlight-text">{m["annual"] * 100:.2f}%</h2></div>',
                 unsafe_allow_html=True)
             c3.markdown(
-                f'<div class="metric-box"><p style="margin:0; font-size:0.8rem;">最大回撤</p><h2 style="color:#ff4b4b;">{m["max_dd"] * 100:.2f}%</h2></div>',
+                f'<div class="metric-box"><p style="margin:0; font-size:0.8rem;">最大回撤</p><h2 class="danger-text">{m["max_dd"] * 100:.2f}%</h2></div>',
                 unsafe_allow_html=True)
             c4.markdown(
-                f'<div class="metric-box"><p style="margin:0; font-size:0.8rem;">夏普比率</p><h2 style="color:#00ffcc;">{m["sharpe"]:.2f}</h2></div>',
+                f'<div class="metric-box"><p style="margin:0; font-size:0.8rem;">夏普比率</p><h2 class="highlight-text">{m["sharpe"]:.2f}</h2></div>',
                 unsafe_allow_html=True)
             if st.session_state.generated_code and (
                     'Signal' not in df.columns or df['Signal'].abs().sum() == 0): st.warning(
@@ -657,8 +677,9 @@ elif page == "📈 深度静态全量回测":
 
 # /// ⚡ 页面 4: 实时高频交易 (Live) ///
 elif page == "⚡ 实时高频交易 (Live)":
-    st.markdown('<div class="glass-card"><h3 style="color:white;">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
-                unsafe_allow_html=True)
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color);">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
+        unsafe_allow_html=True)
     c_ctrl, c_chart = st.columns([1, 2.5])
     with c_ctrl:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
@@ -706,8 +727,9 @@ elif page == "⚡ 实时高频交易 (Live)":
 
 # /// 🧠 页面 5: 深度学习预测 (LSTM) ///
 elif page == "🧠 深度学习预测 (LSTM)":
-    st.markdown('<div class="glass-card"><h3 style="color:white;">🧠 深度神经网络时序建模中心 (LSTM)</h3></div>',
-                unsafe_allow_html=True)
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color);">🧠 深度神经网络时序建模中心 (LSTM)</h3></div>',
+        unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 2.5])
     with col_l:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
@@ -775,7 +797,7 @@ elif page == "🧠 深度学习预测 (LSTM)":
 
 # /// 6. 论文审计日志 ///
 elif page == "🛡️ 论文审计日志":
-    st.markdown('<div class="glass-card"><h3 style="color:white;">🛡️ 实验数据采集与多维审计中心</h3></div>',
+    st.markdown('<div class="glass-card"><h3 style="color:var(--text-color);">🛡️ 实验数据采集与多维审计中心</h3></div>',
                 unsafe_allow_html=True)
     c1, c2 = st.columns([1, 1.2])
     with c1:
