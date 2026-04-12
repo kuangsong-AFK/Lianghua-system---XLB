@@ -156,12 +156,9 @@ st.markdown("""
     div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
 
     .glass-card { background: rgba(20, 28, 45, 0.65) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
-
-    /* 🔥 修复排版塌陷：精准控制边距，防溢出 🔥 */
     .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px; overflow: hidden; }
     .metric-box p { margin: 0 !important; font-size: 0.9rem; color: #cbd5e1; }
     .metric-box h2 { margin: 8px 0 0 0 !important; font-size: 1.8rem; line-height: 1.2; }
-
     [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); margin-bottom: 20px !important; }
 
     [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
@@ -358,7 +355,7 @@ if selected_page == PAGES[0]:
             height=350)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**内存池占用率**<br>🟢 4% (完全释放)<br><br>**答辩核心创新点：**<br>✅ AI 白盒透视解析<br>✅ MutationObserver 零消耗<br>✅ 回测矩阵原子级缓存</div>',
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**内存池占用率**<br>🟢 4% (完全释放)<br><br>**答辩核心创新点：**<br>✅ AI 白盒透视解析<br>✅ MutationObserver 零消耗<br>✅ 自定义十载周期</div>',
             unsafe_allow_html=True)
 
 elif selected_page == PAGES[1]:
@@ -449,7 +446,7 @@ def generate_signals(df):
                         if code_match:
                             extracted_code = code_match.group(1).strip()
 
-                            # 🔥 核心修复：重新挂载正则提取引擎，捕获 AI 的白话解析 🔥
+                            # 🔥 修复：重装正则提取器，抓取白话解析 🔥
                             exp_match = re.search(r"【策略白话解析】(.*?)(?=`{3}python|$)", full_resp,
                                                   re.DOTALL | re.IGNORECASE)
                             if exp_match:
@@ -491,11 +488,17 @@ elif selected_page == PAGES[2]:
     col_l, col_r = st.columns([1, 3])
     with col_l:
         ts_code = format_ts_code(st.text_input("🎯 回测标的代码", value="000001"))
+
+        # 🔥 新增：10 年时空跃迁选择器 🔥
+        span_mapping = {"近1年": 1, "近3年": 3, "近5年": 5, "近10年 (极限穿越)": 10}
+        span_choice = st.selectbox("⏳ 回测时间跨度", list(span_mapping.keys()), index=1)
+        start_year = datetime.now().year - span_mapping[span_choice]
+
         adj_p = st.selectbox("⚖️ 复权模式", ["qfq", "hfq", "None"]).split(" ")[0]
         if st.button("🚀 启动全量归因回测", use_container_width=True, type="primary"):
             with st.spinner("数据挂载中..."):
                 try:
-                    df_raw = fetch_and_clean_data(ts_code, adj_p if adj_p != "None" else None, '20220101')
+                    df_raw = fetch_and_clean_data(ts_code, adj_p if adj_p != "None" else None, f"{start_year}0101")
                     st.session_state.bt_result = run_backtest_metrics(df_raw, st.session_state.generated_code)
                 except Exception as e:
                     st.error(f"异常: {e}")
@@ -517,10 +520,8 @@ elif selected_page == PAGES[2]:
                 f'<div class="metric-box"><p>夏普比率</p><h2 class="highlight-text">{m["sharpe"]:.2f}</h2></div>',
                 unsafe_allow_html=True)
 
-            # 🔥 增加物理隔离带，防止下方 expander 向上穿模 🔥
             st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 
-            # 恢复白话解析模块展示
             if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
                 with st.expander("💡 展开：AI 策略白话解析", expanded=False):
                     st.markdown(st.session_state.strategy_explanation)
@@ -545,6 +546,7 @@ elif selected_page == PAGES[3]:
 
         met_ph, cht_ph = st.empty(), st.empty()
         if st.session_state.is_live_trading:
+            # 高频模块保持极速，只拉取近期数据
             stream = fetch_and_clean_data(format_ts_code(live_code), 'qfq', '20230101').tail(120).reset_index(drop=True)
             for i in range(20, len(stream)):
                 if not st.session_state.is_live_trading: break
@@ -578,6 +580,12 @@ elif selected_page == PAGES[4]:
 
     with col_l:
         st_code = st.text_input("🎯 训练模型标的", value="000001")
+
+        # 🔥 新增：深度学习训练集跨度选择器 🔥
+        span_mapping_dl = {"近1年 (极速)": 1, "近3年 (标准)": 3, "近5年 (深度)": 5}
+        span_choice_dl = st.selectbox("⏳ 训练集时间跨度", list(span_mapping_dl.keys()), index=1)
+        start_year_dl = datetime.now().year - span_mapping_dl[span_choice_dl]
+
         model_choices = st.multiselect("🧠 选择预测模型 (支持多选融合)", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"])
         slen = st.slider("📏 滑窗长度", 5, 60, 20)
         eps = st.slider("🔄 Epoch 迭代", 10, 50, 30)
@@ -588,7 +596,7 @@ elif selected_page == PAGES[4]:
             else:
                 with st.spinner("神经网络前向传播中..."):
                     try:
-                        df = fetch_and_clean_data(format_ts_code(st_code), 'qfq', '20210101')
+                        df = fetch_and_clean_data(format_ts_code(st_code), 'qfq', f"{start_year_dl}0101")
                         scaler = MinMaxScaler()
                         scaled = scaler.fit_transform(df['Close'].values.reshape(-1, 1))
                         X, y = [], []
