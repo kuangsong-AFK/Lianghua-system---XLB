@@ -17,7 +17,7 @@ from PIL import Image
 # 物理级防呆补丁
 pd.np = np
 
-# 🔥 预编译正则表达式，榨干 CPU 性能
+# 🔥 预编译正则表达式，榨干 CPU 性能 🔥
 SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 
 # ==========================================
@@ -74,7 +74,7 @@ prev_idx, curr_idx = PAGES.index(st.session_state.prev_page), PAGES.index(st.ses
 anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr_idx < prev_idx else "fogFadeIn")
 
 # ==========================================
-# 3. 宗师级 JS 引擎：零损耗 MutationObserver
+# 3. 宗师级 JS 引擎：零损耗 MutationObserver (废除死循环)
 # ==========================================
 scroll_script = "window.parent.scrollTo({top: 0, behavior: 'instant'});" if st.session_state.just_switched else ""
 
@@ -182,6 +182,7 @@ st.markdown("""
     .stApp[data-custom-theme='light'] [data-testid="stPopoverBody"] { background-color: rgba(255, 255, 255, 0.98) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 10px 40px rgba(0,0,0,0.1) !important; }
     .stApp[data-custom-theme='light'] .js-plotly-plot .g-gtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-xtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-ytitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .xtick text, .stApp[data-custom-theme='light'] .js-plotly-plot .ytick text, .stApp[data-custom-theme='light'] .js-plotly-plot .legendtext { fill: #1e293b !important; }
     .stApp[data-custom-theme='light'] [data-testid="collapsedControl"] svg, .stApp[data-custom-theme='light'] [data-testid="stToolbar"] svg { fill: #1e293b !important; color: #1e293b !important; }
+    .stApp[data-custom-theme='dark'] [data-testid="collapsedControl"] svg, .stApp[data-custom-theme='dark'] [data-testid="stToolbar"] svg { fill: #e2e8f0 !important; color: #e2e8f0 !important; }
 
     .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; }
     .agent-status-node.success { background: rgba(0, 255, 204, 0.1); border-left-color: #00ffcc; color: #00ffcc; }
@@ -314,7 +315,7 @@ def format_ts_code(raw):
 
 
 # ==========================================
-# 6. 各页面业务逻辑 (融合多模态深度学习)
+# 6. 各页面业务逻辑 (按需加载重装甲)
 # ==========================================
 if selected_page == PAGES[0]:
     st.markdown(
@@ -538,7 +539,7 @@ elif selected_page == PAGES[3]:
                 time.sleep(freq)
         st.markdown('</div>', unsafe_allow_html=True)
 
-# 🔥 核心重构：多模态预测引擎 (LSTM / GRU / 1D-CNN 集成) 🔥
+# 🔥 核心：增加未来时空预测 (Auto-regressive) 和 Kimi 智能解盘舱 🔥
 elif selected_page == PAGES[4]:
     with st.spinner("唤醒深度学习底层张量引擎..."):
         import torch
@@ -553,10 +554,7 @@ elif selected_page == PAGES[4]:
     with col_l:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         st_code = st.text_input("🎯 训练模型标的", value="000001")
-
-        # 允许多选集成学习
         model_choices = st.multiselect("🧠 选择预测模型 (支持多选融合)", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"])
-
         slen = st.slider("📏 滑窗长度", 5, 60, 20)
         eps = st.slider("🔄 Epoch 迭代", 10, 50, 30)
 
@@ -577,7 +575,6 @@ elif selected_page == PAGES[4]:
                         y_t = torch.tensor(np.array(y), dtype=torch.float32)
 
 
-                        # 模型架构定义
                         class LSTM_Model(nn.Module):
                             def __init__(self): super().__init__(); self.lstm = nn.LSTM(1, 64, 2,
                                                                                         batch_first=True); self.fc = nn.Linear(
@@ -601,16 +598,18 @@ elif selected_page == PAGES[4]:
                                 self.fc = nn.Linear(32 * seq_len, 1)
 
                             def forward(self, x):
-                                x = x.permute(0, 2, 1)  # [batch, slen, 1] -> [batch, 1, slen]
+                                x = x.permute(0, 2, 1)
                                 x = torch.relu(self.conv(x))
-                                x = x.reshape(x.size(0), -1)  # flatten
+                                x = x.reshape(x.size(0), -1)
                                 return self.fc(x)
 
 
-                        preds_dict = {}
+                        preds_dict, future_preds_dict = {}, {}
                         lbox, pbar = st.empty(), st.progress(0)
 
-                        # 遍历所选模型进行分别训练
+                        # 基于最后一个窗口提取，用于预测未来 5 天
+                        last_window_orig = X_t[-1].clone().unsqueeze(0)  # [1, slen, 1]
+
                         for m_idx, m_name in enumerate(model_choices):
                             lbox.markdown(f"**正在训练 {m_name} 模型...**")
                             if m_name == "LSTM":
@@ -630,21 +629,33 @@ elif selected_page == PAGES[4]:
                                 loss = crit(pred.squeeze(), y_t)
                                 loss.backward()
                                 opt.step()
-
-                                # 更新总体进度条
-                                total_progress = (m_idx * eps + e + 1) / (len(model_choices) * eps)
-                                pbar.progress(total_progress)
+                                pbar.progress((m_idx * eps + e + 1) / (len(model_choices) * eps))
                                 lbox.markdown(f"**{m_name}** | Epoch {e + 1}/{eps} | Loss: {loss.item():.6f}")
 
                             model.eval()
+                            # 重构过去 100 天
                             test_p = model(X_t[-100:]).detach().numpy()
                             preds_dict[m_name] = scaler.inverse_transform(test_p).flatten()
 
-                        lbox.success("✅ 矩阵训练完毕！")
+                            # 🔥 核心：自回归预测未来 5 天 🔥
+                            curr_win = last_window_orig.clone()
+                            m_future = []
+                            for _ in range(5):
+                                with torch.no_grad():
+                                    p_future = model(curr_win)
+                                m_future.append(p_future.item())
+                                # 滑动窗口，将新预测值拼接到末尾
+                                curr_win = torch.cat((curr_win[:, 1:, :], p_future.unsqueeze(-1)), dim=1)
+                            future_preds_dict[m_name] = scaler.inverse_transform(
+                                np.array(m_future).reshape(-1, 1)).flatten()
+
+                        lbox.success("✅ 矩阵训练完毕，时空推演已就绪！")
                         st.session_state.dl_result = {
                             "dates": df['trade_date'].iloc[-100:],
                             "actual": df['Close'].iloc[-100:],
-                            "preds": preds_dict
+                            "preds": preds_dict,
+                            "future": future_preds_dict,
+                            "models_used": model_choices
                         }
                     except Exception as e:
                         st.error(f"DL 张量异常: {e}")
@@ -653,25 +664,62 @@ elif selected_page == PAGES[4]:
     with col_r:
         if st.session_state.dl_result:
             res = st.session_state.dl_result
+            latest_price = res['actual'].iloc[-1]
+
+            # 如果是集成学习，则计算未来5天均值，否则取单一模型
+            if len(res['models_used']) > 1:
+                f_preds = np.mean(list(res['future'].values()), axis=0)
+                model_desc = f"LSTM/GRU/CNN 均值集成 ({len(res['models_used'])}模型)"
+            else:
+                f_preds = list(res['future'].values())[0]
+                model_desc = res['models_used'][0]
+
+            day1_pred, day5_pred = f_preds[0], f_preds[4]
+
+            # 🔥 Kimi 智能解盘舱 (Expander) 🔥
+            with st.expander("🤖 AI 深度预测白话解析舱 (点击展开/收起)", expanded=True):
+                st.markdown(
+                    f"**📈 极速解盘预览**：当前实盘价 `<span class='highlight-text'>{latest_price:.2f}</span>` | 模型: {model_desc}",
+                    unsafe_allow_html=True)
+                c_f1, c_f2 = st.columns(2)
+                c_f1.metric("未来 1 天预测价 (T+1)", f"{day1_pred:.2f}",
+                            f"{(day1_pred - latest_price) / latest_price * 100:.2f}%")
+                c_f2.metric("未来 5 天预测价 (T+5)", f"{day5_pred:.2f}",
+                            f"{(day5_pred - latest_price) / latest_price * 100:.2f}%")
+
+                if st.button("✨ 召唤 Kimi 生成走势人话解析", use_container_width=True):
+                    ai_ph = st.empty()
+                    prompt = f"""你是一个顶级的量化分析师，专门为小白用户提供白话解盘。
+已知某标的当前收盘价为 {latest_price:.2f}元。
+基于【{model_desc}】深度学习架构的自回归推演，预测得出：未来1天价格约为 {day1_pred:.2f}元，未来5天价格约为 {day5_pred:.2f}元。
+请你用大白话（绝对不能包含任何代码，限200字以内），向毫无基础的小白用户解释这个预测代表着怎样的走势（涨/跌/震荡），并结合你的量化经验给出操作上的风险提示。语气要专业但通俗。"""
+                    try:
+                        stream = client.chat.completions.create(model="moonshot-v1-8k",
+                                                                messages=[{"role": "user", "content": prompt}],
+                                                                stream=True, temperature=0.5)
+                        full_txt = ""
+                        for chunk in stream:
+                            if chunk.choices[0].delta.content:
+                                full_txt += chunk.choices[0].delta.content
+                                ai_ph.info(full_txt + "▌")
+                        ai_ph.info(full_txt)
+                    except Exception as e:
+                        ai_ph.error(f"Kimi 连线中断: {e}")
+
+            # 画图部分
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹 (Actual)',
                                      line=dict(color='#00ffcc', width=2)))
-
-            # 定义模型专属颜色
             color_map = {"LSTM": "#ff00ff", "GRU": "#ffff00", "1D-CNN": "#00bfff"}
-
-            # 绘制各个独立模型
             for m_name, pred_array in res['preds'].items():
-                fig.add_trace(go.Scatter(x=res['dates'], y=pred_array, name=f'{m_name} 预测',
+                fig.add_trace(go.Scatter(x=res['dates'], y=pred_array, name=f'{m_name} 历史拟合',
                                          line=dict(color=color_map.get(m_name, '#ffffff'), dash='dot', width=1)))
-
-            # 🔥 如果选中了多个模型，计算并绘制均值融合曲线 (Ensemble) 🔥
             if len(res['preds']) > 1:
                 ensemble_pred = np.mean(list(res['preds'].values()), axis=0)
-                fig.add_trace(go.Scatter(x=res['dates'], y=ensemble_pred, name='🔥 均值融合 (Ensemble)',
+                fig.add_trace(go.Scatter(x=res['dates'], y=ensemble_pred, name='🔥 均值集成 (Ensemble)',
                                          line=dict(color='#ff4b4b', width=3)))
 
-            fig.update_layout(height=500, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
+            fig.update_layout(height=450, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
                               plot_bgcolor='rgba(0,0,0,0.1)', dragmode='pan', hovermode='x',
                               legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
