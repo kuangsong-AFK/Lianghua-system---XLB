@@ -142,7 +142,9 @@ st.markdown("""
     [data-testid="collapsedControl"], [data-testid="stToolbar"] { pointer-events: auto !important; opacity: 1 !important; visibility: visible !important; display: flex !important; transform: none !important;}
     .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
     [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
-    .real-popover-wrapper { position: fixed !important; bottom: 80px !important; left: 20px !important; opacity: 0 !important; z-index: -9999 !important; pointer-events: none !important; }
+
+    /* 🔥 隐患 1 修复：就地隐身，完美弹窗！不要乱移位置！ 🔥 */
+    .real-popover-wrapper { opacity: 0.01 !important; height: 1px !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important; }
 
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
     .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
@@ -166,6 +168,7 @@ st.markdown("""
     [data-testid="stChatInputSubmitButton"] { background-color: #3b82f6 !important; border-radius: 50% !important; transition: all 0.3s ease; }
     [data-testid="stPopoverBody"] { background-color: rgba(25, 33, 48, 0.95) !important; border: 1px solid rgba(0, 255, 204, 0.4) !important; border-radius: 16px !important; backdrop-filter: blur(25px) !important; padding: 15px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important; margin-bottom: 10px !important; }
 
+    /* ---------------- 浅色主题强力覆盖 ---------------- */
     .stApp[data-custom-theme='light'] { background-image: linear-gradient(132deg, #ffffff, #dbeafe, #e0e7ff, #f3e8ff, #ffffff) !important; background-size: 400% 400% !important; animation: fluidFlow 10s ease infinite !important; }
     .stApp[data-custom-theme='light'] .stMarkdown, .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] h4, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div { color: #1e293b !important; }
     .stApp[data-custom-theme='light'] .highlight-text { color: #0284c7 !important; }
@@ -180,9 +183,16 @@ st.markdown("""
     .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.85) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08) !important; }
     .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea { color: #1e293b !important; }
     .stApp[data-custom-theme='light'] [data-testid="stPopoverBody"] { background-color: rgba(255, 255, 255, 0.98) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 10px 40px rgba(0,0,0,0.1) !important; }
-    .stApp[data-custom-theme='light'] .js-plotly-plot .g-gtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-xtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-ytitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .xtick text, .stApp[data-custom-theme='light'] .js-plotly-plot .ytick text, .stApp[data-custom-theme='light'] .js-plotly-plot .legendtext { fill: #1e293b !important; }
     .stApp[data-custom-theme='light'] [data-testid="collapsedControl"] svg, .stApp[data-custom-theme='light'] [data-testid="stToolbar"] svg { fill: #1e293b !important; color: #1e293b !important; }
     .stApp[data-custom-theme='dark'] [data-testid="collapsedControl"] svg, .stApp[data-custom-theme='dark'] [data-testid="stToolbar"] svg { fill: #e2e8f0 !important; color: #e2e8f0 !important; }
+
+    /* 🔥 隐患 3 修复：深度接管 Plotly 坐标轴、网格线和图例颜色，彻底兼容 Light 模式 🔥 */
+    .stApp[data-custom-theme='light'] .js-plotly-plot .g-gtitle text, 
+    .stApp[data-custom-theme='light'] .js-plotly-plot .g-xtitle text, 
+    .stApp[data-custom-theme='light'] .js-plotly-plot .g-ytitle text, 
+    .stApp[data-custom-theme='light'] .js-plotly-plot .xtick text, 
+    .stApp[data-custom-theme='light'] .js-plotly-plot .ytick text, 
+    .stApp[data-custom-theme='light'] .js-plotly-plot .legendtext { fill: #1e293b !important; font-weight: 500 !important; }
 
     .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; }
     .agent-status-node.success { background: rgba(0, 255, 204, 0.1); border-left-color: #00ffcc; color: #00ffcc; }
@@ -202,7 +212,6 @@ st.markdown(
 # ==========================================
 # 5. 高速缓存装甲：分离复杂计算
 # ==========================================
-# 🔥 核心修复：在此处单独声明 add_default_indicators 供全局使用 🔥
 def add_default_indicators(df):
     if 'Close' in df.columns:
         df['MAIN_MA5'] = df['Close'].rolling(window=5).mean()
@@ -233,8 +242,6 @@ def fetch_and_clean_data(ts_code, adj, start_date):
     for l_case, c_case in mapping_base.items():
         if l_case in df.columns: df[c_case] = df[l_case]
     if 'Volume' not in df.columns and 'vol' in df.columns: df['Volume'] = df['vol']
-
-    # 挂载基础指标
     return add_default_indicators(df)
 
 
@@ -309,9 +316,14 @@ def render_smart_charts(df):
                     go.Scatter(x=df['trade_date'], y=df[col], line=dict(width=1.2, color=colors[i % 4]), name=col),
                     row=row_idx, col=1)
         row_idx += 1
-    fig.update_layout(height=500 + len(sub_groups) * 150, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
+
+    # 🔥 隐患 3 修复：解除死板的 plotly_dark，改为 none 配合 CSS 自适应 🔥
+    fig.update_layout(height=500 + len(sub_groups) * 150, template="none", paper_bgcolor='rgba(0,0,0,0)',
                       plot_bgcolor='rgba(0,0,0,0)', xaxis_rangeslider_visible=False, dragmode='pan', hovermode='x',
                       showlegend=False)
+    # 微调网格线颜色，使其在光暗模式下都能半透明显示
+    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
     return fig
 
 
@@ -368,11 +380,13 @@ elif selected_page == PAGES[1]:
         st.markdown("<div style='height: 32px;'></div>", unsafe_allow_html=True); enable_deep_think = st.toggle(
             "💡 强子注入：开启深度思考引擎 (CoT)", value=False)
 
-    chat_container = st.container(height=650)
+    # 🔥 隐患 2 修复：解除 container 的定高枷锁，恢复原生平滑向下滚动 🔥
+    chat_container = st.container()
     with chat_container:
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
 
+    # 真实的附件容器被高度为1px且隐形的 wrapper 包裹，就地等待
     st.markdown('<div class="real-popover-wrapper">', unsafe_allow_html=True)
     with st.popover("📎", help="上传附件", use_container_width=False):
         uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
@@ -443,13 +457,11 @@ def generate_signals(df):
                         if code_match:
                             extracted_code = code_match.group(1).strip()
                             try:
-                                # 🔥 这里就是彻底解决报错的关键！沙盒测试调用完整的 add_default_indicators 🔥
                                 dummy_df = pd.DataFrame({'trade_date': pd.date_range('20230101', periods=50),
                                                          'Open': np.random.rand(50) * 10,
                                                          'High': np.random.rand(50) * 12, 'Low': np.random.rand(50) * 8,
                                                          'Close': np.random.rand(50) * 10})
                                 dummy_df = add_default_indicators(dummy_df)
-
                                 _ = execute_safely(extracted_code, dummy_df)
                                 st.session_state.generated_code = extracted_code
                                 agent_logs.append(
@@ -720,9 +732,11 @@ elif selected_page == PAGES[4]:
                 fig.add_trace(go.Scatter(x=res['dates'], y=ensemble_pred, name='🔥 均值集成 (Ensemble)',
                                          line=dict(color='#ff4b4b', width=3)))
 
-            fig.update_layout(height=450, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
-                              plot_bgcolor='rgba(0,0,0,0)', dragmode='pan', hovermode='x',
+            fig.update_layout(height=450, template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                              dragmode='pan', hovermode='x',
                               legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+            fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
+            fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
             st.plotly_chart(fig, use_container_width=True)
 
 elif selected_page == PAGES[5]:
