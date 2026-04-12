@@ -1,16 +1,3 @@
-# ==============================================================================
-# 主公！末将已完成 V52 终极空间重构！
-#
-# 🛡️ 本次 UI 终极调优：
-# 1. 侧边栏全面封锁 (Full-Bleed Sidebar)：强行覆盖了 Streamlit 原生在顶部和底部的安全边界
-#    (top: 0, height: 100vh)，让侧边栏的深色毛玻璃彻底填满左侧整个垂直空间，不留任何缝隙。
-# 2. 战情室扩容下延：将 AI 聊天记录框 (chat_container) 高度拉升至 720px，向下大幅延伸。
-# 3. 悬浮胶囊上浮：通过增加底部外边距 (margin-bottom: 45px)，将聊天输入框整体向上抬升。
-#    现在，聊天历史和输入框紧紧贴合，呈现出完美的沉浸式连续感！
-#
-# 请主公最后一次【全选复制】本黑框内的所有代码，直接覆盖 app.py！
-# ==============================================================================
-
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
@@ -27,17 +14,15 @@ import uuid
 import math
 from PIL import Image
 
-# 🔥 深度学习学术库
+# 深度学习学术库
 import torch
 import torch.nn as nn
 from sklearn.preprocessing import MinMaxScaler
 
-# 🔥 终极物理级防呆补丁
+# 终极物理级防呆补丁
 pd.np = np
 
-# ==========================================
-# 1. 初始化与核心兵符
-# ==========================================
+# /// 1. 初始化与核心兵符 ///
 st.set_page_config(page_title="小吕布量化 Pro - 毕设版", layout="wide", initial_sidebar_state="expanded")
 
 KIMI_API_KEY = "sk-yS2foVgWtvnFMWKRTLnI6l8NFqFrRiB8ojre75g2mK2P8LBk"
@@ -45,7 +30,7 @@ TUSHARE_TOKEN = "ba486af7606bc2f6018f1d592251a49674132225f59d37b3473d676e"
 
 ts.set_token(TUSHARE_TOKEN)
 pro = ts.pro_api()
-client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=30.0)
+client = OpenAI(api_key=KIMI_API_KEY, base_url="[https://api.moonshot.cn/v1](https://api.moonshot.cn/v1)", timeout=30.0)
 
 if "user_id" not in st.session_state: st.session_state.user_id = f"User_{str(uuid.uuid4())[:6]}"
 if "generated_code" not in st.session_state: st.session_state.generated_code = ""
@@ -55,32 +40,18 @@ if "bt_result" not in st.session_state: st.session_state.bt_result = None
 if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 if "is_live_trading" not in st.session_state: st.session_state.is_live_trading = False
 
-# ==========================================
-# 2. UI/UX 强化 (侧边栏填满 + 聊天框紧密贴合)
-# ==========================================
+# /// 2. UI/UX 强化 (千问级悬浮舱 + 绝对平齐定位) ///
 st.markdown("""
 <style>
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
 
-    /* 配合聊天框上移，留出更大的底部安全区 */
-    [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 3rem !important; padding-bottom: 160px !important; }
+    [data-testid="stAppViewContainer"], .block-container { background: transparent !important; padding-top: 3rem !important; padding-bottom: 120px !important; }
     header[data-testid="stHeader"] { background: transparent !important; pointer-events: none !important; }
 
     .stMarkdown, p, h1, h2, h3, h4, label, span { color: #e2e8f0 !important; }
 
-    /* 🔥 侧边栏：强制高度 100vh 且 top/bottom 为 0，彻底填满上下空白 */
-    [data-testid="stSidebar"] { 
-        background: rgba(5, 8, 14, 0.75) !important; 
-        backdrop-filter: blur(25px) !important; 
-        border-right: 1px solid rgba(255,255,255,0.08) !important; 
-        top: 0 !important; 
-        bottom: 0 !important; 
-        height: 100vh !important; 
-    }
-    /* 确保内部容器也能撑满 */
-    [data-testid="stSidebar"] > div:first-child { height: 100vh !important; padding-top: 3rem !important; }
-
+    [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; }
     div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; padding: 14px 18px !important; margin-bottom: 10px !important; border-radius: 12px !important; border-left: 4px solid transparent !important; }
     div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
 
@@ -88,23 +59,20 @@ st.markdown("""
     .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; }
     [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); }
 
-    /* 彻底剿灭底部黑块 */
     [data-testid="stBottomBlock"], [data-testid="stBottom"], [data-testid="stBottom"] > div {
         background-color: transparent !important;
         background: transparent !important;
         border: none !important;
     }
 
-    /* 🔥 极简胶囊聊天框外壳：增加 margin-bottom 将其向上推，贴近聊天历史 */
     [data-testid="stChatInput"] { 
         background: transparent !important;
         border: none !important;
         box-shadow: none !important;
         max-width: 850px;
-        margin: 0 auto 45px auto !important; /* 向上抬升 */
+        margin: 0 auto 10px auto !important;
     }
 
-    /* 真正的发光胶囊体 */
     [data-testid="stChatInput"] > div:first-child {
         background-color: rgba(30, 41, 59, 0.6) !important; 
         backdrop-filter: blur(25px) !important; 
@@ -114,7 +82,6 @@ st.markdown("""
         padding: 5px 15px !important;
     }
 
-    /* 暴力击碎内部黑色底框 */
     [data-testid="stChatInput"] [data-baseweb="textarea"],
     [data-testid="stChatInput"] [data-baseweb="textarea"] > div,
     [data-testid="stChatInput"] textarea {
@@ -127,23 +94,18 @@ st.markdown("""
     }
 
     [data-testid="stChatInput"] textarea:focus { box-shadow: none !important; outline: none !important; }
-
     [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }
     [data-testid="stChatInputSubmitButton"] { background-color: #3b82f6 !important; border-radius: 50% !important; transition: all 0.3s ease; }
     [data-testid="stChatInputSubmitButton"]:hover { background-color: #60a5fa !important; box-shadow: 0 0 15px rgba(59, 130, 246, 0.6) !important; }
 
-    /* 弹出菜单美化 */
     [data-testid="stPopoverBody"] { background-color: rgba(25, 33, 48, 0.95) !important; border: 1px solid rgba(0, 255, 204, 0.4) !important; border-radius: 16px !important; backdrop-filter: blur(25px) !important; padding: 15px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important; margin-bottom: 10px !important; }
 
-    /* 隐藏初始位置的附件按钮容器，避免闪烁 */
     .tool-bar-container { display: none; }
 </style>
 """, unsafe_allow_html=True)
 
 
-# ==========================================
-# 3. 核心工具函数与审计系统
-# ==========================================
+# /// 3. 核心工具函数与审计系统 ///
 def apply_dual_column_armor(df):
     mapping_base = {'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'vol': 'Volume', 'amount': 'Amount'}
     for lower_case, camel_case in mapping_base.items():
@@ -282,9 +244,7 @@ GLOBAL_LOG_FILE = os.path.join(LOG_DIR, "global_master_log.csv")
 if not os.path.exists(GLOBAL_LOG_FILE): pd.DataFrame(columns=["Timestamp", "UserID", "ActionType", "Details"]).to_csv(
     GLOBAL_LOG_FILE, index=False)
 
-# ==========================================
-# 4. 侧边栏导航
-# ==========================================
+# /// 4. 侧边栏导航 ///
 with st.sidebar:
     st.markdown("### 🎓 小吕布量化 Pro")
     st.caption(f"🛡️ 节点 ID: {st.session_state.user_id}")
@@ -298,9 +258,7 @@ with st.sidebar:
         "🛡️ 论文审计日志"
     ], label_visibility="collapsed")
 
-# ==========================================
-# 🏠 页面 1: 系统总览
-# ==========================================
+# /// 🏠 页面 1: 系统总览 ///
 if page == "🏠 系统总览 (监控中控)":
     st.markdown(
         '<div class="glass-card"><h1 style="margin-bottom:0; color:white;">🏛️ 全链路智能量化决策枢纽</h1><p style="color:#00ffcc; font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
@@ -326,7 +284,6 @@ if page == "🏠 系统总览 (监控中控)":
 
     st.markdown("---")
 
-    # 极简操作指南置顶
     st.markdown(
         '<div style="background:rgba(0,255,204,0.05); padding:15px; border-radius:10px; border:1px solid rgba(0,255,204,0.2); margin-bottom:20px;">'
         '<b style="color:#00ffcc;">🎯 极简操作指南：</b>'
@@ -359,7 +316,7 @@ if page == "🏠 系统总览 (监控中控)":
         <html>
         <head>
             <script type="module">
-                import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+                import mermaid from '[https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs](https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs)';
                 mermaid.initialize({{ startOnLoad: true, theme: 'dark', themeVariables: {{ fontFamily: 'sans-serif' }} }});
             </script>
         </head>
@@ -384,14 +341,12 @@ if page == "🏠 系统总览 (监控中控)":
             '<br><h4 style="color:white;">💡 答辩终极杀手锏</h4>✅ <b>类型强制归一 (New)</b>: 自动剿灭 AI 产生的浮点数买卖信号报错。<br>✅ <b>全局物理补丁</b>: pd.np = np，永久杜绝旧语法崩溃。<br>✅ <b>平移自适应缩放</b>: 左右拖拽平移，双击瞬间对齐Y轴。</div>',
             unsafe_allow_html=True)
 
-# ==========================================
-# 🤖 页面 2: AI 策略引擎 (LLM)
-# ==========================================
+# /// 🤖 页面 2: AI 策略引擎 (LLM) ///
 elif page == "🤖 AI 策略引擎 (LLM)":
     if "messages" not in st.session_state: st.session_state.messages = []
 
     st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0; color:white;">🤖 LLM 策略战情室</h3><p style="color:#888;">多模态视觉引擎已就绪，体验沉浸式全流体工作流。</p></div>',
+        '<div class="glass-card"><h3 style="margin-bottom:0; color:white;">🤖 LLM 策略战情室</h3><p style="color:#888;">多模态视觉引擎与 Agent 自愈模块已就绪，体验沉浸式工作流。</p></div>',
         unsafe_allow_html=True)
 
     with st.container():
@@ -407,13 +362,11 @@ elif page == "🤖 AI 策略引擎 (LLM)":
             enable_deep_think = st.toggle("💡 强子注入：开启深度思考引擎 (CoT)", value=False)
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # 🔥 聊天记录区向下大幅延伸，高度拉升至 720
-    chat_container = st.container(height=720)
+    chat_container = st.container(height=650)
     with chat_container:
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"])
 
-    # === 🔥 悬浮附件按钮（极简短版） ===
     st.markdown('<div class="tool-bar-container">', unsafe_allow_html=True)
     with st.popover("📎", help="点击上传参考文件", use_container_width=False):
         st.caption("支持上传本地图片、TXT、CSV，发送后即焚")
@@ -421,61 +374,51 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                                           type=['png', 'jpg', 'jpeg', 'csv', 'txt'], label_visibility="collapsed")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # 🔥 黑魔法：通过 Flexbox 将极简的 📎 按钮平齐镶嵌进无缝大胶囊左侧
     components.html("""
     <script>
         setInterval(() => {
             const doc = window.parent.document;
-            const chatInput = doc.querySelector('div[data-testid="stChatInput"]');
+            const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
+            if(!chatInputOuter) return;
+
+            const chatInput = chatInputOuter.children[0]; 
             const popovers = Array.from(doc.querySelectorAll('div[data-testid="stPopover"]'));
             const attachPopover = popovers.find(p => p.textContent.includes('📎'));
 
-            if (chatInput && attachPopover) {
-                // 找到真正的输入舱内层
-                const innerPill = chatInput.children[0];
+            if (chatInput && attachPopover && attachPopover.parentElement !== chatInput) {
+                chatInput.style.position = 'relative';
 
-                if (innerPill && attachPopover.parentElement !== innerPill) {
-                    // 将胶囊内层变为 Flex 容器，实现完美居中平齐
-                    innerPill.style.display = 'flex';
-                    innerPill.style.flexDirection = 'row';
-                    innerPill.style.alignItems = 'center';
-                    innerPill.style.gap = '8px';
-
-                    // 去除附件按钮的一切外界边距
-                    attachPopover.style.position = 'static';
-                    attachPopover.style.marginBottom = '0';
-                    attachPopover.style.width = 'auto'; 
-
-                    const btn = attachPopover.querySelector('button');
-                    if (btn) {
-                        btn.style.background = 'transparent';
-                        btn.style.border = 'none';
-                        btn.style.boxShadow = 'none';
-                        btn.style.color = '#a1a1aa';
-                        btn.style.fontSize = '1.4rem';
-                        btn.style.padding = '0 5px';
-                        btn.style.minWidth = '0';
-                        btn.style.width = 'auto';
-                        // 抹除难看的向下小箭头
-                        const svgs = btn.querySelectorAll('svg');
-                        if (svgs.length > 0) svgs[svgs.length - 1].style.display = 'none';
-                    }
-
-                    // 物理转移：插到输入框最前面
-                    innerPill.insertBefore(attachPopover, innerPill.firstChild);
-
-                    // 确保文本框撑满剩余空间
-                    if(innerPill.children.length > 1) {
-                        innerPill.children[1].style.flexGrow = '1';
-                        innerPill.children[1].style.width = '100%';
-                    }
+                const baseweb = chatInput.querySelector('[data-baseweb="textarea"]');
+                if(baseweb) {
+                    baseweb.style.paddingLeft = '40px'; 
                 }
+
+                attachPopover.style.position = 'absolute';
+                attachPopover.style.left = '12px';
+                attachPopover.style.bottom = '8px';
+                attachPopover.style.zIndex = '100';
+                attachPopover.style.width = 'auto';
+                attachPopover.style.marginBottom = '0';
+
+                const btn = attachPopover.querySelector('button');
+                if (btn) {
+                    btn.style.background = 'transparent';
+                    btn.style.border = 'none';
+                    btn.style.boxShadow = 'none';
+                    btn.style.color = '#a1a1aa';
+                    btn.style.fontSize = '1.4rem';
+                    btn.style.padding = '0';
+                    btn.style.minWidth = '0';
+                    const svgs = btn.querySelectorAll('svg');
+                    if (svgs.length > 0) svgs[svgs.length - 1].style.display = 'none';
+                }
+
+                chatInput.appendChild(attachPopover);
             }
         }, 500);
     </script>
     """, height=0, width=0)
 
-    # 解析文件内容
     file_context = ""
     if 'uploaded_files' in locals() and uploaded_files:
         st.success("✅ 附件已挂载入内存，可直接在下方输入框向 AI 下达指令！")
@@ -495,7 +438,6 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                     st.text(content[:50] + "...")
                     file_context += f"\n【附件文本 {file.name} 内容】:\n{content}\n"
 
-    # === 聊天输入框 ===
     if raw_prompt := st.chat_input("向小吕布量化架构师发送军令..."):
         full_prompt_for_ai = raw_prompt
         if file_context: full_prompt_for_ai = f"以下是参考附件信息：\n{file_context}\n\n需求：{raw_prompt}"
@@ -509,68 +451,119 @@ elif page == "🤖 AI 策略引擎 (LLM)":
             with st.chat_message("assistant"):
                 st.toast(f"🚀 连线底层算力集群: {selected_model}", icon="⚡")
 
-                if enable_deep_think:
-                    think_expander = st.expander("🧠 AI 正在脑海中推演与拆解数学逻辑...", expanded=True)
-                    think_box = think_expander.empty()
-                msg_box = st.empty()
+                # 🔥 防断流黑魔法：用 f-string 配合 ticks 隐藏三个反引号
+                ticks = "`" * 3
+                sys_p = f"""你是一名严谨的量化专家。
+1. 拒绝闲聊。
+2. 【强制解析】：输出代码前，独占一行写出“【策略白话解析】”为标题，写一段通俗解释。
+3. 【环境告知】：传入 df 已含 `MAIN_MA5`, `MAIN_MA20`, `SUB1_MACD_DIFF`, `SUB1_MACD_DEA`, `SUB1_MACD_HIST`。
+4. 【严禁重复】：严禁再生成新的 MACD 列！其他新指标（主图 MAIN_xxx，副图 SUB2_xxx）。
+5. 【终极骨架铁律】：你必须严格按照以下代码骨架输出，绝不允许修改函数名、参数或返回类型。你只能填写 buy_condition 和 sell_condition：
+{ticks}python
+def generate_signals(df):
+    # --- 请在此处计算你的自定义指标（可选） ---
 
-                sys_p = """你是一名严谨的量化专家。
-1.拒绝闲聊。
-2.【强制解析-核心】：输出代码前，必须独占一行写出“【策略白话解析】”为标题，写一段通俗解释。
-3.【环境告知】：传入 df 已含 `MAIN_MA5`, `MAIN_MA20`, `SUB1_MACD_DIFF`, `SUB1_MACD_DEA`, `SUB1_MACD_HIST`。
-4.【严禁重复】：严禁再生成新的 MACD 列！其他新指标（主图 MAIN_xxx，副图 SUB2_xxx）。
-5.代码含 def generate_signals(df): 并 return df。禁止 read_csv。
-6.【语法铁律】：'Signal' 只赋整数 1,-1,0；禁止 and/or，用 & | 加括号；列名首字大写 'Close'。"""
-                if enable_deep_think: sys_p += "\n7.你必须首先将逻辑写在 `<think>` 和 `</think>` 之间！之后再输出【策略白话解析】和代码。"
+    # /// 请在此处填写买卖逻辑，必须返回布尔型 Series ///
+    buy_condition = (df['MAIN_MA5'] > df['MAIN_MA20']) 
+    sell_condition = (df['MAIN_MA5'] < df['MAIN_MA20']) 
+    # /// 逻辑填写结束 ///
+
+    df['Signal'] = 0
+    df.loc[buy_condition, 'Signal'] = 1
+    df.loc[sell_condition, 'Signal'] = -1
+    return df
+{ticks}
+6. 【语法铁律】：禁止使用 and/or，必须使用 & | 加括号；列名首字大写 'Close'。"""
+                if enable_deep_think: sys_p += "\n7.你必须先将逻辑写在 `<think>` 标签内！之后再输出解析和代码。"
 
                 api_temperature = 0.3 if enable_deep_think else 0.7
+                messages_to_send = [{"role": "system", "content": sys_p}] + st.session_state.messages[:-1] + [
+                    {"role": "user", "content": full_prompt_for_ai}]
 
-                try:
-                    messages_to_send = [{"role": "system", "content": sys_p}] + st.session_state.messages[:-1] + [
-                        {"role": "user", "content": full_prompt_for_ai}]
-                    stream = client.chat.completions.create(model=selected_model, messages=messages_to_send,
-                                                            stream=True, temperature=api_temperature)
-                    full_resp = ""
-                    for chunk in stream:
-                        if chunk.choices[0].delta.content:
-                            delta = chunk.choices[0].delta.content
-                            full_resp += delta
-                            if enable_deep_think:
-                                if "<think>" in full_resp:
-                                    if "</think>" in full_resp:
-                                        parts = full_resp.split("</think>")
-                                        think_box.markdown(parts[0].replace("<think>", "").strip())
-                                        msg_box.markdown((parts[1].lstrip() + "▌") if parts[
-                                            1].lstrip() else "✨ 正在起草最终执行军令...")
+                max_retries = 2
+                last_error = ""
+
+                for attempt in range(max_retries + 1):
+                    if attempt > 0:
+                        st.warning(f"⚠️ 沙盒预检拦截了错误：`{last_error}`。Agent 启动第 {attempt} 次自愈重构...")
+                        fix_prompt = f"刚才生成的代码运行报错：`{last_error}`。\n请严格遵循骨架模板，检查 Pandas 语法（特别注意 & | 运算符及括号），不要道歉，只输出修复后的完整代码块。"
+                        messages_to_send.append({"role": "assistant", "content": full_resp})
+                        messages_to_send.append({"role": "user", "content": fix_prompt})
+
+                    if enable_deep_think:
+                        think_expander = st.expander(f"🧠 AI 脑内推演 (Attempt {attempt + 1})...", expanded=True)
+                        think_box = think_expander.empty()
+                    msg_box = st.empty()
+
+                    try:
+                        stream = client.chat.completions.create(model=selected_model, messages=messages_to_send,
+                                                                stream=True, temperature=api_temperature)
+                        full_resp = ""
+                        for chunk in stream:
+                            if chunk.choices[0].delta.content:
+                                delta = chunk.choices[0].delta.content
+                                full_resp += delta
+                                if enable_deep_think:
+                                    if "<think>" in full_resp:
+                                        if "</think>" in full_resp:
+                                            parts = full_resp.split("</think>")
+                                            think_box.markdown(parts[0].replace("<think>", "").strip())
+                                            msg_box.markdown(
+                                                (parts[1].lstrip() + "▌") if parts[1].lstrip() else "✨ 起草执行军令...")
+                                        else:
+                                            think_box.markdown(full_resp.replace("<think>", "").strip() + "▌")
+                                            msg_box.markdown("✨ 疯狂燃烧算力中...")
                                     else:
-                                        think_box.markdown(full_resp.replace("<think>", "").strip() + "▌")
-                                        msg_box.markdown("✨ 疯狂燃烧算力中...")
+                                        msg_box.markdown(full_resp + "▌")
                                 else:
                                     msg_box.markdown(full_resp + "▌")
-                            else:
-                                msg_box.markdown(full_resp + "▌")
 
-                    if enable_deep_think and "</think>" in full_resp:
-                        msg_box.markdown(full_resp.split("</think>")[1].strip())
-                    else:
-                        msg_box.markdown(full_resp.replace("<think>", "").replace("</think>", "").strip())
+                        if enable_deep_think and "</think>" in full_resp:
+                            msg_box.markdown(full_resp.split("</think>")[1].strip())
+                        else:
+                            msg_box.markdown(full_resp.replace("<think>", "").replace("</think>", "").strip())
 
-                    code_match = re.search(r"`{3}python\s*(.*?)\s*`{3}", full_resp, re.DOTALL)
-                    if code_match:
-                        st.session_state.generated_code = code_match.group(1).strip()
-                        exp_match = re.search(r"【策略白话解析】(.*?)(?=`{3}python|$)", full_resp,
-                                              re.DOTALL | re.IGNORECASE)
-                        st.session_state.strategy_explanation = exp_match.group(
-                            1).strip() if exp_match else "该策略无特定白话解析，请参考代码内部注释。"
-                        st.toast("✅ 军令推演完成，策略装填完毕！", icon="🚀")
-                    st.session_state.messages.append({"role": "assistant", "content": full_resp})
-                except Exception as e:
-                    st.error(f"通信链路断开: {e}")
+                        code_match = re.search(r"`{3}python\s*(.*?)\s*`{3}", full_resp, re.DOTALL)
+                        if code_match:
+                            extracted_code = code_match.group(1).strip()
+                            try:
+                                np.random.seed(int(time.time()))
+                                dummy_df = pd.DataFrame({
+                                    'trade_date': pd.date_range(start='20230101', periods=50),
+                                    'Open': np.random.rand(50) * 10 + 10,
+                                    'High': np.random.rand(50) * 12 + 10,
+                                    'Low': np.random.rand(50) * 8 + 10,
+                                    'Close': np.random.rand(50) * 10 + 10,
+                                    'Volume': np.random.randint(100, 1000, 50)
+                                })
+                                dummy_df = add_default_indicators(dummy_df)
+                                _ = execute_safely(extracted_code, dummy_df)
+
+                                st.session_state.generated_code = extracted_code
+                                exp_match = re.search(r"【策略白话解析】(.*?)(?=`{3}python|$)", full_resp,
+                                                      re.DOTALL | re.IGNORECASE)
+                                st.session_state.strategy_explanation = exp_match.group(
+                                    1).strip() if exp_match else "该策略无特定白话解析，请参考代码内部注释。"
+                                st.toast("✅ 军令推演与沙盒预检全部通过！", icon="🚀")
+                                break
+
+                            except Exception as e:
+                                last_error = str(e)
+                                if attempt == max_retries:
+                                    st.error(
+                                        f"❌ 经过 {max_retries} 次重构仍失败，最终报错: {last_error}。代码已强制输出，请人工检查。")
+                                    st.session_state.generated_code = extracted_code
+                        else:
+                            break
+
+                    except Exception as e:
+                        st.error(f"通信链路断开: {e}")
+                        break
+
+                st.session_state.messages.append({"role": "assistant", "content": full_resp})
         st.rerun()
 
-# ==========================================
-# 📈 页面 3: 深度静态全量回测
-# ==========================================
+# /// 📈 页面 3: 深度静态全量回测 ///
 elif page == "📈 深度静态全量回测":
     st.markdown('<div class="glass-card"><h3 style="color:white;">📊 历史回测全量审计与归因分析</h3></div>',
                 unsafe_allow_html=True)
@@ -642,9 +635,7 @@ elif page == "📈 深度静态全量回测":
             st.plotly_chart(render_smart_charts(df), use_container_width=True, config={'scrollZoom': True})
             st.markdown('</div>', unsafe_allow_html=True)
 
-# ==========================================
-# ⚡ 页面 4: 实时高频交易 (Live)
-# ==========================================
+# /// ⚡ 页面 4: 实时高频交易 (Live) ///
 elif page == "⚡ 实时高频交易 (Live)":
     st.markdown('<div class="glass-card"><h3 style="color:white;">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
                 unsafe_allow_html=True)
@@ -693,9 +684,7 @@ elif page == "⚡ 实时高频交易 (Live)":
                 time.sleep(freq)
         st.markdown('</div>', unsafe_allow_html=True)
 
-# ==========================================
-# 🧠 页面 5: 深度学习预测 (LSTM)
-# ==========================================
+# /// 🧠 页面 5: 深度学习预测 (LSTM) ///
 elif page == "🧠 深度学习预测 (LSTM)":
     st.markdown('<div class="glass-card"><h3 style="color:white;">🧠 深度神经网络时序建模中心 (LSTM)</h3></div>',
                 unsafe_allow_html=True)
@@ -764,9 +753,7 @@ elif page == "🧠 深度学习预测 (LSTM)":
             st.plotly_chart(fig, use_container_width=True, config={'scrollZoom': True})
             st.markdown('</div>', unsafe_allow_html=True)
 
-# ==========================================
-# 🛡️ 页面 6: 论文审计日志
-# ==========================================
+# /// 6. 论文审计日志 ///
 elif page == "🛡️ 论文审计日志":
     st.markdown('<div class="glass-card"><h3 style="color:white;">🛡️ 实验数据采集与多维审计中心</h3></div>',
                 unsafe_allow_html=True)
