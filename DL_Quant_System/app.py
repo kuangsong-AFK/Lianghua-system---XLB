@@ -11,6 +11,7 @@ import time
 from datetime import datetime
 from PIL import Image
 from openai import OpenAI
+import tushare as ts
 
 # 环境变量静默导入
 try:
@@ -27,9 +28,15 @@ st.set_page_config(page_title="小吕布量化 Pro - 毕设版", layout="wide", 
 
 KIMI_API_KEY = "sk-yS2foVgWtvnFMWKRTLnI6l8NFqFrRiB8ojre75g2mK2P8LBk"
 TUSHARE_TOKEN = "ba486af7606bc2f6018f1d592251a49674132225f59d37b3473d676e"
-import tushare as ts
-
 ts.set_token(TUSHARE_TOKEN)
+
+
+# 🔥 补天修复：加回丢失的 Tushare 接口初始化兵符 🔥
+@st.cache_resource
+def get_ts_pro():
+    return ts.pro_api()
+
+
 pro = get_ts_pro()
 client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=60.0)
 
@@ -66,7 +73,7 @@ prev_idx, curr_idx = PAGES.index(st.session_state.prev_page), PAGES.index(st.ses
 anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr_idx < prev_idx else "fogFadeIn")
 scroll_script = "window.parent.scrollTo({top: 0, behavior: 'instant'});" if st.session_state.just_switched else ""
 
-# 3. 唤醒量化前端装甲（在 quant_engine.py 中执行）
+# 3. 唤醒量化前端装甲（在 quant_engine.py 中执行，包含水豚噜噜）
 inject_frontend_core(anim_name, scroll_script)
 
 # ==========================================
