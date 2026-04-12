@@ -1,6 +1,3 @@
-import os
-import sys
-import subprocess
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
@@ -12,34 +9,23 @@ import tushare as ts
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime
+import os
 import uuid
 import math
 from PIL import Image
 
-
 # ==========================================
-# 🔥 0. 底层静默自愈装甲 (全自动环境配置) 🔥
+# 0. 环境优雅降级 (云端安全加载)
 # ==========================================
-# 遇到缺失库直接静默安装，绝不弹窗打扰主公！
-@st.cache_resource(show_spinner=False)
-def ensure_dependencies():
-    def install(package):
-        subprocess.check_call([sys.executable, "-m", "pip", "install", package, "--quiet"])
+try:
+    import PyPDF2
+except ImportError:
+    PyPDF2 = None
 
-    try:
-        import PyPDF2
-    except ImportError:
-        install('PyPDF2')
-    try:
-        import docx
-    except ImportError:
-        install('python-docx')
-
-
-ensure_dependencies()
-
-import PyPDF2
-import docx
+try:
+    import docx
+except ImportError:
+    docx = None
 
 # 物理级防呆补丁
 pd.np = np
@@ -63,7 +49,7 @@ def get_ts_pro(): return ts.pro_api()
 
 pro = get_ts_pro()
 
-client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=60.0)
+client = OpenAI(api_key=KIMI_API_KEY, base_url="[https://api.moonshot.cn/v1](https://api.moonshot.cn/v1)", timeout=60.0)
 
 if "user_id" not in st.session_state: st.session_state.user_id = f"User_{str(uuid.uuid4())[:6]}"
 if "messages" not in st.session_state: st.session_state.messages = []
@@ -137,7 +123,7 @@ components.html(f"""
                     fakeBtn.id = 'fake-attach-btn';
                     fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
 
-                    // 🔥 终极锁死法：top: 50% 结合 translateY(-50%)，确保永远绝对垂直居中！ 🔥
+                    // 强制垂直居中，免疫换行乱飘
                     fakeBtn.style.cssText = 'position: absolute !important; left: 16px !important; top: 50% !important; transform: translateY(-50%) !important; z-index: 9999 !important; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;';
 
                     fakeBtn.onclick = () => realPopoverBtn.click();
@@ -382,11 +368,11 @@ if selected_page == PAGES[0]:
             unsafe_allow_html=True)
         mermaid_str = "graph LR\nA[📊 1. 获取数据] -->|喂入| B(🧠 2. 模型预测)\nB -->|信号| C{📈 3. 全量回测}\nC -->|报告| D[🤖 4. AI 解读]"
         components.html(
-            f"""<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs'; mermaid.initialize({{ startOnLoad: true, theme: 'dark' }});</script><div class="mermaid" style="text-align:center;">{mermaid_str}</div>""",
+            f"""<script type="module">import mermaid from '[https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs](https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs)'; mermaid.initialize({{ startOnLoad: true, theme: 'dark' }});</script><div class="mermaid" style="text-align:center;">{mermaid_str}</div>""",
             height=350)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**内存池占用率**<br>🟢 4% (完全释放)<br><br>**答辩核心创新点：**<br>✅ 全模态文档自解析<br>✅ 依赖库静默注射装甲<br>✅ 物理锁死绝对中线布局</div>',
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 接管<br><br>**答辩核心创新点：**<br>✅ 全模态文档自解析<br>✅ 防穿模物理隔离带<br>✅ 全栈语义防截断</div>',
             unsafe_allow_html=True)
 
 elif selected_page == PAGES[1]:
@@ -422,7 +408,7 @@ elif selected_page == PAGES[1]:
                 fname_lower = file.name.lower()
                 if file.type.startswith('image/'):
                     st.image(Image.open(file), use_container_width=True)
-                    file_context_text += f"[用户上传了一张图片: {file.name}。提示：当前模型无法直接看图，请依赖其余文档数据。]\n"
+                    file_context_text += f"[用户上传了一张图片: {file.name}。]\n"
                 elif fname_lower.endswith('.csv'):
                     df_upload = pd.read_csv(file)
                     st.dataframe(df_upload.head(2))
@@ -432,21 +418,28 @@ elif selected_page == PAGES[1]:
                     st.success(f"📝 {file.name} 挂载成功")
                     file_context_text += f"【TXT 研报核心片段 {file.name}】:\n{content[:5000]}\n"
                 elif fname_lower.endswith('.pdf'):
-                    try:
-                        pdf_reader = PyPDF2.PdfReader(file)
-                        text = "".join([page.extract_text() for page in pdf_reader.pages[:10] if page.extract_text()])
-                        st.success(f"📄 PDF 研报 {file.name} 解析成功")
-                        file_context_text += f"【PDF 研报核心片段 {file.name}】:\n{text[:5000]}\n"
-                    except Exception as e:
-                        st.error(f"PDF 读取异常: {e}")
+                    if PyPDF2:
+                        try:
+                            pdf_reader = PyPDF2.PdfReader(file)
+                            text = "".join(
+                                [page.extract_text() for page in pdf_reader.pages[:10] if page.extract_text()])
+                            st.success(f"📄 PDF {file.name} 解析成功")
+                            file_context_text += f"【PDF 核心片段 {file.name}】:\n{text[:5000]}\n"
+                        except Exception as e:
+                            st.error(f"PDF 读取异常: {e}")
+                    else:
+                        st.info(f"💡 提示：检测到 PDF 文件，需在环境中配置 PyPDF2 以开启解析。")
                 elif fname_lower.endswith(('.doc', '.docx')):
-                    try:
-                        doc_obj = docx.Document(file)
-                        text = "\n".join([para.text for para in doc_obj.paragraphs])
-                        st.success(f"📘 Word 文档 {file.name} 解析成功")
-                        file_context_text += f"【Word 文档核心片段 {file.name}】:\n{text[:5000]}\n"
-                    except Exception as e:
-                        st.error(f"Word 读取异常: {e}")
+                    if docx:
+                        try:
+                            doc_obj = docx.Document(file)
+                            text = "\n".join([para.text for para in doc_obj.paragraphs])
+                            st.success(f"📘 Word {file.name} 解析成功")
+                            file_context_text += f"【Word 核心片段 {file.name}】:\n{text[:5000]}\n"
+                        except Exception as e:
+                            st.error(f"Word 读取异常: {e}")
+                    else:
+                        st.info(f"💡 提示：检测到 Word 文件，需在环境中配置 python-docx 以开启解析。")
 
     if raw_prompt := st.chat_input("向小吕布量化架构师发送军令..."):
         full_prompt_for_ai = f"以下是您需要重点参考的附件原始数据：\n{file_context_text}\n\n我的指令：{raw_prompt}" if file_context_text else raw_prompt
@@ -500,8 +493,10 @@ def generate_signals(df):
                         if code_match:
                             extracted_code = code_match.group(1).strip()
 
-                            resp_clean = re.sub(r"<think>.*?</think>", "", full_resp, flags=re.DOTALL)
-                            explanation = re.sub(r"`{3}python\s*.*?`{3}", "", resp_clean, flags=re.DOTALL).strip()
+                            # 🔥 终极修复：完美分离代码与人话 🔥
+                            resp_clean = re.sub(r"<think>.*?</think>", "", full_resp, flags=re.DOTALL)  # 1. 删思考过程
+                            explanation = re.sub(r"`{3}python\s*.*?\s*`{3}", "", resp_clean,
+                                                 flags=re.DOTALL).strip()  # 2. 彻底抹除代码块及其内部内容
                             explanation = explanation.replace("【策略白话解析】", "").replace("【策略白话解析】:",
                                                                                             "").replace(
                                 "【策略白话解析】：", "").strip()
@@ -576,7 +571,9 @@ elif selected_page == PAGES[2]:
                 f'<div class="metric-box"><p>夏普比率</p><h2 class="highlight-text">{m["sharpe"]:.2f}</h2></div>',
                 unsafe_allow_html=True)
 
-            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+            # 🔥 终极修复：强制清除浮动并预留充裕的安全物理空间，绝对防塌陷 🔥
+            st.markdown("<div style='clear: both; margin-bottom: 30px;'></div>", unsafe_allow_html=True)
+            st.write("")
 
             if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
                 with st.expander("💡 展开：AI 策略白话解析", expanded=False):
