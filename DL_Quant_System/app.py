@@ -65,7 +65,7 @@ if "bt_result" not in st.session_state: st.session_state.bt_result = None
 if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 if "is_live_trading" not in st.session_state: st.session_state.is_live_trading = False
 
-# /// 2. UI/UX 强化 (光暗双生引擎 + 悬浮舱 + 绝对死角封锁) ///
+# /// 2. UI/UX 强化 ///
 st.markdown("""
 <style>
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
@@ -81,25 +81,8 @@ st.markdown("""
     .sub-text { color: #cbd5e1 !important; }
     .danger-text { color: #ff4b4b !important; }
 
-    /* 🔥 暴力强制侧边栏满屏无死角：确保到底部！ */
-    [data-testid="stSidebar"] { 
-        top: 0 !important; 
-        bottom: 0 !important; 
-        height: 100vh !important; 
-        min-height: 100vh !important; 
-        background: rgba(5, 8, 14, 0.75) !important; 
-        backdrop-filter: blur(25px) !important; 
-        border-right: 1px solid rgba(255,255,255,0.08) !important; 
-        display: flex !important;
-        flex-direction: column !important;
-    }
-    /* 强行撑满侧边栏内的所有包装容器，剿灭左下角黑框 */
-    [data-testid="stSidebar"] > div, 
-    [data-testid="stSidebarUserContent"] {
-        height: 100% !important;
-        min-height: 100vh !important;
-        flex-grow: 1 !important;
-    }
+    [data-testid="stSidebar"] { top: 0 !important; bottom: 0 !important; height: 100vh !important; min-height: 100vh !important; background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; display: flex !important; flex-direction: column !important; }
+    [data-testid="stSidebar"] > div, [data-testid="stSidebarUserContent"] { height: 100% !important; min-height: 100vh !important; flex-grow: 1 !important; }
 
     div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; padding: 14px 18px !important; margin-bottom: 10px !important; border-radius: 12px !important; border-left: 4px solid transparent !important; }
     div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
@@ -126,10 +109,7 @@ st.markdown("""
     .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.06) !important; }
     .stApp[data-custom-theme='light'] .metric-box { background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; }
     .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.9) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }
-
-    /* 浅色满屏侧边栏 */
     .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.85) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
-
     .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.8) !important; border-left: 4px solid transparent !important; }
     .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
     .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.85) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08) !important; }
@@ -442,9 +422,10 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                                           type=['png', 'jpg', 'jpeg', 'csv', 'txt'], label_visibility="collapsed")
     st.markdown('</div>', unsafe_allow_html=True)
 
+    # 🔥 JS 黑魔法：彻底摒弃 appendChild，采用绝对坐标悬浮跟随，100% 避免白屏崩溃！
     components.html("""
     <script>
-        setInterval(() => {
+        const syncPopover = () => {
             const doc = window.parent.document;
             const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
             if(!chatInputOuter) return;
@@ -453,22 +434,26 @@ elif page == "🤖 AI 策略引擎 (LLM)":
             const popovers = Array.from(doc.querySelectorAll('div[data-testid="stPopover"]'));
             const attachPopover = popovers.find(p => p.textContent.includes('📎'));
 
-            if (innerPill && attachPopover && attachPopover.parentElement !== innerPill) {
-                innerPill.style.position = 'relative';
+            if (innerPill && attachPopover) {
+                // 获取内层输入框的真实坐标
+                const rect = innerPill.getBoundingClientRect();
 
+                // 将按钮设定为 Fixed，使其悬浮在输入框之上，完全脱离原始文档流
+                attachPopover.style.position = 'fixed';
+                attachPopover.style.left = (rect.left + 12) + 'px';
+                attachPopover.style.top = (rect.top + rect.height/2) + 'px';
+                attachPopover.style.transform = 'translateY(-50%)';
+                attachPopover.style.zIndex = '9999';
+                attachPopover.style.width = 'auto';
+                attachPopover.style.margin = '0';
+
+                // 给真正的输入框留出左侧空间防重叠
                 const baseweb = chatInputOuter.querySelector('[data-baseweb="textarea"]');
                 if(baseweb) {
                     baseweb.style.paddingLeft = '40px'; 
                 }
 
-                attachPopover.style.position = 'absolute';
-                attachPopover.style.left = '12px';
-                attachPopover.style.top = '50%';
-                attachPopover.style.transform = 'translateY(-50%)';
-                attachPopover.style.zIndex = '100';
-                attachPopover.style.width = 'auto';
-                attachPopover.style.marginBottom = '0';
-
+                // 美化按钮
                 const btn = attachPopover.querySelector('button');
                 if (btn) {
                     btn.style.background = 'transparent';
@@ -481,10 +466,10 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                     const svgs = btn.querySelectorAll('svg');
                     if (svgs.length > 0) svgs[svgs.length - 1].style.display = 'none';
                 }
-
-                innerPill.appendChild(attachPopover);
             }
-        }, 500);
+        };
+        // 高频同步坐标，适配窗口缩放
+        setInterval(syncPopover, 50);
     </script>
     """, height=0, width=0)
 
