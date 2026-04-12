@@ -1,3 +1,5 @@
+import os
+import sys
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
@@ -9,7 +11,6 @@ import tushare as ts
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from datetime import datetime
-import os
 import uuid
 import math
 from PIL import Image
@@ -49,7 +50,7 @@ def get_ts_pro(): return ts.pro_api()
 
 pro = get_ts_pro()
 
-client = OpenAI(api_key=KIMI_API_KEY, base_url="[https://api.moonshot.cn/v1](https://api.moonshot.cn/v1)", timeout=60.0)
+client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=60.0)
 
 if "user_id" not in st.session_state: st.session_state.user_id = f"User_{str(uuid.uuid4())[:6]}"
 if "messages" not in st.session_state: st.session_state.messages = []
@@ -113,9 +114,21 @@ components.html(f"""
             }}
 
             const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
-            if (chatInputOuter) {{
+
+            // 🔥 终极杀手锏：全域搜捕原生 popover 按钮，强行物理隐身，杜绝乱跑！ 🔥
+            const popovers = Array.from(doc.querySelectorAll('div[data-testid="stPopover"]'));
+            const realPopoverContainer = popovers.find(p => p.textContent && p.textContent.includes('📎'));
+
+            if (realPopoverContainer && !realPopoverContainer.style.position) {{
+                realPopoverContainer.style.setProperty('position', 'fixed', 'important');
+                realPopoverContainer.style.setProperty('top', '-9999px', 'important');
+                realPopoverContainer.style.setProperty('opacity', '0.01', 'important');
+                realPopoverContainer.style.setProperty('z-index', '-9999', 'important');
+            }}
+
+            if (chatInputOuter && realPopoverContainer) {{
                 const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.firstElementChild; 
-                const realPopoverBtn = doc.querySelector('.real-popover-wrapper button');
+                const realPopoverBtn = realPopoverContainer.querySelector('button');
 
                 if (innerPill && realPopoverBtn && !doc.getElementById('fake-attach-btn')) {{
                     innerPill.style.setProperty('position', 'relative', 'important');
@@ -123,7 +136,6 @@ components.html(f"""
                     fakeBtn.id = 'fake-attach-btn';
                     fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
 
-                    // 强制垂直居中，免疫换行乱飘
                     fakeBtn.style.cssText = 'position: absolute !important; left: 16px !important; top: 50% !important; transform: translateY(-50%) !important; z-index: 9999 !important; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;';
 
                     fakeBtn.onclick = () => realPopoverBtn.click();
@@ -159,7 +171,6 @@ st.markdown("""
     [data-testid="collapsedControl"], [data-testid="stToolbar"] { pointer-events: auto !important; opacity: 1 !important; visibility: visible !important; display: flex !important; transform: none !important;}
     .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
     [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
-    .real-popover-wrapper { opacity: 0.01 !important; height: 1px !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important; }
 
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
     .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
@@ -358,21 +369,26 @@ if selected_page == PAGES[0]:
     with c4:
         st.metric("AI 神经网络", "🟢 融合学习待命")
     st.markdown("---")
-    st.markdown(
-        '<div class="glass-card" style="padding:15px; margin-bottom:20px;"><b class="highlight-text">🎯 极简操作指南：</b><span class="sub-text" style="margin-left: 10px;">1. 回测界输入标的拉取数据 | 2. 策略引擎上传研报下令 | 3. 深度预测界面勾选多模型融合。</span></div>',
-        unsafe_allow_html=True)
+
+    # 🔥 核心重构：移除复杂的流程图，换成简介明了的平台文字介绍 🔥
     c_arch, c_point = st.columns([2, 1])
     with c_arch:
-        st.markdown(
-            '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom: 0px;">🧠 核心架构与操作流 (Data Flow Pipeline)</h3></div>',
-            unsafe_allow_html=True)
-        mermaid_str = "graph LR\nA[📊 1. 获取数据] -->|喂入| B(🧠 2. 模型预测)\nB -->|信号| C{📈 3. 全量回测}\nC -->|报告| D[🤖 4. AI 解读]"
-        components.html(
-            f"""<script type="module">import mermaid from '[https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs](https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs)'; mermaid.initialize({{ startOnLoad: true, theme: 'dark' }});</script><div class="mermaid" style="text-align:center;">{mermaid_str}</div>""",
-            height=350)
+        st.markdown("""
+        <div class="glass-card">
+            <h3 style="color:var(--text-color); margin-bottom: 15px;">🌟 平台简介 (Platform Intro)</h3>
+            <p style="color:var(--text-color); line-height: 1.8; font-size: 1.05rem;">
+                欢迎来到 <b>小吕布量化 Pro</b>，这是一个专为现代极客打造的智能投研终端。<br><br>
+                在这里，传统手写代码的繁琐已被彻底颠覆。您可以：<br>
+                • <b>📝 全模态投研</b>：上传 PDF/Word 研报或 CSV 矩阵，让大模型直接提取精髓。<br>
+                • <b>🤖 零代码写策略</b>：通过自然语言对话，Agent 将自动为您生成并修复交易代码。<br>
+                • <b>📈 穿越牛熊回测</b>：长达 10 年的全局历史回测，并附带 AI 胜率归因与白话解析。<br>
+                • <b>🧠 时序张量预测</b>：利用 LSTM/GRU 融合矩阵，自回归推演未来 5 天的价格轨迹。<br>
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 接管<br><br>**答辩核心创新点：**<br>✅ 全模态文档自解析<br>✅ 防穿模物理隔离带<br>✅ 全栈语义防截断</div>',
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**答辩核心创新点：**<br>✅ 全模态文档自解析<br>✅ 物理隔离重叠防线<br>✅ 全栈语义防截断</div>',
             unsafe_allow_html=True)
 
 elif selected_page == PAGES[1]:
@@ -393,12 +409,11 @@ elif selected_page == PAGES[1]:
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
 
-    st.markdown('<div class="real-popover-wrapper">', unsafe_allow_html=True)
+    # 真实的附件容器会由 JS 直接拦截隐藏，无需繁琐的 div 包裹
     with st.popover("📎", help="上传附件", use_container_width=False):
         uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
                                           type=['pdf', 'doc', 'docx', 'csv', 'txt', 'png', 'jpg', 'jpeg'],
                                           label_visibility="collapsed")
-    st.markdown('</div>', unsafe_allow_html=True)
 
     file_context_text = ""
     if 'uploaded_files' in locals() and uploaded_files:
@@ -428,7 +443,7 @@ elif selected_page == PAGES[1]:
                         except Exception as e:
                             st.error(f"PDF 读取异常: {e}")
                     else:
-                        st.info(f"💡 提示：检测到 PDF 文件，需在环境中配置 PyPDF2 以开启解析。")
+                        st.info(f"💡 提示：检测到 PDF 文件，请在 requirements.txt 中添加 PyPDF2。")
                 elif fname_lower.endswith(('.doc', '.docx')):
                     if docx:
                         try:
@@ -439,7 +454,7 @@ elif selected_page == PAGES[1]:
                         except Exception as e:
                             st.error(f"Word 读取异常: {e}")
                     else:
-                        st.info(f"💡 提示：检测到 Word 文件，需在环境中配置 python-docx 以开启解析。")
+                        st.info(f"💡 提示：检测到 Word 文件，请在 requirements.txt 中添加 python-docx。")
 
     if raw_prompt := st.chat_input("向小吕布量化架构师发送军令..."):
         full_prompt_for_ai = f"以下是您需要重点参考的附件原始数据：\n{file_context_text}\n\n我的指令：{raw_prompt}" if file_context_text else raw_prompt
@@ -451,8 +466,8 @@ elif selected_page == PAGES[1]:
             with st.chat_message("assistant"):
                 st.toast(f"🚀 连线底层算力集群: {selected_model}", icon="⚡")
                 ticks = "`" * 3
-                sys_p = f"""你是一名严谨的量化专家。拒绝闲聊。请根据用户提供的数据源或指令编写策略。
-必须严格遵循骨架：
+                sys_p = f"""你是一名严谨的量化专家。拒绝闲聊。请根据用户提供的数据源或指令编写策略。如果用户仅仅是想让你解读某本书或某段文字，你可以直接输出解读内容，无需强行生成代码。
+但如果是让你写策略，必须严格遵循骨架：
 {ticks}python
 def generate_signals(df):
     buy_condition = (df['MAIN_MA5'] > df['MAIN_MA20']) 
@@ -466,6 +481,10 @@ def generate_signals(df):
                     {"role": "user", "content": full_prompt_for_ai}]
                 max_retries, last_error, agent_logs = 2, "", []
 
+                # 🔥 致命漏洞修复：初始化 full_resp 防止断线时抛出 NameError 🔥
+                full_resp = ""
+                msg_box = st.empty()
+
                 for attempt in range(max_retries + 1):
                     if attempt > 0:
                         agent_logs.append(
@@ -473,12 +492,11 @@ def generate_signals(df):
                         messages_to_send.extend([{"role": "assistant", "content": full_resp}, {"role": "user",
                                                                                                "content": f"代码报错：`{last_error}`，请严格遵循模板修复。"}])
 
-                    msg_box = st.empty()
                     try:
                         stream = client.chat.completions.create(model=selected_model, messages=messages_to_send,
                                                                 stream=True,
                                                                 temperature=0.3 if enable_deep_think else 0.7)
-                        full_resp = ""
+                        full_resp = ""  # 成功连线后清空旧内容重新装填
                         for chunk in stream:
                             if chunk.choices[0].delta.content:
                                 full_resp += chunk.choices[0].delta.content
@@ -489,45 +507,48 @@ def generate_signals(df):
                             full_resp.replace("<think>", "🧠 深度思考过程：\n").replace("</think>", "\n---\n"),
                             unsafe_allow_html=True)
 
+                        # 解析是否包含代码
                         code_match = re.search(r"`{3}python\s*(.*?)\s*`{3}", full_resp, re.DOTALL)
-                        if code_match:
-                            extracted_code = code_match.group(1).strip()
 
-                            # 🔥 终极修复：完美分离代码与人话 🔥
-                            resp_clean = re.sub(r"<think>.*?</think>", "", full_resp, flags=re.DOTALL)  # 1. 删思考过程
-                            explanation = re.sub(r"`{3}python\s*.*?\s*`{3}", "", resp_clean,
-                                                 flags=re.DOTALL).strip()  # 2. 彻底抹除代码块及其内部内容
-                            explanation = explanation.replace("【策略白话解析】", "").replace("【策略白话解析】:",
-                                                                                            "").replace(
-                                "【策略白话解析】：", "").strip()
+                        # 🔥 无代码的纯粹人话提取防线 🔥
+                        resp_clean = re.sub(r"<think>.*?</think>", "", full_resp, flags=re.DOTALL)
+                        explanation = re.sub(r"`{3}python\s*.*?\s*`{3}", "", resp_clean, flags=re.DOTALL).strip()
+                        explanation = explanation.replace("【策略白话解析】", "").replace("【策略白话解析】:", "").replace(
+                            "【策略白话解析】：", "").strip()
 
-                            if explanation:
-                                st.session_state.strategy_explanation = explanation
-                            else:
-                                st.session_state.strategy_explanation = "该策略完全由硬核代码驱动，未返回额外人话分析。"
-
-                            try:
-                                dummy_df = pd.DataFrame({'trade_date': pd.date_range('20230101', periods=50),
-                                                         'Open': np.random.rand(50) * 10,
-                                                         'High': np.random.rand(50) * 12, 'Low': np.random.rand(50) * 8,
-                                                         'Close': np.random.rand(50) * 10})
-                                dummy_df = add_default_indicators(dummy_df)
-                                _ = execute_safely(extracted_code, dummy_df)
-                                st.session_state.generated_code = extracted_code
-                                agent_logs.append(
-                                    f'<div class="agent-status-node success">✅ <b>尝试 {attempt + 1}:</b> 代码通过沙盒预检 -> 策略已安全装载</div>')
-                                st.markdown("".join(agent_logs), unsafe_allow_html=True)
-                                break
-                            except Exception as e:
-                                last_error = str(e)
-                                if attempt == max_retries:
-                                    agent_logs.append(
-                                        f'<div class="agent-status-node error">❌ <b>最终结果:</b> 失败，最终报错: <code>{last_error}</code></div>')
-                                    st.markdown("".join(agent_logs), unsafe_allow_html=True)
+                        if explanation:
+                            st.session_state.strategy_explanation = explanation
                         else:
+                            st.session_state.strategy_explanation = "该策略完全由硬核代码驱动，未返回额外人话分析。"
+
+                        # 如果没有生成代码（比如用户只是让解读文档），直接跳出沙盒验证，视为成功！
+                        if not code_match:
                             break
+
+                        # 如果生成了代码，进入沙盒验证
+                        extracted_code = code_match.group(1).strip()
+                        try:
+                            dummy_df = pd.DataFrame(
+                                {'trade_date': pd.date_range('20230101', periods=50), 'Open': np.random.rand(50) * 10,
+                                 'High': np.random.rand(50) * 12, 'Low': np.random.rand(50) * 8,
+                                 'Close': np.random.rand(50) * 10})
+                            dummy_df = add_default_indicators(dummy_df)
+                            _ = execute_safely(extracted_code, dummy_df)
+                            st.session_state.generated_code = extracted_code
+                            agent_logs.append(
+                                f'<div class="agent-status-node success">✅ <b>尝试 {attempt + 1}:</b> 代码通过沙盒预检 -> 策略已安全装载</div>')
+                            st.markdown("".join(agent_logs), unsafe_allow_html=True)
+                            break
+                        except Exception as e:
+                            last_error = str(e)
+                            if attempt == max_retries:
+                                agent_logs.append(
+                                    f'<div class="agent-status-node error">❌ <b>最终结果:</b> 失败，最终报错: <code>{last_error}</code></div>')
+                                st.markdown("".join(agent_logs), unsafe_allow_html=True)
                     except Exception as e:
-                        st.error(f"链路断开: {e}"); break
+                        st.error(f"链路断开: {e}")
+                        full_resp += f"\n\n❌ [异常阻断: 通信失败或超载 - {e}]"
+                        break
 
                 if agent_logs: full_resp += "\n\n" + "".join(agent_logs)
                 st.session_state.messages.append({"role": "assistant", "content": full_resp})
@@ -571,9 +592,7 @@ elif selected_page == PAGES[2]:
                 f'<div class="metric-box"><p>夏普比率</p><h2 class="highlight-text">{m["sharpe"]:.2f}</h2></div>',
                 unsafe_allow_html=True)
 
-            # 🔥 终极修复：强制清除浮动并预留充裕的安全物理空间，绝对防塌陷 🔥
             st.markdown("<div style='clear: both; margin-bottom: 30px;'></div>", unsafe_allow_html=True)
-            st.write("")
 
             if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
                 with st.expander("💡 展开：AI 策略白话解析", expanded=False):
