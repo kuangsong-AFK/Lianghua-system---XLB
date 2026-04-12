@@ -84,6 +84,7 @@ if st.session_state.just_switched:
     components.html("""
     <script>
         window.parent.scrollTo({top: 0, behavior: 'instant'});
+        setTimeout(() => window.parent.scrollTo({top: 0, behavior: 'instant'}), 100);
     </script>
     """, height=0, width=0)
 
@@ -109,7 +110,16 @@ components.html("""
             }
         }
 
-        // 2. 🔥 终极附件按钮悬浮雷达 (彻底解决乱跑问题) 🔥
+        // 2. 🔥 强制顶栏(Header)霸体显形，对抗 Streamlit 自动隐藏机制 🔥
+        const header = doc.querySelector('header[data-testid="stHeader"]');
+        if (header) {
+            header.style.setProperty('transform', 'none', 'important');
+            header.style.setProperty('opacity', '1', 'important');
+            header.style.setProperty('visibility', 'visible', 'important');
+            header.style.setProperty('top', '0px', 'important');
+        }
+
+        // 3. 🔥 附件按钮悬浮雷达 (彻底解决乱跑问题) 🔥
         const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
         if (chatInputOuter) {
             const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.children[0]; 
@@ -119,16 +129,16 @@ components.html("""
             if (innerPill && attachPopover && attachPopover.parentElement !== innerPill) {
                 // 强行把输入框文字往右挤，给按钮留出安全区
                 const baseweb = innerPill.querySelector('[data-baseweb="textarea"]');
-                if(baseweb) { baseweb.style.paddingLeft = '45px'; }
+                if(baseweb) { baseweb.style.setProperty('padding-left', '45px', 'important'); }
 
                 // 获取精准物理坐标
                 const rect = innerPill.getBoundingClientRect();
-                const btnHeight = attachPopover.offsetHeight || 38;
+                const btnH = attachPopover.offsetHeight > 0 ? attachPopover.offsetHeight : 38;
 
-                // 精准数学计算，抛弃 transform，彻底避免手机端偏移
+                // 精准数学计算，完全脱离 transform 污染
                 attachPopover.style.position = 'fixed';
                 attachPopover.style.left = (rect.left + 15) + 'px';
-                attachPopover.style.top = (rect.top + (rect.height / 2) - (btnHeight / 2)) + 'px';
+                attachPopover.style.top = (rect.top + (rect.height / 2) - (btnH / 2)) + 'px';
                 attachPopover.style.bottom = 'auto';
                 attachPopover.style.transform = 'none';
                 attachPopover.style.zIndex = '999999';
@@ -151,7 +161,7 @@ components.html("""
             }
         }
     };
-    // 采用 20ms 高频刷新，无缝贴合输入框，绝不乱跑
+    // 采用 20ms 高频刷新，无缝贴合输入框与顶栏，绝不乱跑
     const loop = () => { runGlobalEngine(); setTimeout(() => requestAnimationFrame(loop), 20); };
     requestAnimationFrame(loop);
 </script>
@@ -163,22 +173,23 @@ st.markdown(f"""
     /* 背景流体动画 */
     @keyframes fluidFlow {{ 0% {{ background-position: 0% 50%; }} 25% {{ background-position: 50% 100%; }} 50% {{ background-position: 100% 50%; }} 75% {{ background-position: 50% 0%; }} 100% {{ background-position: 0% 50%; }} }}
 
-    @keyframes slideUpIn {{ 0% {{ opacity: 0; transform: translateY(50px); }} 100% {{ opacity: 1; transform: translateY(0); }} }}
-    @keyframes slideDownIn {{ 0% {{ opacity: 0; transform: translateY(-50px); }} 100% {{ opacity: 1; transform: translateY(0); }} }}
+    /* 🔥 摒弃 transform 动画，改用 margin 动画，保证 position: fixed 绝对精确 🔥 */
+    @keyframes slideUpIn {{ 0% {{ opacity: 0; margin-top: 30px; }} 100% {{ opacity: 1; margin-top: 0px; }} }}
+    @keyframes slideDownIn {{ 0% {{ opacity: 0; margin-top: -30px; }} 100% {{ opacity: 1; margin-top: 0px; }} }}
     @keyframes fadeIn {{ 0% {{ opacity: 0; }} 100% {{ opacity: 1; }} }}
 
     .block-container {{ 
-        animation: {anim_name} 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; 
+        animation: {anim_name} 0.45s ease-out forwards; 
         background: transparent !important; 
         padding-top: 4.5rem !important; /* 确保不被置顶 Header 挡住 */
         padding-bottom: 120px !important; 
     }}
 
-    /* 🔥🔥🔥 绝对封锁：保证顶部按钮(汉堡菜单、主题切换)永远显形且置顶 🔥🔥🔥 */
+    /* 🔥🔥🔥 绝对封锁：保证顶部按钮永远显形且置顶 🔥🔥🔥 */
     header[data-testid="stHeader"] {{ 
         position: fixed !important;
-        top: 0 !important; 
-        transform: translateY(0) !important; 
+        top: 0px !important; 
+        transform: translateY(0px) !important; 
         opacity: 1 !important;      
         visibility: visible !important; 
         z-index: 999999 !important; 
@@ -218,24 +229,30 @@ st.markdown(f"""
     .sub-text {{ color: #cbd5e1 !important; }}
     .danger-text {{ color: #ff4b4b !important; }}
 
-    /* 🔥🔥🔥 彻底填满侧边栏的缝隙，使用 100dvh (动态视口) 应对手机端 🔥🔥🔥 */
+    /* 🔥🔥🔥 彻底填满侧边栏的每一寸缝隙，暴力覆盖内联样式 🔥🔥🔥 */
     section[data-testid="stSidebar"] {{ 
-        top: 0 !important; 
-        bottom: 0 !important; 
-        height: 100dvh !important; 
-        min-height: 100dvh !important; 
+        position: fixed !important;
+        top: 0px !important; 
+        bottom: 0px !important; 
+        margin-top: 0px !important;
+        height: 100vh !important; 
+        min-height: 100vh !important; 
         background: rgba(5, 8, 14, 0.75) !important; 
         backdrop-filter: blur(25px) !important; 
         border-right: 1px solid rgba(255,255,255,0.08) !important; 
         display: flex !important; 
         flex-direction: column !important; 
+        z-index: 99999 !important;
     }}
-    /* 强行撑满内部，绝不留底边黑条 */
+    /* 强行撑满内部，绝不留底边黑条，也不留顶部空白 */
     section[data-testid="stSidebar"] > div {{ 
-        height: 100dvh !important; 
-        min-height: 100dvh !important; 
+        height: 100vh !important; 
+        min-height: 100vh !important; 
+        padding-top: 2rem !important; /* 给内部内容留呼吸空间，但不影响背景 */
         padding-bottom: 0 !important; 
     }}
+    /* 抹除 Nav 默认顶部 padding */
+    [data-testid="stSidebarNav"] {{ padding-top: 0 !important; }}
 
     div[role="radiogroup"] > label {{ background: rgba(15, 20, 30, 0.4) !important; padding: 14px 18px !important; margin-bottom: 10px !important; border-radius: 12px !important; border-left: 4px solid transparent !important; }}
     div[role="radiogroup"] > label:has(input:checked) {{ background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }}
@@ -271,7 +288,6 @@ st.markdown(f"""
     .stApp[data-custom-theme='light'] [data-testid="stPopoverBody"] {{ background-color: rgba(255, 255, 255, 0.98) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 10px 40px rgba(0,0,0,0.1) !important; }}
     .stApp[data-custom-theme='light'] .js-plotly-plot .g-gtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-xtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-ytitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .xtick text, .stApp[data-custom-theme='light'] .js-plotly-plot .ytick text, .stApp[data-custom-theme='light'] .js-plotly-plot .legendtext {{ fill: #1e293b !important; }}
 
-    /* Agent 战报节点 */
     .agent-status-node {{ padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; }}
     .agent-status-node.success {{ background: rgba(0, 255, 204, 0.1); border-left-color: #00ffcc; color: #00ffcc; }}
     .agent-status-node.error {{ background: rgba(255, 75, 75, 0.1); border-left-color: #ff4b4b; color: #ff4b4b; }}
