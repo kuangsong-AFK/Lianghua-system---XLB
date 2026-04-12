@@ -99,35 +99,34 @@ components.html(f"""
                 }}
             }}
 
-            // 🔥 终极修复：物理转移真实 📎 按钮至输入框 Flex 容器内，彻底免疫乱跑 🔥
+            // 🔥 绝杀修复：绝对坐标锚定法，强制钉死在输入框左下角同一水平线 🔥
             const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
-            const popovers = Array.from(doc.querySelectorAll('div[data-testid="stPopover"]'));
-            const attachPopover = popovers.find(p => p && p.textContent && p.textContent.includes('📎'));
+            if (chatInputOuter) {{
+                const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.firstElementChild; 
+                const realPopoverBtn = doc.querySelector('.real-popover-wrapper button');
 
-            if (chatInputOuter && attachPopover) {{
-                const chatContainer = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.firstElementChild;
-                if (chatContainer && attachPopover.parentElement !== chatContainer) {{
-                    // 开启弹性布局
-                    chatContainer.style.setProperty('display', 'flex', 'important');
-                    chatContainer.style.setProperty('align-items', 'center', 'important');
+                if (innerPill && realPopoverBtn && !doc.getElementById('fake-attach-btn')) {{
 
-                    // 将上传按钮强行插入到输入框内部最左侧
-                    chatContainer.insertBefore(attachPopover, chatContainer.firstChild);
+                    // 赋予输入舱相对坐标系，作为绝对定位的“地基”
+                    innerPill.style.setProperty('position', 'relative', 'important');
 
-                    // 剥离按钮的外壳样式，使其自然融入
-                    attachPopover.style.setProperty('position', 'static', 'important');
-                    attachPopover.style.setProperty('margin', '0 5px 0 15px', 'important');
-                    attachPopover.style.setProperty('width', 'auto', 'important');
+                    const fakeBtn = doc.createElement('div');
+                    fakeBtn.id = 'fake-attach-btn';
+                    fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
 
-                    const btn = attachPopover.querySelector('button');
-                    if (btn) {{
-                        btn.style.setProperty('background', 'transparent', 'important');
-                        btn.style.setProperty('border', 'none', 'important');
-                        btn.style.setProperty('padding', '0', 'important');
-                        btn.style.setProperty('color', '#8b9bb4', 'important');
-                        btn.style.setProperty('box-shadow', 'none', 'important');
-                        const svgs = btn.querySelectorAll('svg');
-                        if (svgs.length > 1) svgs[svgs.length - 1].style.display = 'none';
+                    // 绝对定位：左侧留白 16px，底部死死贴住 12px，与输入光标同一基准线！永不乱飘！
+                    fakeBtn.style.cssText = 'position: absolute !important; left: 16px !important; bottom: 12px !important; z-index: 9999 !important; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;';
+
+                    fakeBtn.onclick = () => realPopoverBtn.click();
+                    fakeBtn.onmouseover = () => {{ fakeBtn.style.opacity = '0.6'; }};
+                    fakeBtn.onmouseout = () => {{ fakeBtn.style.opacity = '1'; }};
+
+                    innerPill.appendChild(fakeBtn);
+
+                    // 强迫原生输入框内的文字向右避让 40px，防止文字与按钮重叠
+                    const textAreaWrap = innerPill.querySelector('[data-baseweb="textarea"]');
+                    if(textAreaWrap) {{
+                        textAreaWrap.style.setProperty('padding-left', '40px', 'important');
                     }}
                 }}
             }}
@@ -155,6 +154,7 @@ st.markdown("""
     [data-testid="collapsedControl"], [data-testid="stToolbar"] { pointer-events: auto !important; opacity: 1 !important; visibility: visible !important; display: flex !important; transform: none !important;}
     .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
     [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
+    .real-popover-wrapper { opacity: 0.01 !important; height: 1px !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important; }
 
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
     .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
@@ -367,7 +367,7 @@ if selected_page == PAGES[0]:
             height=350)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**内存池占用率**<br>🟢 4% (完全释放)<br><br>**答辩核心创新点：**<br>✅ AI 白盒透视解析<br>✅ MutationObserver 零消耗<br>✅ 自定义十载周期</div>',
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**内存池占用率**<br>🟢 4% (完全释放)<br><br>**答辩核心创新点：**<br>✅ 绝对坐标锚定布局<br>✅ 数据直连大模型<br>✅ 全域提取防截断</div>',
             unsafe_allow_html=True)
 
 elif selected_page == PAGES[1]:
@@ -388,25 +388,33 @@ elif selected_page == PAGES[1]:
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
 
-    # 绘制原生附件弹窗，JS会将其移入输入框内
+    st.markdown('<div class="real-popover-wrapper">', unsafe_allow_html=True)
     with st.popover("📎", help="上传附件", use_container_width=False):
         uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
                                           type=['png', 'jpg', 'jpeg', 'csv', 'txt'], label_visibility="collapsed")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    file_context = ""
+    # 🔥 真·多模态直通车：读取真实数据传递给 AI 🔥
+    file_context_text = ""
     if 'uploaded_files' in locals() and uploaded_files:
         cols = st.columns(3)
         for idx, file in enumerate(uploaded_files):
             with cols[idx % 3]:
                 if file.type.startswith('image/'):
-                    st.image(Image.open(file),
-                             use_container_width=True); file_context += f"[用户上传了图片: {file.name}]"
+                    st.image(Image.open(file), use_container_width=True)
+                    file_context_text += f"[用户上传了一张图片: {file.name}。提示：当前普通模型侧重数据与文本解析，若图片包含关键策略，请您在文字中简述。]\n"
                 elif file.type == 'text/csv':
-                    df_upload = pd.read_csv(file); st.dataframe(df_upload.head(
-                        2)); file_context += f"【CSV {file.name} 前两行】:\n{df_upload.head(2).to_string()}\n"
+                    df_upload = pd.read_csv(file)
+                    st.dataframe(df_upload.head(2))
+                    file_context_text += f"【CSV 数据源 {file.name} (前100行特征样本)】:\n{df_upload.head(100).to_string()}\n"
+                elif file.type == 'text/plain' or file.name.endswith('.txt'):
+                    content = file.getvalue().decode('utf-8', errors='replace')
+                    st.text(f"📝 研报 {file.name} 已挂载核心数据")
+                    file_context_text += f"【TXT 研报核心片段 {file.name}】:\n{content[:5000]}\n"
 
     if raw_prompt := st.chat_input("向小吕布量化架构师发送军令..."):
-        full_prompt_for_ai = f"以下是附件信息：\n{file_context}\n\n需求：{raw_prompt}" if file_context else raw_prompt
+        # 将真实读取的数据内容与用户 Prompt 拼接
+        full_prompt_for_ai = f"以下是您需要重点参考的附件原始数据：\n{file_context_text}\n\n我的指令：{raw_prompt}" if file_context_text else raw_prompt
         st.session_state.messages.append({"role": "user", "content": raw_prompt})
 
         with chat_container:
@@ -415,8 +423,8 @@ elif selected_page == PAGES[1]:
             with st.chat_message("assistant"):
                 st.toast(f"🚀 连线底层算力集群: {selected_model}", icon="⚡")
                 ticks = "`" * 3
-                sys_p = f"""你是一名严谨的量化专家。拒绝闲聊。
-必须严格遵循以下代码骨架：
+                sys_p = f"""你是一名严谨的量化专家。拒绝闲聊。请根据用户提供的数据源或指令编写策略。
+必须严格遵循骨架：
 {ticks}python
 def generate_signals(df):
     buy_condition = (df['MAIN_MA5'] > df['MAIN_MA20']) 
@@ -457,11 +465,10 @@ def generate_signals(df):
                         if code_match:
                             extracted_code = code_match.group(1).strip()
 
-                            # 🔥 终极修复：全域捕获网！不再死板匹配标题，抓取代码块外所有的“人话” 🔥
-                            resp_clean = re.sub(r"<think>.*?</think>", "", full_resp, flags=re.DOTALL)  # 剔除推演过程
+                            # 🔥 全域捕获网：暴力提取所有非代码的人话作为解析，杜绝漏抓 🔥
+                            resp_clean = re.sub(r"<think>.*?</think>", "", full_resp, flags=re.DOTALL)  # 剔除思考过程
                             explanation = re.sub(r"`{3}python\s*.*?`{3}", "", resp_clean,
                                                  flags=re.DOTALL).strip()  # 剔除代码块
-                            # 清理AI可能带上的冗余标题
                             explanation = explanation.replace("【策略白话解析】", "").replace("【策略白话解析】:",
                                                                                             "").replace(
                                 "【策略白话解析】：", "").strip()
@@ -469,7 +476,7 @@ def generate_signals(df):
                             if explanation:
                                 st.session_state.strategy_explanation = explanation
                             else:
-                                st.session_state.strategy_explanation = "该策略无特定白话解析，请参考代码内部注释。"
+                                st.session_state.strategy_explanation = "该策略完全由硬核代码驱动，未返回额外人话分析。"
 
                             try:
                                 dummy_df = pd.DataFrame({'trade_date': pd.date_range('20230101', periods=50),
