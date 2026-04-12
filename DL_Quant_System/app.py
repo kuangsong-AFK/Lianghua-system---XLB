@@ -73,11 +73,11 @@ prev_idx = PAGES.index(st.session_state.prev_page)
 curr_idx = PAGES.index(st.session_state.curr_page)
 
 if curr_idx > prev_idx:
-    anim_name = "slideUpIn"  # 往下点：新页面从下往上推入
+    anim_name = "slideUpIn"
 elif curr_idx < prev_idx:
-    anim_name = "slideDownIn"  # 往上点：新页面从上往下坠入
+    anim_name = "slideDownIn"
 else:
-    anim_name = "fadeIn"  # 首次加载或原点：单纯淡入
+    anim_name = "fadeIn"
 
 # 🔥 页面切换时，强行瞬间滚动到最顶端！
 if st.session_state.just_switched:
@@ -149,7 +149,7 @@ components.html("""
 </script>
 """, height=0, width=0)
 
-# /// 4. 终极 CSS 注入 (防隐藏锁死 Header + 物理惯性动画 + 去锚点) ///
+# /// 4. 终极 CSS 注入 (四大物理防线锁死 Header) ///
 st.markdown(f"""
 <style>
     /* 背景流体动画 */
@@ -162,16 +162,30 @@ st.markdown(f"""
     .block-container {{ 
         animation: {anim_name} 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; 
         background: transparent !important; 
-        padding-top: 3rem !important; 
+        padding-top: 4rem !important; /* 🔥 增加顶部距离，防止被绝对固定的 Header 挡住 */
         padding-bottom: 120px !important; 
     }}
 
-    /* 🔥 永远锁定 Header 不被滚动隐藏，恢复点击权限！ 🔥 */
+    /* 🔥🔥🔥 四大物理防线：绝对锁死顶栏，杜绝消失、隐藏、滑动、变透明 🔥🔥🔥 */
     header[data-testid="stHeader"] {{ 
-        background: transparent !important; 
-        transform: translateY(0) !important; /* 彻底击杀向下滚动时的隐藏机制 */
-        transition: none !important;
-        z-index: 99999 !important; 
+        position: fixed !important;
+        top: 0 !important; 
+        transform: none !important; /* 彻底击杀下拉隐藏时的 translateY */
+        opacity: 1 !important;      /* 强制不透明 */
+        visibility: visible !important; /* 强制显示 */
+        z-index: 999999 !important; 
+        background: transparent !important;
+        pointer-events: auto !important; /* 恢复点击事件 */
+    }}
+
+    /* 强制保护右上角工具栏和左上角侧边栏按钮，不许隐身 */
+    [data-testid="stToolbar"], 
+    header[data-testid="stHeader"] button, 
+    header[data-testid="stHeader"] [data-testid="stIcon"] {{
+        opacity: 1 !important;
+        visibility: visible !important;
+        transform: none !important;
+        display: inline-flex !important;
     }}
 
     /* 彻底剿灭 Streamlit 标题旁边的锚点链接防误触滚动 */
