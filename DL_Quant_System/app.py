@@ -16,7 +16,7 @@ import math
 from PIL import Image
 
 # ==========================================
-# 0. 环境优雅降级 (云端安全加载)
+# 0. 环境优雅降级 (完全静默，绝不弹窗)
 # ==========================================
 try:
     import PyPDF2
@@ -88,7 +88,7 @@ prev_idx, curr_idx = PAGES.index(st.session_state.prev_page), PAGES.index(st.ses
 anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr_idx < prev_idx else "fogFadeIn")
 
 # ==========================================
-# 3. 宗师级 JS 引擎：零损耗 MutationObserver
+# 3. 宗师级 JS 引擎：零损耗 + 水豚噜噜虚拟宠物
 # ==========================================
 scroll_script = "window.parent.scrollTo({top: 0, behavior: 'instant'});" if st.session_state.just_switched else ""
 
@@ -114,8 +114,6 @@ components.html(f"""
             }}
 
             const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
-
-            // 🔥 绝杀修复：直接抓取已被 CSS 全局隐身的 file_uploader 的 input 原件 🔥
             const fileInput = doc.querySelector('div[data-testid="stFileUploader"] input[type="file"]');
 
             if (chatInputOuter && fileInput) {{
@@ -137,6 +135,75 @@ components.html(f"""
                     const textAreaWrap = innerPill.querySelector('[data-baseweb="textarea"]');
                     if(textAreaWrap) textAreaWrap.style.setProperty('padding-left', '40px', 'important');
                 }}
+            }}
+
+            // 🔥 注入悬浮水豚宠物：噜噜 🔥
+            if (!doc.getElementById('lulu-pet-container')) {{
+                const luluBox = doc.createElement('div');
+                luluBox.id = 'lulu-pet-container';
+                luluBox.style.cssText = `
+                    position: fixed; bottom: 80px; right: 40px; z-index: 999999;
+                    cursor: grab; user-select: none; display: flex; flex-direction: column;
+                    align-items: center; transition: transform 0.1s ease;
+                `;
+
+                luluBox.innerHTML = `
+                    <div id="lulu-bubble" style="
+                        opacity: 0; background: rgba(20, 28, 45, 0.9); border: 1px solid #00ffcc;
+                        color: #e2e8f0; padding: 8px 12px; border-radius: 12px; font-size: 13px;
+                        margin-bottom: 10px; white-space: nowrap; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+                        transition: opacity 0.3s ease; pointer-events: none;
+                    ">主公，噜噜在呢~ 🦦</div>
+
+                    <div id="lulu-body" style="
+                        width: 60px; height: 60px; background: #8B5A2B; border-radius: 40% 40% 30% 30%;
+                        position: relative; box-shadow: inset -5px -5px 10px rgba(0,0,0,0.3), 0 10px 20px rgba(0,0,0,0.4);
+                    ">
+                        <div style="position:absolute; width:6px; height:6px; background:#000; border-radius:50%; top:20px; left:15px;"></div>
+                        <div style="position:absolute; width:6px; height:6px; background:#000; border-radius:50%; top:20px; right:15px;"></div>
+                        <div style="position:absolute; width:12px; height:8px; background:#3d2314; border-radius:50%; top:28px; left:24px;"></div>
+                        <div style="position:absolute; width:20px; height:15px; background:#ff8c00; border-radius:50%; top:-8px; left:20px; box-shadow:inset -2px -2px 5px rgba(0,0,0,0.2);"></div>
+                    </div>
+                `;
+                doc.body.appendChild(luluBox);
+
+                let isDragging = false, isClick = true;
+                let startX, startY, initLeft, initTop;
+
+                luluBox.addEventListener('mousedown', (e) => {{
+                    isDragging = true; isClick = true;
+                    startX = e.clientX; startY = e.clientY;
+                    const rect = luluBox.getBoundingClientRect();
+                    initLeft = rect.left; initTop = rect.top;
+
+                    luluBox.style.bottom = 'auto'; luluBox.style.right = 'auto';
+                    luluBox.style.left = initLeft + 'px'; luluBox.style.top = initTop + 'px';
+                    luluBox.style.cursor = 'grabbing';
+                    luluBox.style.transform = 'scale(1.1) rotate(-5deg)';
+                }});
+
+                doc.addEventListener('mousemove', (e) => {{
+                    if (!isDragging) return;
+                    const dx = e.clientX - startX; const dy = e.clientY - startY;
+                    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) isClick = false; 
+                    luluBox.style.left = (initLeft + dx) + 'px';
+                    luluBox.style.top = (initTop + dy) + 'px';
+                }});
+
+                doc.addEventListener('mouseup', () => {{
+                    if (!isDragging) return;
+                    isDragging = false;
+                    luluBox.style.cursor = 'grab';
+                    luluBox.style.transform = 'scale(1) rotate(0deg)';
+
+                    if (isClick) {{
+                        const bubble = doc.getElementById('lulu-bubble');
+                        const dialogues = ["主公，今天量化赚钱了吗？🦦", "均线金叉了！冲冲冲！🚀", "噜噜看不懂代码，但噜噜陪着主公~❤️", "不要满仓！注意回撤呀主公！🛡️", "好困...想吃橘子...🍊", "正在调用 Kimi 脑细胞...🧠"];
+                        bubble.innerText = dialogues[Math.floor(Math.random() * dialogues.length)];
+                        bubble.style.opacity = '1';
+                        setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
+                    }}
+                }});
             }}
             isUpdating = false;
         }});
@@ -163,7 +230,7 @@ st.markdown("""
     .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
     [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
 
-    /* 🔥 终极神迹：利用 CSS 属性选择器，将原生的上传框瞬间流放至虚空！绝对不可见！ 🔥 */
+    /* 🔥 全局隐身原生上传框 🔥 */
     div[data-testid="stFileUploader"] { position: absolute !important; top: -9999px !important; left: -9999px !important; opacity: 0.01 !important; z-index: -9999 !important; height: 1px !important; width: 1px !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important; pointer-events: none !important; }
 
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
@@ -379,7 +446,7 @@ if selected_page == PAGES[0]:
         """, unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**答辩核心创新点：**<br>✅ 原生一键直连上传<br>✅ 变量作用域防塌陷<br>✅ 全栈语义防截断</div>',
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 静默降级护盾运行中<br><br>**答辩核心创新点：**<br>✅ 原生一键直连上传<br>✅ 水豚噜噜虚拟宠物<br>✅ 全栈代码级防崩溃</div>',
             unsafe_allow_html=True)
 
 elif selected_page == PAGES[1]:
@@ -400,7 +467,7 @@ elif selected_page == PAGES[1]:
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
 
-    # 🔥 真正核心：上传框已被 CSS 全局隐身至 -9999px，绝不会暴露在页面上 🔥
+    # 真实的附件容器被 CSS 全局隐藏至 -9999px
     uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
                                       type=['pdf', 'doc', 'docx', 'csv', 'txt', 'png', 'jpg', 'jpeg'],
                                       label_visibility="collapsed")
@@ -433,7 +500,7 @@ elif selected_page == PAGES[1]:
                         except Exception as e:
                             st.error(f"PDF 读取异常: {e}")
                     else:
-                        st.info(f"💡 提示：检测到 PDF 文件，请在 requirements.txt 中添加 PyPDF2。")
+                        file_context_text += f"[系统缺少 PyPDF2 库，物理静默跳过 {file.name} 的读取]\n"
                 elif fname_lower.endswith(('.doc', '.docx')):
                     if docx:
                         try:
@@ -444,7 +511,7 @@ elif selected_page == PAGES[1]:
                         except Exception as e:
                             st.error(f"Word 读取异常: {e}")
                     else:
-                        st.info(f"💡 提示：检测到 Word 文件，请在 requirements.txt 中添加 python-docx。")
+                        file_context_text += f"[系统缺少 python-docx 库，物理静默跳过 {file.name} 的读取]\n"
 
     if raw_prompt := st.chat_input("向小吕布量化架构师发送军令..."):
         full_prompt_for_ai = f"以下是您需要重点参考的附件原始数据：\n{file_context_text}\n\n我的指令：{raw_prompt}" if file_context_text else raw_prompt
@@ -472,7 +539,6 @@ def generate_signals(df):
                 max_retries, agent_logs = 2, []
                 last_error = ""
 
-                # 🔥 致命漏洞修复：绝对全局作用域声明，死防断网报错 🔥
                 full_resp = ""
                 msg_box = st.empty()
 
@@ -828,143 +894,5 @@ elif selected_page == PAGES[5]:
             "user_logs/global_master_log.csv").to_csv(index=False).encode('utf-8'), file_name='Audit_Logs.csv',
                                                                                  type="primary")
     with c2:
-        st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350）
-
-        # ==========================================
-        # 🌟 终极彩蛋：水豚噜噜 (全域悬浮虚拟宠物) 🌟
-        # ==========================================
-        components.html("""
-        <script>
-            const runPetEngine = () => {
-                const doc = window.parent.document;
-
-                // 防止重复注入
-                if (doc.getElementById('lulu-pet-container')) return;
-
-                // 1. 创建噜噜的物理容器
-                const luluBox = doc.createElement('div');
-                luluBox.id = 'lulu-pet-container';
-
-                // 赋予全域最高层级的 CSS 属性
-                luluBox.style.cssText = `
-                    position: fixed;
-                    bottom: 50px;
-                    right: 50px;
-                    z-index: 999999;
-                    cursor: grab;
-                    user-select: none;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    transition: transform 0.1s ease;
-                `;
-
-                // 2. 注入噜噜的本体 (SVG 水豚) 与 气泡
-                luluBox.innerHTML = `
-                    <div id="lulu-bubble" style="
-                        opacity: 0;
-                        background: rgba(20, 28, 45, 0.9);
-                        border: 1px solid #00ffcc;
-                        color: #e2e8f0;
-                        padding: 8px 12px;
-                        border-radius: 12px;
-                        font-size: 13px;
-                        margin-bottom: 10px;
-                        white-space: nowrap;
-                        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-                        transition: opacity 0.3s ease;
-                        pointer-events: none;
-                    ">
-                        主公，噜噜在呢~ 🦦
-                    </div>
-
-                    <div id="lulu-body" style="
-                        width: 60px;
-                        height: 60px;
-                        background: #8B5A2B;
-                        border-radius: 40% 40% 30% 30%;
-                        position: relative;
-                        box-shadow: inset -5px -5px 10px rgba(0,0,0,0.3), 0 10px 20px rgba(0,0,0,0.4);
-                    ">
-                        <div style="position:absolute; width:6px; height:6px; background:#000; border-radius:50%; top:20px; left:15px;"></div>
-                        <div style="position:absolute; width:6px; height:6px; background:#000; border-radius:50%; top:20px; right:15px;"></div>
-                        <div style="position:absolute; width:12px; height:8px; background:#3d2314; border-radius:50%; top:28px; left:24px;"></div>
-                        <div style="position:absolute; width:20px; height:15px; background:#ff8c00; border-radius:50%; top:-8px; left:20px; box-shadow:inset -2px -2px 5px rgba(0,0,0,0.2);"></div>
-                    </div>
-                `;
-
-                doc.body.appendChild(luluBox);
-
-                // 3. 物理拖拽引擎
-                let isDragging = false;
-                let startX, startY, initialLeft, initialTop;
-                let isClick = true; // 用于区分是“拖拽”还是“点击”
-
-                luluBox.addEventListener('mousedown', (e) => {
-                    isDragging = true;
-                    isClick = true;
-                    startX = e.clientX;
-                    startY = e.clientY;
-
-                    // 获取当前坐标
-                    const rect = luluBox.getBoundingClientRect();
-                    initialLeft = rect.left;
-                    initialTop = rect.top;
-
-                    // 切换为绝对定位以跟随鼠标
-                    luluBox.style.bottom = 'auto';
-                    luluBox.style.right = 'auto';
-                    luluBox.style.left = initialLeft + 'px';
-                    luluBox.style.top = initialTop + 'px';
-                    luluBox.style.cursor = 'grabbing';
-                    luluBox.style.transform = 'scale(1.1) rotate(-5deg)'; // 抓起时的可爱动效
-                });
-
-                doc.addEventListener('mousemove', (e) => {
-                    if (!isDragging) return;
-
-                    const dx = e.clientX - startX;
-                    const dy = e.clientY - startY;
-
-                    // 如果移动距离超过 5 像素，判定为拖拽而非点击
-                    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
-                        isClick = false; 
-                    }
-
-                    luluBox.style.left = (initialLeft + dx) + 'px';
-                    luluBox.style.top = (initialTop + dy) + 'px';
-                });
-
-                doc.addEventListener('mouseup', () => {
-                    if (!isDragging) return;
-                    isDragging = false;
-                    luluBox.style.cursor = 'grab';
-                    luluBox.style.transform = 'scale(1) rotate(0deg)'; // 放下恢复
-
-                    // 4. 交互状态机：如果是点击，则触发对话
-                    if (isClick) {
-                        const bubble = doc.getElementById('lulu-bubble');
-                        const dialogues = [
-                            "主公，今天量化赚钱了吗？🦦",
-                            "均线金叉了！冲冲冲！🚀",
-                            "噜噜看不懂代码，但噜噜陪着主公~❤️",
-                            "不要满仓！注意回撤呀主公！🛡️",
-                            "好困...想吃橘子...🍊",
-                            "正在调用 Kimi 脑细胞...🧠"
-                        ];
-                        // 随机抽取一句台词
-                        bubble.innerText = dialogues[Math.floor(Math.random() * dialogues.length)];
-
-                        // 显示气泡，3秒后消失
-                        bubble.style.opacity = '1';
-                        setTimeout(() => {
-                            bubble.style.opacity = '0';
-                        }, 3000);
-                    }
-                });
-            };
-
-            // 延时加载，确保 DOM 已完全准备好
-            setTimeout(runPetEngine, 1000);
-        </script>
-        """, height=0, width=0)
+        # 🔥 完美补全漏掉的右括号，彻底消灭 SyntaxError 🔥
+        st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
