@@ -41,7 +41,7 @@ if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 if "is_live_trading" not in st.session_state: st.session_state.is_live_trading = False
 
 # ==========================================
-# 2. 全局涡轮 JS 引擎 (修复定位漂移，精确定位)
+# 2. 全局涡轮 JS 引擎 (原生 Flexbox 替身注入法)
 # ==========================================
 components.html("""
 <script>
@@ -62,70 +62,57 @@ components.html("""
             }
         }
 
-        // 2. 🔥 修正悬浮雷达：精准附着在输入胶囊(innerPill)内部 🔥
+        // 2. 🔥 Flexbox 替身法：安全无损将 📎 嵌入聊天框，彻底杜绝坐标乱跑！ 🔥
         const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
         if (chatInputOuter) {
-            // 获取发光的胶囊本体
-            const innerPill = chatInputOuter.children[0];
-            const popovers = Array.from(doc.querySelectorAll('div[data-testid="stPopover"]'));
-            const attachPopover = popovers.find(p => p && p.textContent && p.textContent.includes('📎'));
+            // 获取原生的发光输入舱容器
+            const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.children[0]; 
+            // 获取被我们用 CSS 隐藏在底层的真实上传按钮
+            const realPopoverBtn = doc.querySelector('.real-popover-wrapper button');
 
-            if (innerPill && attachPopover && attachPopover.parentElement !== innerPill) {
-                // 将光标坐标系死死锁在胶囊本体上
-                innerPill.style.setProperty('position', 'relative', 'important');
+            // 如果真实按钮存在，且咱们的“假替身”还没被插进去，就执行插入
+            if (innerPill && realPopoverBtn && !doc.getElementById('fake-attach-btn')) {
 
-                // 将按钮设为绝对定位，靠左居中
-                attachPopover.style.setProperty('position', 'absolute', 'important');
-                attachPopover.style.setProperty('left', '16px', 'important');
-                attachPopover.style.setProperty('top', '50%', 'important');
-                attachPopover.style.setProperty('transform', 'translateY(-50%)', 'important');
-                attachPopover.style.setProperty('z-index', '9999', 'important');
-                attachPopover.style.setProperty('margin', '0', 'important');
+                // 创建原生替身按钮
+                const fakeBtn = doc.createElement('div');
+                fakeBtn.id = 'fake-attach-btn';
+                // 绘制极简的 📎 图标
+                fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
 
-                // 剥离原生按钮的丑陋底色和箭头
-                const btn = attachPopover.querySelector('button');
-                if (btn) {
-                    btn.style.setProperty('background', 'transparent', 'important');
-                    btn.style.setProperty('border', 'none', 'important');
-                    btn.style.setProperty('box-shadow', 'none', 'important');
-                    btn.style.setProperty('color', '#8b9bb4', 'important');
-                    btn.style.setProperty('padding', '0', 'important');
-                    const svgs = btn.querySelectorAll('svg');
-                    if (svgs.length > 1) svgs[svgs.length - 1].style.display = 'none'; 
-                }
+                // 利用原生 Flex 布局，让它自然排列，绝不使用绝对坐标！
+                fakeBtn.style.cssText = 'display: flex; align-items: center; justify-content: center; margin-right: 10px; margin-left: 5px; height: 100%;';
 
-                // 将按钮正式移入发光胶囊中
-                innerPill.appendChild(attachPopover);
+                // 点击替身，暗中触发真实的上传菜单
+                fakeBtn.onclick = () => realPopoverBtn.click();
+                fakeBtn.onmouseover = () => { fakeBtn.style.opacity = '0.6'; };
+                fakeBtn.onmouseout = () => { fakeBtn.style.opacity = '1'; };
 
-                // 强迫输入框文本向右避让 45px，绝不重叠
+                // 物理插入到文本框容器的最前面
+                innerPill.insertBefore(fakeBtn, innerPill.firstChild);
+
+                // 微调真实文本框的自带边距，使其自然融合
                 const textArea = innerPill.querySelector('[data-baseweb="textarea"]');
-                if (textArea) {
-                    textArea.style.setProperty('padding-left', '45px', 'important');
-                }
+                if(textArea) { textArea.style.setProperty('padding-left', '5px', 'important'); }
             }
         }
     };
-    setInterval(runGlobalEngine, 100);
+    const loop = () => { runGlobalEngine(); setTimeout(() => requestAnimationFrame(loop), 50); };
+    requestAnimationFrame(loop);
 </script>
 """, height=0, width=0)
 
 # ==========================================
-# 3. 核心 CSS 样式表 (包含全新的冰晶流银特效)
+# 3. 核心 CSS 样式表 (极简恢复原生布局)
 # ==========================================
 st.markdown("""
 <style>
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
     @keyframes fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
 
-    .block-container { 
-        animation: fadeIn 0.45s ease-out forwards; 
-        background: transparent !important; 
-        padding-top: 4.5rem !important; 
-        padding-bottom: 120px !important; 
-    }
+    .block-container { animation: fadeIn 0.45s ease-out forwards; background: transparent !important; padding-top: 4.5rem !important; padding-bottom: 120px !important; }
 
-    /* 永远置顶顶栏，保留汉堡菜单 */
-    header[data-testid="stHeader"] { position: fixed !important; top: 0px !important; transform: none !important; opacity: 1 !important; visibility: visible !important; background: transparent !important; }
+    /* 永远置顶顶栏，解除 Streamlit 下拉隐藏机制 */
+    header[data-testid="stHeader"] { position: fixed !important; top: 0px !important; transform: translateY(0px) !important; opacity: 1 !important; visibility: visible !important; background: transparent !important; pointer-events: none !important; }
     [data-testid="collapsedControl"], [data-testid="stToolbar"] { pointer-events: auto !important; opacity: 1 !important; visibility: visible !important; display: flex !important; transform: none !important;}
 
     /* 去除恼人的锚点链接 */
@@ -133,7 +120,8 @@ st.markdown("""
 
     [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
 
-    .tool-bar-container { display: none !important; } /* 隐藏真实的附件按钮外壳容器 */
+    /* 🔥 隐藏真实的附件按钮容器，让 JS 替身发光发热 🔥 */
+    .real-popover-wrapper { position: fixed !important; bottom: 80px !important; left: 20px !important; opacity: 0 !important; z-index: -9999 !important; pointer-events: none !important; }
 
     /* ---------------- 基础深色核心设定 ---------------- */
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
@@ -142,13 +130,13 @@ st.markdown("""
     .sub-text { color: #cbd5e1 !important; }
     .danger-text { color: #ff4b4b !important; }
 
-    /* 侧边栏推挤特效 */
+    /* 🔥 撤销所有破坏性 CSS，恢复侧边栏原生“推挤主页”功能，仅美化背景 🔥 */
     [data-testid="stSidebar"] { 
         background: rgba(5, 8, 14, 0.75) !important; 
         backdrop-filter: blur(25px) !important; 
         border-right: 1px solid rgba(255,255,255,0.08) !important; 
-        min-height: 100vh !important; 
     }
+    [data-testid="stSidebar"] > div:first-child { background: transparent !important; }
 
     div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important;}
     div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
@@ -157,20 +145,20 @@ st.markdown("""
     .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; }
     [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); }
 
-    /* 聊天胶囊 */
+    /* 发光聊天胶囊 */
     [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
-    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; }
+    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; display: flex !important; align-items: center !important; }
     [data-testid="stChatInput"] [data-baseweb="textarea"], [data-testid="stChatInput"] [data-baseweb="textarea"] > div { background-color: transparent !important; border: none !important; box-shadow: none !important; outline: none !important; }
     [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }
     [data-testid="stChatInputSubmitButton"] { background-color: #3b82f6 !important; border-radius: 50% !important; transition: all 0.3s ease; }
     [data-testid="stPopoverBody"] { background-color: rgba(25, 33, 48, 0.95) !important; border: 1px solid rgba(0, 255, 204, 0.4) !important; border-radius: 16px !important; backdrop-filter: blur(25px) !important; padding: 15px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important; margin-bottom: 10px !important; }
 
-    /* ---------------- 浅色主题：冰晶流银特效强力覆盖 ---------------- */
-    /* 加入了 c7d2fe(浅紫蓝) 和 93c5fd(冰蓝)，提升缩放率，加快动画流速，效果拔群 */
+    /* ---------------- 浅色主题：冰晶流光特效强力覆盖 ---------------- */
+    /* 🔥 强化了白与浅蓝紫的对比度，加速流动，肉眼可见的高级动态感 🔥 */
     .stApp[data-custom-theme='light'] { 
-        background-image: linear-gradient(132deg, #ffffff, #e2e8f0, #c7d2fe, #f8fafc, #93c5fd, #f1f5f9, #ffffff) !important; 
+        background-image: linear-gradient(132deg, #ffffff, #dbeafe, #e0e7ff, #f3e8ff, #ffffff) !important; 
         background-size: 400% 400% !important; 
-        animation: fluidFlow 12s ease-in-out infinite !important; 
+        animation: fluidFlow 10s ease infinite !important; 
     }
     .stApp[data-custom-theme='light'] .stMarkdown, .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] h4, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div { color: #1e293b !important; }
     .stApp[data-custom-theme='light'] .highlight-text { color: #0284c7 !important; }
@@ -186,7 +174,10 @@ st.markdown("""
     .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea { color: #1e293b !important; }
     .stApp[data-custom-theme='light'] [data-testid="stPopoverBody"] { background-color: rgba(255, 255, 255, 0.98) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 10px 40px rgba(0,0,0,0.1) !important; }
     .stApp[data-custom-theme='light'] .js-plotly-plot .g-gtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-xtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-ytitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .xtick text, .stApp[data-custom-theme='light'] .js-plotly-plot .ytick text, .stApp[data-custom-theme='light'] .js-plotly-plot .legendtext { fill: #1e293b !important; }
+
+    /* 强行接管顶部图标颜色 */
     .stApp[data-custom-theme='light'] [data-testid="collapsedControl"] svg, .stApp[data-custom-theme='light'] [data-testid="stToolbar"] svg { fill: #1e293b !important; color: #1e293b !important; }
+    .stApp[data-custom-theme='dark'] [data-testid="collapsedControl"] svg, .stApp[data-custom-theme='dark'] [data-testid="stToolbar"] svg { fill: #e2e8f0 !important; color: #e2e8f0 !important; }
 
     /* Agent 战报节点 */
     .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; }
@@ -298,6 +289,11 @@ with st.sidebar:
     st.markdown("---")
     selected_page = st.radio("导航菜单", PAGES, label_visibility="collapsed")
 
+# 页面切换定位置顶功能
+if selected_page != st.session_state.get('curr_page', ''):
+    st.session_state.curr_page = selected_page
+    components.html("<script>window.parent.scrollTo({top: 0, behavior: 'instant'});</script>", height=0, width=0)
+
 # ==========================================
 # 6. 各页面业务逻辑
 # ==========================================
@@ -353,7 +349,8 @@ elif selected_page == PAGES[1]:
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
 
-    st.markdown('<div class="tool-bar-container">', unsafe_allow_html=True)
+    # 🔥 隐藏真实的附件容器，仅保留功能 🔥
+    st.markdown('<div class="real-popover-wrapper">', unsafe_allow_html=True)
     with st.popover("📎", help="上传附件", use_container_width=False):
         uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
                                           type=['png', 'jpg', 'jpeg', 'csv', 'txt'], label_visibility="collapsed")
