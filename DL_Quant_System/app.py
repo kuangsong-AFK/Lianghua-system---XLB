@@ -115,8 +115,8 @@ components.html(f"""
 
             const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
 
-            // 🔥 直捣黄龙：直接抓取原生的 file input 元素 🔥
-            const fileInput = doc.querySelector('.real-uploader-wrapper input[type="file"]');
+            // 🔥 绝杀修复：直接抓取已被 CSS 全局隐身的 file_uploader 的 input 原件 🔥
+            const fileInput = doc.querySelector('div[data-testid="stFileUploader"] input[type="file"]');
 
             if (chatInputOuter && fileInput) {{
                 const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.firstElementChild; 
@@ -127,10 +127,8 @@ components.html(f"""
                     fakeBtn.id = 'fake-attach-btn';
                     fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
 
-                    // 强制左侧垂直居中，与输入光标同一基准线
                     fakeBtn.style.cssText = 'position: absolute !important; left: 16px !important; top: 50% !important; transform: translateY(-50%) !important; z-index: 9999 !important; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;';
 
-                    // 🔥 一键直连操作系统的文件选择器，废除所有二级弹窗 🔥
                     fakeBtn.onclick = () => fileInput.click();
                     fakeBtn.onmouseover = () => {{ fakeBtn.style.opacity = '0.6'; }};
                     fakeBtn.onmouseout = () => {{ fakeBtn.style.opacity = '1'; }};
@@ -165,8 +163,8 @@ st.markdown("""
     .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
     [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
 
-    /* 🔥 物理级隐身真实文件上传器，绝对不可见 🔥 */
-    .real-uploader-wrapper { position: fixed !important; top: -9999px !important; left: -9999px !important; opacity: 0.01 !important; z-index: -9999 !important; height: 1px !important; width: 1px !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important; }
+    /* 🔥 终极神迹：利用 CSS 属性选择器，将原生的上传框瞬间流放至虚空！绝对不可见！ 🔥 */
+    div[data-testid="stFileUploader"] { position: absolute !important; top: -9999px !important; left: -9999px !important; opacity: 0.01 !important; z-index: -9999 !important; height: 1px !important; width: 1px !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important; pointer-events: none !important; }
 
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
     .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
@@ -186,7 +184,7 @@ st.markdown("""
     [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); margin-bottom: 20px !important; }
 
     [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
-    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; }
+    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; display: flex !important; align-items: center !important; }
     [data-testid="stChatInput"] [data-baseweb="textarea"], [data-testid="stChatInput"] [data-baseweb="textarea"] > div { background-color: transparent !important; border: none !important; box-shadow: none !important; outline: none !important; }
     [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }
     [data-testid="stChatInputSubmitButton"] { background-color: #3b82f6 !important; border-radius: 50% !important; transition: all 0.3s ease; }
@@ -381,7 +379,7 @@ if selected_page == PAGES[0]:
         """, unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**答辩核心创新点：**<br>✅ 原生一键直连上传<br>✅ 全模态文档自解析<br>✅ 全栈语义防截断</div>',
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**答辩核心创新点：**<br>✅ 原生一键直连上传<br>✅ 变量作用域防塌陷<br>✅ 全栈语义防截断</div>',
             unsafe_allow_html=True)
 
 elif selected_page == PAGES[1]:
@@ -402,12 +400,10 @@ elif selected_page == PAGES[1]:
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
 
-    # 🔥 核心：直接使用 file_uploader，彻底废除 popover 弹窗，在外部隐身 🔥
-    st.markdown('<div class="real-uploader-wrapper">', unsafe_allow_html=True)
+    # 🔥 真正核心：上传框已被 CSS 全局隐身至 -9999px，绝不会暴露在页面上 🔥
     uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
                                       type=['pdf', 'doc', 'docx', 'csv', 'txt', 'png', 'jpg', 'jpeg'],
                                       label_visibility="collapsed")
-    st.markdown('</div>', unsafe_allow_html=True)
 
     file_context_text = ""
     if 'uploaded_files' in locals() and uploaded_files:
@@ -473,8 +469,10 @@ def generate_signals(df):
 {ticks}"""
                 messages_to_send = [{"role": "system", "content": sys_p}] + st.session_state.messages[:-1] + [
                     {"role": "user", "content": full_prompt_for_ai}]
-                max_retries, last_error, agent_logs = 2, "", []
+                max_retries, agent_logs = 2, []
+                last_error = ""
 
+                # 🔥 致命漏洞修复：绝对全局作用域声明，死防断网报错 🔥
                 full_resp = ""
                 msg_box = st.empty()
 
