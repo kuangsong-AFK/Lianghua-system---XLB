@@ -30,7 +30,7 @@ TUSHARE_TOKEN = "ba486af7606bc2f6018f1d592251a49674132225f59d37b3473d676e"
 
 ts.set_token(TUSHARE_TOKEN)
 pro = ts.pro_api()
-client = OpenAI(api_key=KIMI_API_KEY, base_url="[https://api.moonshot.cn/v1](https://api.moonshot.cn/v1)", timeout=30.0)
+client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=30.0)
 
 if "user_id" not in st.session_state: st.session_state.user_id = f"User_{str(uuid.uuid4())[:6]}"
 if "generated_code" not in st.session_state: st.session_state.generated_code = ""
@@ -40,7 +40,7 @@ if "bt_result" not in st.session_state: st.session_state.bt_result = None
 if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 if "is_live_trading" not in st.session_state: st.session_state.is_live_trading = False
 
-# /// 2. UI/UX 强化 (千问级悬浮舱 + 绝对平齐定位) ///
+# /// 2. UI/UX 强化 (无缝胶囊舱 + 手机端防重叠) ///
 st.markdown("""
 <style>
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
@@ -65,6 +65,7 @@ st.markdown("""
         border: none !important;
     }
 
+    /* 聊天框大胶囊外壳 */
     [data-testid="stChatInput"] { 
         background: transparent !important;
         border: none !important;
@@ -73,6 +74,7 @@ st.markdown("""
         margin: 0 auto 10px auto !important;
     }
 
+    /* 真正的发光内舱 */
     [data-testid="stChatInput"] > div:first-child {
         background-color: rgba(30, 41, 59, 0.6) !important; 
         backdrop-filter: blur(25px) !important; 
@@ -82,24 +84,43 @@ st.markdown("""
         padding: 5px 15px !important;
     }
 
+    /* 暴力击碎内部黑色底框 */
     [data-testid="stChatInput"] [data-baseweb="textarea"],
-    [data-testid="stChatInput"] [data-baseweb="textarea"] > div,
-    [data-testid="stChatInput"] textarea {
+    [data-testid="stChatInput"] [data-baseweb="textarea"] > div {
         background-color: transparent !important;
         background: transparent !important;
         border: none !important;
         box-shadow: none !important;
         outline: none !important;
-        color: #ffffff !important;
+    }
+
+    /* 🔥 手机端防重叠核心：强制留出左侧 40px 的安全区给附件按钮！ */
+    [data-testid="stChatInput"] textarea { 
+        background-color: transparent !important;
+        border: none !important;
+        color: #ffffff !important; 
+        font-size: 16px !important; 
+        line-height: 1.5 !important;
+        padding-left: 40px !important; /* 强制光标向右移位 */
     }
 
     [data-testid="stChatInput"] textarea:focus { box-shadow: none !important; outline: none !important; }
-    [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }
+
     [data-testid="stChatInputSubmitButton"] { background-color: #3b82f6 !important; border-radius: 50% !important; transition: all 0.3s ease; }
     [data-testid="stChatInputSubmitButton"]:hover { background-color: #60a5fa !important; box-shadow: 0 0 15px rgba(59, 130, 246, 0.6) !important; }
 
+    /* 🔥 暴力摧毁附件按钮在手机端的所有原生背景和边框 */
+    div[data-testid="stPopover"] button {
+        background-color: transparent !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        color: #a1a1aa !important;
+    }
+
     [data-testid="stPopoverBody"] { background-color: rgba(25, 33, 48, 0.95) !important; border: 1px solid rgba(0, 255, 204, 0.4) !important; border-radius: 16px !important; backdrop-filter: blur(25px) !important; padding: 15px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important; margin-bottom: 10px !important; }
 
+    /* 隐藏初始位置的附件按钮容器 */
     .tool-bar-container { display: none; }
 </style>
 """, unsafe_allow_html=True)
@@ -316,7 +337,7 @@ if page == "🏠 系统总览 (监控中控)":
         <html>
         <head>
             <script type="module">
-                import mermaid from '[https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs](https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs)';
+                import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
                 mermaid.initialize({{ startOnLoad: true, theme: 'dark', themeVariables: {{ fontFamily: 'sans-serif' }} }});
             </script>
         </head>
@@ -374,6 +395,7 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                                           type=['png', 'jpg', 'jpeg', 'csv', 'txt'], label_visibility="collapsed")
     st.markdown('</div>', unsafe_allow_html=True)
 
+    # 🔥 JS 魔法：强力绝对定位 + 左侧对齐，将独立按钮融进同一个框
     components.html("""
     <script>
         setInterval(() => {
@@ -381,25 +403,25 @@ elif page == "🤖 AI 策略引擎 (LLM)":
             const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
             if(!chatInputOuter) return;
 
-            const chatInput = chatInputOuter.children[0]; 
+            const innerPill = chatInputOuter.children[0]; 
             const popovers = Array.from(doc.querySelectorAll('div[data-testid="stPopover"]'));
             const attachPopover = popovers.find(p => p.textContent.includes('📎'));
 
-            if (chatInput && attachPopover && attachPopover.parentElement !== chatInput) {
-                chatInput.style.position = 'relative';
+            if (innerPill && attachPopover && attachPopover.parentElement !== innerPill) {
 
-                const baseweb = chatInput.querySelector('[data-baseweb="textarea"]');
-                if(baseweb) {
-                    baseweb.style.paddingLeft = '40px'; 
-                }
+                // 将发光内舱设为相对定位
+                innerPill.style.position = 'relative';
 
+                // 将附件图标化为幽灵，强行注入内舱的最左侧
                 attachPopover.style.position = 'absolute';
                 attachPopover.style.left = '12px';
-                attachPopover.style.bottom = '8px';
-                attachPopover.style.zIndex = '100';
+                attachPopover.style.top = '50%';
+                attachPopover.style.transform = 'translateY(-50%)';
+                attachPopover.style.zIndex = '999';
                 attachPopover.style.width = 'auto';
                 attachPopover.style.marginBottom = '0';
 
+                // 彻底剥除按钮的所有多余样式
                 const btn = attachPopover.querySelector('button');
                 if (btn) {
                     btn.style.background = 'transparent';
@@ -408,12 +430,11 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                     btn.style.color = '#a1a1aa';
                     btn.style.fontSize = '1.4rem';
                     btn.style.padding = '0';
-                    btn.style.minWidth = '0';
                     const svgs = btn.querySelectorAll('svg');
-                    if (svgs.length > 0) svgs[svgs.length - 1].style.display = 'none';
+                    if (svgs.length > 0) svgs[svgs.length - 1].style.display = 'none'; // 隐藏箭头
                 }
 
-                chatInput.appendChild(attachPopover);
+                innerPill.appendChild(attachPopover);
             }
         }, 500);
     </script>
@@ -451,7 +472,6 @@ elif page == "🤖 AI 策略引擎 (LLM)":
             with st.chat_message("assistant"):
                 st.toast(f"🚀 连线底层算力集群: {selected_model}", icon="⚡")
 
-                # 🔥 防断流黑魔法：用 f-string 配合 ticks 隐藏三个反引号
                 ticks = "`" * 3
                 sys_p = f"""你是一名严谨的量化专家。
 1. 拒绝闲聊。
