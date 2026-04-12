@@ -55,7 +55,8 @@ TUSHARE_TOKEN = "ba486af7606bc2f6018f1d592251a49674132225f59d37b3473d676e"
 
 ts.set_token(TUSHARE_TOKEN)
 pro = ts.pro_api()
-client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=30.0)
+# 🔥 将超时时间延长至 60 秒，防止 AI 深度思考时被中途切断
+client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=60.0)
 
 if "user_id" not in st.session_state: st.session_state.user_id = f"User_{str(uuid.uuid4())[:6]}"
 if "generated_code" not in st.session_state: st.session_state.generated_code = ""
@@ -293,7 +294,7 @@ with st.sidebar:
 # /// 🏠 页面 1: 系统总览 ///
 if page == "🏠 系统总览 (监控中控)":
     st.markdown(
-        '<div class="glass-card"><h1 style="margin-bottom:0;">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
+        '<div class="glass-card"><h1 style="margin-bottom:0; color:var(--text-color);">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
         unsafe_allow_html=True)
 
     try:
@@ -326,7 +327,7 @@ if page == "🏠 系统总览 (监控中控)":
 
     with c_arch:
         st.markdown(
-            '<div class="glass-card"><h3 style="margin-bottom: 20px;">🧠 核心架构与操作流 (Data Flow Pipeline)</h3>',
+            '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom: 20px;">🧠 核心架构与操作流 (Data Flow Pipeline)</h3>',
             unsafe_allow_html=True)
 
         mermaid_str = """
@@ -335,11 +336,6 @@ if page == "🏠 系统总览 (监控中控)":
             B -->|输出预测信号| C{📈 3. 策略回测<br>全量审计与归因}
             C -->|上传回测结果| D[🤖 4. AI 战情室<br>大模型多模态解读]
             A -.->|研报/原始数据| D
-
-            style A fill:#1e293b,stroke:#00ffcc,stroke-width:2px,color:#fff
-            style B fill:#1e293b,stroke:#00ffcc,stroke-width:2px,color:#fff
-            style C fill:#1e293b,stroke:#00ffcc,stroke-width:2px,color:#fff
-            style D fill:#3b0764,stroke:#ff00ff,stroke-width:2px,color:#fff
         """
 
         html_code = f"""
@@ -348,10 +344,16 @@ if page == "🏠 系统总览 (监控中控)":
         <head>
             <script type="module">
                 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+
                 const checkTheme = () => {{
-                    try {{ const parentApp = window.parent.document.querySelector('.stApp'); return parentApp && parentApp.getAttribute('data-custom-theme') === 'light' ? 'default' : 'dark'; }} catch(e) {{ return 'dark'; }}
+                    try {{
+                        const parentApp = window.parent.document.querySelector('.stApp');
+                        return parentApp && parentApp.getAttribute('data-custom-theme') === 'light' ? 'default' : 'dark';
+                    }} catch(e) {{ return 'dark'; }}
                 }};
+
                 window.lastTheme = checkTheme();
+
                 const render = async () => {{
                     const theme = checkTheme();
                     mermaid.initialize({{ startOnLoad: false, theme: theme, themeVariables: {{ fontFamily: 'sans-serif' }} }});
@@ -360,10 +362,15 @@ if page == "🏠 系统总览 (监控中控)":
                     const {{ svg }} = await mermaid.render('graphDiv', code);
                     element.innerHTML = svg;
                 }};
+
                 render();
+
                 setInterval(() => {{
                     const currentTheme = checkTheme();
-                    if(window.lastTheme !== currentTheme) {{ window.lastTheme = currentTheme; render(); }}
+                    if(window.lastTheme !== currentTheme) {{
+                        window.lastTheme = currentTheme;
+                        render();
+                    }}
                 }}, 500);
             </script>
         </head>
@@ -377,13 +384,14 @@ if page == "🏠 系统总览 (监控中控)":
         st.markdown('</div>', unsafe_allow_html=True)
 
     with c_point:
-        st.markdown('<div class="glass-card"><h4>📋 平台体征监控 (Telemetry)</h4>', unsafe_allow_html=True)
+        st.markdown('<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台体征监控 (Telemetry)</h4>',
+                    unsafe_allow_html=True)
         st.markdown("**内存池占用率 (预估)**")
         st.progress(0.35)
         st.markdown("**UI 实时通信帧率**")
         st.progress(0.96)
         st.markdown(
-            '<br><h4>💡 答辩终极杀手锏</h4>✅ <b>类型强制归一 (New)</b>: 自动剿灭 AI 产生的浮点数买卖信号报错。<br>✅ <b>全局物理补丁</b>: pd.np = np，永久杜绝旧语法崩溃。<br>✅ <b>平移自适应缩放</b>: 左右拖拽平移，双击瞬间对齐Y轴。</div>',
+            '<br><h4 style="color:var(--text-color);">💡 答辩终极杀手锏</h4>✅ <b>类型强制归一 (New)</b>: 自动剿灭 AI 产生的浮点数买卖信号报错。<br>✅ <b>全局物理补丁</b>: pd.np = np，永久杜绝旧语法崩溃。<br>✅ <b>平移自适应缩放</b>: 左右拖拽平移，双击瞬间对齐Y轴。</div>',
             unsafe_allow_html=True)
 
 # /// 🤖 页面 2: AI 策略引擎 (LLM) ///
@@ -391,7 +399,7 @@ elif page == "🤖 AI 策略引擎 (LLM)":
     if "messages" not in st.session_state: st.session_state.messages = []
 
     st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0;">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与 Agent 自愈模块已就绪，光暗双生沉浸式体验。</p></div>',
+        '<div class="glass-card"><h3 style="margin-bottom:0; color:var(--text-color);">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与 Agent 自愈模块已就绪，体验沉浸式工作流。</p></div>',
         unsafe_allow_html=True)
 
     with st.container():
@@ -408,7 +416,8 @@ elif page == "🤖 AI 策略引擎 (LLM)":
     chat_container = st.container(height=650)
     with chat_container:
         for m in st.session_state.messages:
-            with st.chat_message(m["role"]): st.markdown(m["content"])
+            # 🔥 修复关键点：强制渲染 HTML 战报节点
+            with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
 
     st.markdown('<div class="tool-bar-container">', unsafe_allow_html=True)
     with st.popover("📎", help="点击上传参考文件", use_container_width=False):
@@ -430,8 +439,9 @@ elif page == "🤖 AI 策略引擎 (LLM)":
 
             if (innerPill && attachPopover && attachPopover.parentElement !== innerPill) {
                 innerPill.style.position = 'relative';
+
                 const baseweb = chatInputOuter.querySelector('[data-baseweb="textarea"]');
-                if(baseweb) { baseweb.style.paddingLeft = '40px'; }
+                if(baseweb) baseweb.style.paddingLeft = '40px'; 
 
                 attachPopover.style.position = 'absolute';
                 attachPopover.style.left = '12px';
@@ -446,12 +456,14 @@ elif page == "🤖 AI 策略引擎 (LLM)":
                     btn.style.background = 'transparent';
                     btn.style.border = 'none';
                     btn.style.boxShadow = 'none';
+                    btn.style.color = '#8b9bb4';
                     btn.style.fontSize = '1.4rem';
                     btn.style.padding = '0';
                     btn.style.minWidth = '0';
                     const svgs = btn.querySelectorAll('svg');
                     if (svgs.length > 0) svgs[svgs.length - 1].style.display = 'none';
                 }
+
                 innerPill.appendChild(attachPopover);
             }
         }, 500);
@@ -520,7 +532,7 @@ def generate_signals(df):
 
                 max_retries = 2
                 last_error = ""
-                agent_logs = []  # 记录 Agent 的战报
+                agent_logs = []
 
                 for attempt in range(max_retries + 1):
                     if attempt > 0:
@@ -548,21 +560,25 @@ def generate_signals(df):
                                     if "<think>" in full_resp:
                                         if "</think>" in full_resp:
                                             parts = full_resp.split("</think>")
-                                            think_box.markdown(parts[0].replace("<think>", "").strip())
+                                            think_box.markdown(parts[0].replace("<think>", "").strip(),
+                                                               unsafe_allow_html=True)
                                             msg_box.markdown(
-                                                (parts[1].lstrip() + "▌") if parts[1].lstrip() else "✨ 起草执行军令...")
+                                                (parts[1].lstrip() + "▌") if parts[1].lstrip() else "✨ 起草执行军令...",
+                                                unsafe_allow_html=True)
                                         else:
-                                            think_box.markdown(full_resp.replace("<think>", "").strip() + "▌")
-                                            msg_box.markdown("✨ 疯狂燃烧算力中...")
+                                            think_box.markdown(full_resp.replace("<think>", "").strip() + "▌",
+                                                               unsafe_allow_html=True)
+                                            msg_box.markdown("✨ 疯狂燃烧算力中...", unsafe_allow_html=True)
                                     else:
-                                        msg_box.markdown(full_resp + "▌")
+                                        msg_box.markdown(full_resp + "▌", unsafe_allow_html=True)
                                 else:
-                                    msg_box.markdown(full_resp + "▌")
+                                    msg_box.markdown(full_resp + "▌", unsafe_allow_html=True)
 
                         if enable_deep_think and "</think>" in full_resp:
-                            msg_box.markdown(full_resp.split("</think>")[1].strip())
+                            msg_box.markdown(full_resp.split("</think>")[1].strip(), unsafe_allow_html=True)
                         else:
-                            msg_box.markdown(full_resp.replace("<think>", "").replace("</think>", "").strip())
+                            msg_box.markdown(full_resp.replace("<think>", "").replace("</think>", "").strip(),
+                                             unsafe_allow_html=True)
 
                         code_match = re.search(r"`{3}python\s*(.*?)\s*`{3}", full_resp, re.DOTALL)
                         if code_match:
@@ -608,7 +624,6 @@ def generate_signals(df):
                         st.error(f"通信链路断开: {e}")
                         break
 
-                # 将战报追加入消息历史
                 if agent_logs:
                     full_resp += "\n\n" + "".join(agent_logs)
                 st.session_state.messages.append({"role": "assistant", "content": full_resp})
@@ -616,7 +631,8 @@ def generate_signals(df):
 
 # /// 📈 页面 3: 深度静态全量回测 ///
 elif page == "📈 深度静态全量回测":
-    st.markdown('<div class="glass-card"><h3>📊 历史回测全量审计与归因分析</h3></div>', unsafe_allow_html=True)
+    st.markdown('<div class="glass-card"><h3 style="color:var(--text-color);">📊 历史回测全量审计与归因分析</h3></div>',
+                unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 3])
     with col_l:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
@@ -687,7 +703,9 @@ elif page == "📈 深度静态全量回测":
 
 # /// ⚡ 页面 4: 实时高频交易 (Live) ///
 elif page == "⚡ 实时高频交易 (Live)":
-    st.markdown('<div class="glass-card"><h3>⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color);">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
+        unsafe_allow_html=True)
     c_ctrl, c_chart = st.columns([1, 2.5])
     with c_ctrl:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
@@ -735,7 +753,9 @@ elif page == "⚡ 实时高频交易 (Live)":
 
 # /// 🧠 页面 5: 深度学习预测 (LSTM) ///
 elif page == "🧠 深度学习预测 (LSTM)":
-    st.markdown('<div class="glass-card"><h3>🧠 深度神经网络时序建模中心 (LSTM)</h3></div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color);">🧠 深度神经网络时序建模中心 (LSTM)</h3></div>',
+        unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 2.5])
     with col_l:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
@@ -803,7 +823,8 @@ elif page == "🧠 深度学习预测 (LSTM)":
 
 # /// 6. 论文审计日志 ///
 elif page == "🛡️ 论文审计日志":
-    st.markdown('<div class="glass-card"><h3>🛡️ 实验数据采集与多维审计中心</h3></div>', unsafe_allow_html=True)
+    st.markdown('<div class="glass-card"><h3 style="color:var(--text-color);">🛡️ 实验数据采集与多维审计中心</h3></div>',
+                unsafe_allow_html=True)
     c1, c2 = st.columns([1, 1.2])
     with c1:
         if os.path.exists(GLOBAL_LOG_FILE): st.download_button("📁 导出中期汇报审计日志",
