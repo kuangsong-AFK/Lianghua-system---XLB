@@ -14,16 +14,17 @@ from datetime import datetime
 import uuid
 from PIL import Image
 
-# 召唤底层兵器库
+# 召唤底层武器库
 from quant_engine import *
 
 # ==========================================
-# 0. 环境优雅降级 (完全静默)
+# 0. 环境静默降级
 # ==========================================
 try:
     import PyPDF2
 except ImportError:
     PyPDF2 = None
+
 try:
     import docx
 except ImportError:
@@ -40,31 +41,24 @@ ts.set_token(TUSHARE_TOKEN)
 
 
 @st.cache_resource
-def get_ts_pro():
+def get_ts_pro_api():
     return ts.pro_api()
 
 
-pro = get_ts_pro()
+pro = get_ts_pro_api()
 client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=60.0)
 
-# 初始化 Session 状态
-state_keys = {
-    "user_id": f"User_{str(uuid.uuid4())[:6]}",
-    "messages": [],
-    "generated_code": "",
-    "strategy_explanation": "暂无策略解析，请先前往 AI 战情室下达军令。",
-    "dl_result": None,
-    "bt_result": None,
-    "sys_logs": [],
-    "is_live_trading": False,
-    "curr_page": "🏠 系统总览 (监控中控)",
-    "prev_page": "🏠 系统总览 (监控中控)"
-}
-for k, v in state_keys.items():
-    if k not in st.session_state: st.session_state[k] = v
+# 统一初始化所有 Session 状态
+for key, default in {
+    "user_id": f"User_{str(uuid.uuid4())[:6]}", "messages": [], "generated_code": "", "sys_logs": [],
+    "is_live_trading": False, "dl_result": None, "bt_result": None,
+    "strategy_explanation": "暂无策略解析，请先下达军令。",
+    "curr_page": "🏠 系统总览 (监控中控)", "prev_page": "🏠 系统总览 (监控中控)"
+}.items():
+    if key not in st.session_state: st.session_state[key] = default
 
 # ==========================================
-# 2. 空间流形导航逻辑与置顶引掣
+# 2. 空间导航逻辑
 # ==========================================
 PAGES = ["🏠 系统总览 (监控中控)", "🤖 AI 策略引擎 (LLM)", "📈 深度静态全量回测", "⚡ 实时高频交易 (Live)",
          "🧠 深度学习预测矩阵", "🛡️ 论文审计日志"]
@@ -86,14 +80,13 @@ prev_idx, curr_idx = PAGES.index(st.session_state.prev_page), PAGES.index(st.ses
 anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr_idx < prev_idx else "fogFadeIn")
 scroll_script = "window.parent.scrollTo({top: 0, behavior: 'instant'});" if st.session_state.just_switched else ""
 
-# 启动底层 CSS/JS 引擎 (无噜噜特供版)
+# 启动底层 CSS/JS 引擎
 inject_frontend_core(anim_name, scroll_script)
 
 # ==========================================
-# 3. 各页面业务逻辑
+# 3. 业务页面调度
 # ==========================================
 
-# ----------------- 页面 0: 监控中控 -----------------
 if selected_page == PAGES[0]:
     st.markdown(
         '<div class="glass-card"><h1 style="margin-bottom:0; color:var(--text-color);">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
@@ -131,10 +124,9 @@ if selected_page == PAGES[0]:
         """, unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**答辩核心创新点：**<br>✅ 原生一键直连上传<br>✅ 变量作用域防塌陷<br>✅ 全栈语义防截断</div>',
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**答辩核心创新点：**<br>✅ 原生一键直连上传<br>✅ 变量作用域防塌陷<br>✅ 核心算法模块化</div>',
             unsafe_allow_html=True)
 
-# ----------------- 页面 1: LLM 引擎 -----------------
 elif selected_page == PAGES[1]:
     st.markdown(
         '<div class="glass-card"><h3 style="margin-bottom:0; color:var(--text-color);">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与全域文档解析模块已就绪，体验沉浸式工作流。</p></div>',
@@ -225,7 +217,6 @@ def generate_signals(df):
                 max_retries, agent_logs = 2, []
                 last_error = ""
 
-                # 变量防塌陷
                 full_resp = ""
                 msg_box = st.empty()
 
@@ -294,7 +285,6 @@ def generate_signals(df):
                 st.session_state.messages.append({"role": "assistant", "content": full_resp})
         st.rerun()
 
-# ----------------- 页面 2: 历史回测 -----------------
 elif selected_page == PAGES[2]:
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">📊 历史回测全量审计与归因分析</h3></div>',
@@ -311,7 +301,7 @@ elif selected_page == PAGES[2]:
         if st.button("🚀 启动全量归因回测", use_container_width=True, type="primary"):
             with st.spinner("数据挂载中..."):
                 try:
-                    df_raw = fetch_and_clean_data(ts_code, adj_p if adj_p != "None" else None, f"{start_year}0101")
+                    df_raw = fetch_and_clean_data(pro, ts_code, adj_p if adj_p != "None" else None, f"{start_year}0101")
                     st.session_state.bt_result = run_backtest_metrics(df_raw, st.session_state.generated_code)
                 except Exception as e:
                     st.error(f"异常: {e}")
@@ -341,7 +331,6 @@ elif selected_page == PAGES[2]:
 
             st.plotly_chart(render_smart_charts(df), use_container_width=True, config={'scrollZoom': True})
 
-# ----------------- 页面 3: 实时高频 -----------------
 elif selected_page == PAGES[3]:
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
@@ -360,7 +349,8 @@ elif selected_page == PAGES[3]:
 
         met_ph, cht_ph = st.empty(), st.empty()
         if st.session_state.is_live_trading:
-            stream = fetch_and_clean_data(format_ts_code(live_code), 'qfq', '20230101').tail(120).reset_index(drop=True)
+            stream = fetch_and_clean_data(pro, format_ts_code(live_code), 'qfq', '20230101').tail(120).reset_index(
+                drop=True)
             for i in range(20, len(stream)):
                 if not st.session_state.is_live_trading: break
                 sub = stream.iloc[:i].copy()
@@ -380,7 +370,6 @@ elif selected_page == PAGES[3]:
                     st.error(f"高频熔断: {e}"); st.session_state.is_live_trading = False; break
                 time.sleep(freq)
 
-# ----------------- 页面 4: 深度学习 -----------------
 elif selected_page == PAGES[4]:
     with st.spinner("唤醒深度学习底层张量引擎..."):
         import torch
@@ -409,7 +398,7 @@ elif selected_page == PAGES[4]:
             else:
                 with st.spinner("神经网络前向传播中..."):
                     try:
-                        df = fetch_and_clean_data(format_ts_code(st_code), 'qfq', f"{start_year_dl}0101")
+                        df = fetch_and_clean_data(pro, format_ts_code(st_code), 'qfq', f"{start_year_dl}0101")
                         scaler = MinMaxScaler()
                         scaled = scaler.fit_transform(df['Close'].values.reshape(-1, 1))
                         X, y = [], []
@@ -518,14 +507,12 @@ elif selected_page == PAGES[4]:
             pred_diff = np.diff(h_preds)
             success_rate = np.mean(np.sign(act_diff) == np.sign(pred_diff)) * 100
             mape = np.mean(np.abs((actual_vals - h_preds) / (actual_vals + 1e-8))) * 100
-
             day1_pred, day5_pred = f_preds[0], f_preds[4]
 
             with st.expander("🤖 AI 深度预测白盒解析舱 (点击展开/收起)", expanded=True):
                 st.markdown(
                     f"**📈 极速解盘预览**：当前实盘价 `<span class='highlight-text'>{latest_price:.2f}</span>` | 驱动核心: {model_desc}",
                     unsafe_allow_html=True)
-
                 c_f1, c_f2, c_f3, c_f4 = st.columns(4)
                 c_f1.metric("未来 1 天预测 (T+1)", f"{day1_pred:.2f}",
                             f"{(day1_pred - latest_price) / latest_price * 100:.2f}%")
@@ -536,12 +523,7 @@ elif selected_page == PAGES[4]:
 
                 if st.button("✨ 召唤 Kimi 结合胜率生成人话解盘", use_container_width=True):
                     ai_ph = st.empty()
-                    prompt = f"""你是一个顶级的量化分析师，专门为小白用户提供白话解盘，且必须客观提示风险。
-已知某标的当前收盘价为 {latest_price:.2f}元。
-基于【{model_desc}】深度学习架构的自回归推演，得出：未来1天预测价为 {day1_pred:.2f}元，未来5天预测价为 {day5_pred:.2f}元。
-【模型信誉档案】：该模型在过去100天的历史拟合中，涨跌方向预测胜率为 {success_rate:.1f}%，平均绝对价格偏差度为 {mape:.2f}%。
-请你用大白话（限200字以内，绝对不能包含代码），向小白用户解释这个预测走势。
-关键要求：必须明确提到“{success_rate:.1f}%的胜率”和“{mape:.2f}%的偏差度”，并以此作为依据告诉用户这个预测结论“可信度有多高”，给出您的终极操作建议（比如胜率低就建议观望，胜率高也需谨慎）。"""
+                    prompt = f"""量化分析师白话解盘：当前收盘价 {latest_price:.2f}元。模型预测1天后 {day1_pred:.2f}元，5天后 {day5_pred:.2f}元。历史胜率 {success_rate:.1f}%，平均偏差度 {mape:.2f}%。请用200字内通俗语言解释趋势，并据此给出风险建议。"""
                     try:
                         stream = client.chat.completions.create(model="moonshot-v1-8k",
                                                                 messages=[{"role": "user", "content": prompt}],
@@ -553,19 +535,19 @@ elif selected_page == PAGES[4]:
                                 ai_ph.info(full_txt + "▌")
                         ai_ph.info(full_txt)
                     except Exception as e:
-                        ai_ph.error(f"Kimi 连线中断: {e}")
+                        ai_ph.error(f"连线中断: {e}")
 
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹 (Actual)',
-                                     line=dict(color='#00ffcc', width=2)))
+            fig.add_trace(
+                go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹', line=dict(color='#00ffcc', width=2)))
             color_map = {"LSTM": "#ff00ff", "GRU": "#ffff00", "1D-CNN": "#00bfff"}
             for m_name, pred_array in res['preds'].items():
                 fig.add_trace(go.Scatter(x=res['dates'], y=pred_array, name=f'{m_name} 历史拟合',
                                          line=dict(color=color_map.get(m_name, '#ffffff'), dash='dot', width=1)))
             if len(res['preds']) > 1:
                 ensemble_pred = np.mean(list(res['preds'].values()), axis=0)
-                fig.add_trace(go.Scatter(x=res['dates'], y=ensemble_pred, name='🔥 均值集成 (Ensemble)',
-                                         line=dict(color='#ff4b4b', width=3)))
+                fig.add_trace(
+                    go.Scatter(x=res['dates'], y=ensemble_pred, name='🔥 均值集成', line=dict(color='#ff4b4b', width=3)))
 
             fig.update_layout(height=450, template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                               dragmode='pan', hovermode='x',
@@ -574,7 +556,6 @@ elif selected_page == PAGES[4]:
             fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
             st.plotly_chart(fig, use_container_width=True)
 
-# ----------------- 页面 5: 审计日志 -----------------
 elif selected_page == PAGES[5]:
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>',
