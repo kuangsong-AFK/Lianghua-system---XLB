@@ -73,7 +73,7 @@ else:
 prev_idx = PAGES.index(st.session_state.prev_page)
 curr_idx = PAGES.index(st.session_state.curr_page)
 
-# 🔥 更新为全新的波浪雾化动画名称 🔥
+# 波浪雾化动画名称
 if curr_idx > prev_idx:
     anim_name = "waveBlurUpIn"
 elif curr_idx < prev_idx:
@@ -81,170 +81,157 @@ elif curr_idx < prev_idx:
 else:
     anim_name = "fogFadeIn"
 
-# 页面切换时，强行瞬间滚动到最顶端，保证锚点永远锁定顶部！
-if st.session_state.just_switched:
-    components.html("""
-    <script>
-        window.parent.scrollTo({top: 0, behavior: 'instant'});
-    </script>
-    """, height=0, width=0)
+# ==========================================
+# 3. 涡轮增压引擎：全局唯一常驻 JS (整合页面置顶功能)
+# ==========================================
+# 将 just_switched 的状态传入 JS，减少 iframe 渲染数量
+scroll_script = "window.parent.scrollTo({top: 0, behavior: 'instant'});" if st.session_state.just_switched else ""
 
-# ==========================================
-# 3. 全局涡轮 JS 引擎 (原生 Flexbox 替身注入法)
-# ==========================================
-components.html("""
+components.html(f"""
 <script>
-    const runGlobalEngine = () => {
+    {scroll_script}
+    const runGlobalEngine = () => {{
         const doc = window.parent.document;
 
-        // 1. 光暗主题跨域嗅探
+        // 光暗主题跨域嗅探
         const app = doc.querySelector('.stApp');
-        if (app) {
+        if (app) {{
             const color = window.getComputedStyle(app).color;
-            const rgb = color.match(/\d+/g);
-            if (rgb && rgb.length >= 3) {
+            const rgb = color.match(/\\d+/g);
+            if (rgb && rgb.length >= 3) {{
                 const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
                 const themeAttr = brightness < 128 ? 'light' : 'dark';
-                if (app.getAttribute('data-custom-theme') !== themeAttr) {
+                if (app.getAttribute('data-custom-theme') !== themeAttr) {{
                     app.setAttribute('data-custom-theme', themeAttr);
-                }
-            }
-        }
+                }}
+            }}
+        }}
 
-        // 2. Flexbox 替身法：安全无损将 📎 嵌入聊天框，彻底杜绝坐标乱跑！
+        // Flexbox 替身法：安全无损将 📎 嵌入聊天框
         const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
-        if (chatInputOuter) {
+        if (chatInputOuter) {{
             const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.children[0]; 
             const realPopoverBtn = doc.querySelector('.real-popover-wrapper button');
 
-            if (innerPill && realPopoverBtn && !doc.getElementById('fake-attach-btn')) {
+            if (innerPill && realPopoverBtn && !doc.getElementById('fake-attach-btn')) {{
                 const fakeBtn = doc.createElement('div');
                 fakeBtn.id = 'fake-attach-btn';
                 fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
                 fakeBtn.style.cssText = 'display: flex; align-items: center; justify-content: center; margin-right: 10px; margin-left: 5px; height: 100%;';
 
                 fakeBtn.onclick = () => realPopoverBtn.click();
-                fakeBtn.onmouseover = () => { fakeBtn.style.opacity = '0.6'; };
-                fakeBtn.onmouseout = () => { fakeBtn.style.opacity = '1'; };
+                fakeBtn.onmouseover = () => {{ fakeBtn.style.opacity = '0.6'; }};
+                fakeBtn.onmouseout = () => {{ fakeBtn.style.opacity = '1'; }};
 
                 innerPill.insertBefore(fakeBtn, innerPill.firstChild);
-
                 const textArea = innerPill.querySelector('[data-baseweb="textarea"]');
-                if(textArea) { textArea.style.setProperty('padding-left', '5px', 'important'); }
-            }
-        }
-    };
-    const loop = () => { runGlobalEngine(); setTimeout(() => requestAnimationFrame(loop), 50); };
+                if(textArea) {{ textArea.style.setProperty('padding-left', '5px', 'important'); }}
+            }}
+        }}
+    }};
+    const loop = () => {{ runGlobalEngine(); setTimeout(() => requestAnimationFrame(loop), 50); }};
     requestAnimationFrame(loop);
 </script>
 """, height=0, width=0)
 
 # ==========================================
-# 4. 核心 CSS 样式表 (包含波浪雾化破浪特效)
+# 4. 极致性能分离：静态 CSS (不触发渲染风暴) + 动态 CSS
 # ==========================================
+# 静态 CSS：没有任何 f-string 变量，一次加载，永久受用
+st.markdown("""
+<style>
+    @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
+
+    /* 电影级波浪雾化破浪特效 */
+    @keyframes waveBlurUpIn { 0% { opacity: 0; margin-top: 60px; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); } }
+    @keyframes waveBlurDownIn { 0% { opacity: 0; margin-top: -60px; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); } }
+    @keyframes fogFadeIn { 0% { opacity: 0; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; filter: blur(0px); transform: scale(1); } }
+
+    header[data-testid="stHeader"] { position: fixed !important; top: 0px !important; transform: translateY(0px) !important; opacity: 1 !important; visibility: visible !important; background: transparent !important; pointer-events: none !important; }
+    [data-testid="collapsedControl"], [data-testid="stToolbar"] { pointer-events: auto !important; opacity: 1 !important; visibility: visible !important; display: flex !important; transform: none !important;}
+
+    .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
+    [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
+    .real-popover-wrapper { position: fixed !important; bottom: 80px !important; left: 20px !important; opacity: 0 !important; z-index: -9999 !important; pointer-events: none !important; }
+
+    /* 深色基础 */
+    .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
+    .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
+    .highlight-text { color: #00ffcc !important; }
+    .sub-text { color: #cbd5e1 !important; }
+    .danger-text { color: #ff4b4b !important; }
+
+    [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; min-height: 100vh !important; }
+    [data-testid="stSidebar"] > div:first-child { background: transparent !important; }
+    div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important;}
+    div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
+
+    .glass-card { background: rgba(20, 28, 45, 0.65) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
+    .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; }
+    [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); }
+
+    [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
+    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; display: flex !important; align-items: center !important; }
+    [data-testid="stChatInput"] [data-baseweb="textarea"], [data-testid="stChatInput"] [data-baseweb="textarea"] > div { background-color: transparent !important; border: none !important; box-shadow: none !important; outline: none !important; }
+    [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }
+    [data-testid="stChatInputSubmitButton"] { background-color: #3b82f6 !important; border-radius: 50% !important; transition: all 0.3s ease; }
+    [data-testid="stPopoverBody"] { background-color: rgba(25, 33, 48, 0.95) !important; border: 1px solid rgba(0, 255, 204, 0.4) !important; border-radius: 16px !important; backdrop-filter: blur(25px) !important; padding: 15px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important; margin-bottom: 10px !important; }
+
+    /* 浅色主题强力覆盖 */
+    .stApp[data-custom-theme='light'] { background-image: linear-gradient(132deg, #ffffff, #dbeafe, #e0e7ff, #f3e8ff, #ffffff) !important; background-size: 400% 400% !important; animation: fluidFlow 10s ease infinite !important; }
+    .stApp[data-custom-theme='light'] .stMarkdown, .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] h4, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div { color: #1e293b !important; }
+    .stApp[data-custom-theme='light'] .highlight-text { color: #0284c7 !important; }
+    .stApp[data-custom-theme='light'] .sub-text { color: #475569 !important; }
+    .stApp[data-custom-theme='light'] .danger-text { color: #dc2626 !important; }
+    .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.06) !important; }
+    .stApp[data-custom-theme='light'] .metric-box { background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.9) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.85) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.8) !important; border-left: 4px solid transparent !important; }
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.85) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea { color: #1e293b !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stPopoverBody"] { background-color: rgba(255, 255, 255, 0.98) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 10px 40px rgba(0,0,0,0.1) !important; }
+    .stApp[data-custom-theme='light'] .js-plotly-plot .g-gtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-xtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-ytitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .xtick text, .stApp[data-custom-theme='light'] .js-plotly-plot .ytick text, .stApp[data-custom-theme='light'] .js-plotly-plot .legendtext { fill: #1e293b !important; }
+    .stApp[data-custom-theme='light'] [data-testid="collapsedControl"] svg, .stApp[data-custom-theme='light'] [data-testid="stToolbar"] svg { fill: #1e293b !important; color: #1e293b !important; }
+
+    .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; }
+    .agent-status-node.success { background: rgba(0, 255, 204, 0.1); border-left-color: #00ffcc; color: #00ffcc; }
+    .agent-status-node.error { background: rgba(255, 75, 75, 0.1); border-left-color: #ff4b4b; color: #ff4b4b; }
+    .agent-status-node.retry { background: rgba(255, 165, 0, 0.1); border-left-color: #ffa500; color: #ffa500; }
+    .stApp[data-custom-theme='light'] .agent-status-node.success { background: rgba(16, 185, 129, 0.1); border-left-color: #10b981; color: #047857; }
+    .stApp[data-custom-theme='light'] .agent-status-node.error { background: rgba(239, 68, 68, 0.1); border-left-color: #ef4444; color: #b91c1c; }
+    .stApp[data-custom-theme='light'] .agent-status-node.retry { background: rgba(245, 158, 11, 0.1); border-left-color: #f59e0b; color: #b45309; }
+</style>
+""", unsafe_allow_html=True)
+
+# 动态 CSS：仅包含动画变量，切页时极速重绘
 st.markdown(f"""
 <style>
-    @keyframes fluidFlow {{ 0% {{ background-position: 0% 50%; }} 25% {{ background-position: 50% 100%; }} 50% {{ background-position: 100% 50%; }} 75% {{ background-position: 50% 0%; }} 100% {{ background-position: 0% 50%; }} }}
-
-    /* 🔥 电影级波浪雾化破浪特效 (Wave & Blur Transition) 🔥 */
-    @keyframes waveBlurUpIn {{ 
-        0% {{ opacity: 0; margin-top: 60px; filter: blur(15px); transform: scale(0.98); }} 
-        100% {{ opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); }} 
-    }}
-    @keyframes waveBlurDownIn {{ 
-        0% {{ opacity: 0; margin-top: -60px; filter: blur(15px); transform: scale(0.98); }} 
-        100% {{ opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); }} 
-    }}
-    @keyframes fogFadeIn {{ 
-        0% {{ opacity: 0; filter: blur(15px); transform: scale(0.98); }} 
-        100% {{ opacity: 1; filter: blur(0px); transform: scale(1); }} 
-    }}
-
     .block-container {{ 
-        /* 调用波浪雾化特效，时间拉长至 0.65s，曲线更具丝滑水波感 */
         animation: {anim_name} 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; 
         background: transparent !important; 
         padding-top: 4.5rem !important; 
         padding-bottom: 120px !important; 
     }}
-
-    /* 永远置顶顶栏，解除 Streamlit 下拉隐藏机制 */
-    header[data-testid="stHeader"] {{ position: fixed !important; top: 0px !important; transform: translateY(0px) !important; opacity: 1 !important; visibility: visible !important; background: transparent !important; pointer-events: none !important; }}
-    [data-testid="collapsedControl"], [data-testid="stToolbar"] {{ pointer-events: auto !important; opacity: 1 !important; visibility: visible !important; display: flex !important; transform: none !important;}}
-
-    /* 去除恼人的锚点链接 */
-    .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg {{ display: none !important; pointer-events: none !important; }}
-
-    [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div {{ background: transparent !important; border: none !important; }}
-
-    /* 隐藏真实的附件按钮容器，让 JS 替身发光发热 */
-    .real-popover-wrapper {{ position: fixed !important; bottom: 80px !important; left: 20px !important; opacity: 0 !important; z-index: -9999 !important; pointer-events: none !important; }}
-
-    /* ---------------- 基础深色核心设定 ---------------- */
-    .stApp {{ background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }}
-    .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div {{ color: #e2e8f0 !important; }}
-    .highlight-text {{ color: #00ffcc !important; }}
-    .sub-text {{ color: #cbd5e1 !important; }}
-    .danger-text {{ color: #ff4b4b !important; }}
-
-    [data-testid="stSidebar"] {{ background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; min-height: 100vh !important; }}
-    [data-testid="stSidebar"] > div:first-child {{ background: transparent !important; }}
-
-    div[role="radiogroup"] > label {{ background: rgba(15, 20, 30, 0.4) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important;}}
-    div[role="radiogroup"] > label:has(input:checked) {{ background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }}
-
-    .glass-card {{ background: rgba(20, 28, 45, 0.65) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }}
-    .metric-box {{ background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; }}
-    [data-testid="stExpander"] {{ background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); }}
-
-    /* 聊天胶囊 */
-    [data-testid="stChatInput"] {{ background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }}
-    [data-testid="stChatInput"] > div:first-child {{ background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; display: flex !important; align-items: center !important; }}
-    [data-testid="stChatInput"] [data-baseweb="textarea"], [data-testid="stChatInput"] [data-baseweb="textarea"] > div {{ background-color: transparent !important; border: none !important; box-shadow: none !important; outline: none !important; }}
-    [data-testid="stChatInput"] textarea {{ color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }}
-    [data-testid="stChatInputSubmitButton"] {{ background-color: #3b82f6 !important; border-radius: 50% !important; transition: all 0.3s ease; }}
-    [data-testid="stPopoverBody"] {{ background-color: rgba(25, 33, 48, 0.95) !important; border: 1px solid rgba(0, 255, 204, 0.4) !important; border-radius: 16px !important; backdrop-filter: blur(25px) !important; padding: 15px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.5) !important; margin-bottom: 10px !important; }}
-
-    /* ---------------- 浅色主题：冰晶流光特效强力覆盖 ---------------- */
-    .stApp[data-custom-theme='light'] {{ 
-        background-image: linear-gradient(132deg, #ffffff, #dbeafe, #e0e7ff, #f3e8ff, #ffffff) !important; 
-        background-size: 400% 400% !important; 
-        animation: fluidFlow 10s ease infinite !important; 
-    }}
-    .stApp[data-custom-theme='light'] .stMarkdown, .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] h4, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div {{ color: #1e293b !important; }}
-    .stApp[data-custom-theme='light'] .highlight-text {{ color: #0284c7 !important; }}
-    .stApp[data-custom-theme='light'] .sub-text {{ color: #475569 !important; }}
-    .stApp[data-custom-theme='light'] .danger-text {{ color: #dc2626 !important; }}
-    .stApp[data-custom-theme='light'] .glass-card {{ background: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.06) !important; }}
-    .stApp[data-custom-theme='light'] .metric-box {{ background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; }}
-    .stApp[data-custom-theme='light'] [data-testid="stExpander"] {{ background: rgba(255, 255, 255, 0.9) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }}
-    .stApp[data-custom-theme='light'] [data-testid="stSidebar"] {{ background: rgba(248, 250, 252, 0.85) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }}
-    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label {{ background: rgba(241, 245, 249, 0.8) !important; border-left: 4px solid transparent !important; }}
-    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) {{ background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }}
-    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child {{ background-color: rgba(255, 255, 255, 0.85) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08) !important; }}
-    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea {{ color: #1e293b !important; }}
-    .stApp[data-custom-theme='light'] [data-testid="stPopoverBody"] {{ background-color: rgba(255, 255, 255, 0.98) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 10px 40px rgba(0,0,0,0.1) !important; }}
-    .stApp[data-custom-theme='light'] .js-plotly-plot .g-gtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-xtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-ytitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .xtick text, .stApp[data-custom-theme='light'] .js-plotly-plot .ytick text, .stApp[data-custom-theme='light'] .js-plotly-plot .legendtext {{ fill: #1e293b !important; }}
-
-    /* 强行接管顶部图标颜色 */
-    .stApp[data-custom-theme='light'] [data-testid="collapsedControl"] svg, .stApp[data-custom-theme='light'] [data-testid="stToolbar"] svg {{ fill: #1e293b !important; color: #1e293b !important; }}
-    .stApp[data-custom-theme='dark'] [data-testid="collapsedControl"] svg, .stApp[data-custom-theme='dark'] [data-testid="stToolbar"] svg {{ fill: #e2e8f0 !important; color: #e2e8f0 !important; }}
-
-    /* Agent 战报节点 */
-    .agent-status-node {{ padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; }}
-    .agent-status-node.success {{ background: rgba(0, 255, 204, 0.1); border-left-color: #00ffcc; color: #00ffcc; }}
-    .agent-status-node.error {{ background: rgba(255, 75, 75, 0.1); border-left-color: #ff4b4b; color: #ff4b4b; }}
-    .agent-status-node.retry {{ background: rgba(255, 165, 0, 0.1); border-left-color: #ffa500; color: #ffa500; }}
-    .stApp[data-custom-theme='light'] .agent-status-node.success {{ background: rgba(16, 185, 129, 0.1); border-left-color: #10b981; color: #047857; }}
-    .stApp[data-custom-theme='light'] .agent-status-node.error {{ background: rgba(239, 68, 68, 0.1); border-left-color: #ef4444; color: #b91c1c; }}
-    .stApp[data-custom-theme='light'] .agent-status-node.retry {{ background: rgba(245, 158, 11, 0.1); border-left-color: #f59e0b; color: #b45309; }}
 </style>
 """, unsafe_allow_html=True)
 
 
 # ==========================================
-# 5. 全局缓存引擎与核心算法
+# 5. 高速数据缓存装甲 (@st.cache_data)
 # ==========================================
+# 🔥 彻底解决切换首页卡顿的终极法宝 🔥
+@st.cache_data(ttl=300)
+def get_tushare_status():
+    try:
+        t0 = time.time()
+        pro.trade_cal(exchange='SSE', start_date='20240101', end_date='20240101')
+        return f"🟢 Online ({int((time.time() - t0) * 1000)}ms)"
+    except:
+        return "🔴 Offline"
+
+
 @st.cache_data(ttl=3600)
 def fetch_and_clean_data(ts_code, adj, start_date):
     df = ts.pro_bar(ts_code=ts_code, adj=adj, start_date=start_date).sort_values('trade_date').reset_index(drop=True)
@@ -339,7 +326,7 @@ if selected_page == PAGES[0]:
     with c1:
         st.metric("活跃并发沙盒 (UUID)", st.session_state.user_id)
     with c2:
-        st.metric("Tushare 行情链路", "🟢 Online")
+        st.metric("Tushare 行情链路", get_tushare_status())  # 🔥 秒读取缓存，告别卡顿
     with c3:
         st.metric("大模型底层通信", "🟢 Moonshot-v1 正常")
     with c4:
@@ -383,7 +370,7 @@ elif selected_page == PAGES[1]:
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
 
-    # 🔥 隐藏真实的附件容器，仅保留功能，让替身触发它 🔥
+    # 真实的附件容器被隐藏，JS 替身接管
     st.markdown('<div class="real-popover-wrapper">', unsafe_allow_html=True)
     with st.popover("📎", help="上传附件", use_container_width=False):
         uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
