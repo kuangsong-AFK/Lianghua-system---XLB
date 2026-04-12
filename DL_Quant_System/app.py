@@ -137,13 +137,13 @@ components.html("""
 </script>
 """, height=0, width=0)
 
-# /// 4. 终极 CSS 注入 (含物理惯性动画) ///
+# /// 4. 终极 CSS 注入 (含物理惯性动画与去锚点优化) ///
 st.markdown(f"""
 <style>
     /* 背景流体动画 */
     @keyframes fluidFlow {{ 0% {{ background-position: 0% 50%; }} 25% {{ background-position: 50% 100%; }} 50% {{ background-position: 100% 50%; }} 75% {{ background-position: 50% 0%; }} 100% {{ background-position: 0% 50%; }} }}
 
-    /* 🔥 空间流形切换动画定义 🔥 */
+    /* 空间流形切换动画定义 */
     @keyframes slideUpIn {{
         0% {{ opacity: 0; transform: translateY(50px); }}
         100% {{ opacity: 1; transform: translateY(0); }}
@@ -157,13 +157,18 @@ st.markdown(f"""
         100% {{ opacity: 1; }}
     }}
 
-    /* 将计算出的动画变量赋予主容器，并使用贝塞尔曲线实现原生物理惯性 */
+    /* 将计算出的动画变量赋予主容器 */
     .block-container {{ 
         animation: {anim_name} 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; 
         background: transparent !important; 
         padding-top: 3rem !important; 
         padding-bottom: 120px !important; 
     }}
+
+    /* 🔥 彻底剿灭 Streamlit 标题旁边的锚点链接（链条图标）防误触滚动 🔥 */
+    .stMarkdown a.header-anchor {{ display: none !important; pointer-events: none !important; }}
+    .stMarkdown h1 a, .stMarkdown h2 a, .stMarkdown h3 a, .stMarkdown h4 a {{ display: none !important; pointer-events: none !important; }}
+    .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg, .stMarkdown h4 svg {{ display: none !important; }}
 
     [data-testid="stAppViewContainer"] {{ background: transparent !important; }}
     header[data-testid="stHeader"] {{ background: transparent !important; pointer-events: none !important; }}
