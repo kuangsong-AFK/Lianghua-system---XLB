@@ -17,7 +17,7 @@ from PIL import Image
 # 物理级防呆补丁
 pd.np = np
 
-# 🔥 预编译正则表达式，榨干 CPU 性能 🔥
+# 🔥 预编译正则表达式，榨干 CPU 性能
 SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 
 # ==========================================
@@ -51,7 +51,7 @@ if "is_live_trading" not in st.session_state: st.session_state.is_live_trading =
 # 2. 空间流形导航逻辑与置顶引掣
 # ==========================================
 PAGES = ["🏠 系统总览 (监控中控)", "🤖 AI 策略引擎 (LLM)", "📈 深度静态全量回测", "⚡ 实时高频交易 (Live)",
-         "🧠 深度学习预测 (LSTM)", "🛡️ 论文审计日志"]
+         "🧠 深度学习预测矩阵", "🛡️ 论文审计日志"]
 
 if "curr_page" not in st.session_state: st.session_state.curr_page = PAGES[0]
 if "prev_page" not in st.session_state: st.session_state.prev_page = PAGES[0]
@@ -74,7 +74,7 @@ prev_idx, curr_idx = PAGES.index(st.session_state.prev_page), PAGES.index(st.ses
 anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr_idx < prev_idx else "fogFadeIn")
 
 # ==========================================
-# 3. 宗师级 JS 引擎：零损耗 MutationObserver (废除死循环)
+# 3. 宗师级 JS 引擎：零损耗 MutationObserver
 # ==========================================
 scroll_script = "window.parent.scrollTo({top: 0, behavior: 'instant'});" if st.session_state.just_switched else ""
 
@@ -123,7 +123,6 @@ components.html(f"""
     }};
 
     runGlobalEngine();
-    // 🔥 事件驱动，代替死循环！CPU占用降至0% 🔥
     const observer = new MutationObserver(runGlobalEngine);
     observer.observe(window.parent.document.body, {{ childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }});
 </script>
@@ -183,7 +182,6 @@ st.markdown("""
     .stApp[data-custom-theme='light'] [data-testid="stPopoverBody"] { background-color: rgba(255, 255, 255, 0.98) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 10px 40px rgba(0,0,0,0.1) !important; }
     .stApp[data-custom-theme='light'] .js-plotly-plot .g-gtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-xtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-ytitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .xtick text, .stApp[data-custom-theme='light'] .js-plotly-plot .ytick text, .stApp[data-custom-theme='light'] .js-plotly-plot .legendtext { fill: #1e293b !important; }
     .stApp[data-custom-theme='light'] [data-testid="collapsedControl"] svg, .stApp[data-custom-theme='light'] [data-testid="stToolbar"] svg { fill: #1e293b !important; color: #1e293b !important; }
-    .stApp[data-custom-theme='dark'] [data-testid="collapsedControl"] svg, .stApp[data-custom-theme='dark'] [data-testid="stToolbar"] svg { fill: #e2e8f0 !important; color: #e2e8f0 !important; }
 
     .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; }
     .agent-status-node.success { background: rgba(0, 255, 204, 0.1); border-left-color: #00ffcc; color: #00ffcc; }
@@ -196,7 +194,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown(
-    f"<style>.block-container {{ animation: {anim_name} 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; background: transparent !important; padding-top: 4.5rem !important; padding-bottom: 120px !important; }}</style>",
+    f"<style>.block-container {{ animation: {anim_name} 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; background: transparent !important; padding-top: 4.5rem !important; padding-bottom: 120px !important; }}</style>",
     unsafe_allow_html=True)
 
 
@@ -232,7 +230,6 @@ def fetch_and_clean_data(ts_code, adj, start_date):
     return df
 
 
-# 🔥 原子化缓存：回测核心引擎抽离，避免切页重复计算 🔥
 @st.cache_data(show_spinner=False)
 def run_backtest_metrics(df_source, strategy_code):
     df_safe = df_source.copy()
@@ -270,7 +267,7 @@ def render_smart_charts(df):
     main_inds = [c for c in df.columns if c.startswith('MAIN_')]
     sub_groups = {}
     for c in df.columns:
-        gid = SUB_PATTERN.match(c)  # 使用预编译正则
+        gid = SUB_PATTERN.match(c)
         if gid: sub_groups.setdefault(gid.group(1), []).append(c)
     rows = 2 + len(sub_groups)
     fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.03,
@@ -317,7 +314,7 @@ def format_ts_code(raw):
 
 
 # ==========================================
-# 6. 各页面业务逻辑
+# 6. 各页面业务逻辑 (融合多模态深度学习)
 # ==========================================
 if selected_page == PAGES[0]:
     st.markdown(
@@ -331,10 +328,10 @@ if selected_page == PAGES[0]:
     with c3:
         st.metric("大模型底层通信", "🟢 Moonshot-v1 正常")
     with c4:
-        st.metric("AI 神经网络", "🟢 懒加载待命")
+        st.metric("AI 神经网络", "🟢 融合学习待命")
     st.markdown("---")
     st.markdown(
-        '<div class="glass-card" style="padding:15px; margin-bottom:20px;"><b class="highlight-text">🎯 极简操作指南：</b><span class="sub-text" style="margin-left: 10px;">1. 回测界输入标的拉取数据 | 2. 策略引擎上传研报下令 | 3. 拖拽 K 线双击自适应对齐。</span></div>',
+        '<div class="glass-card" style="padding:15px; margin-bottom:20px;"><b class="highlight-text">🎯 极简操作指南：</b><span class="sub-text" style="margin-left: 10px;">1. 回测界输入标的拉取数据 | 2. 策略引擎上传研报下令 | 3. 深度预测界面勾选多模型融合。</span></div>',
         unsafe_allow_html=True)
     c_arch, c_point = st.columns([2, 1])
     with c_arch:
@@ -348,7 +345,7 @@ if selected_page == PAGES[0]:
         st.markdown('</div>', unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**内存池占用率**<br>🟢 4% (完全释放)<br><br>**答辩核心创新点：**<br>✅ MutationObserver 零消耗<br>✅ 回测矩阵原子级缓存<br>✅ 重装甲懒加载</div>',
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**内存池占用率**<br>🟢 4% (完全释放)<br><br>**答辩核心创新点：**<br>✅ <span class="highlight-text">多模型融合 (Ensemble)</span><br>✅ MutationObserver 零消耗<br>✅ 回测矩阵原子级缓存</div>',
             unsafe_allow_html=True)
 
 elif selected_page == PAGES[1]:
@@ -541,6 +538,7 @@ elif selected_page == PAGES[3]:
                 time.sleep(freq)
         st.markdown('</div>', unsafe_allow_html=True)
 
+# 🔥 核心重构：多模态预测引擎 (LSTM / GRU / 1D-CNN 集成) 🔥
 elif selected_page == PAGES[4]:
     with st.spinner("唤醒深度学习底层张量引擎..."):
         import torch
@@ -548,64 +546,134 @@ elif selected_page == PAGES[4]:
         from sklearn.preprocessing import MinMaxScaler
 
     st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color);">🧠 深度神经网络时序建模中心 (LSTM)</h3></div>',
+        '<div class="glass-card"><h3 style="color:var(--text-color);">🧠 深度神经网络时序建模矩阵 (多模型融合)</h3></div>',
         unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 2.5])
+
     with col_l:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         st_code = st.text_input("🎯 训练模型标的", value="000001")
+
+        # 允许多选集成学习
+        model_choices = st.multiselect("🧠 选择预测模型 (支持多选融合)", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"])
+
         slen = st.slider("📏 滑窗长度", 5, 60, 20)
         eps = st.slider("🔄 Epoch 迭代", 10, 50, 30)
+
         if st.button("🚀 启动张量训练", type="primary", use_container_width=True):
-            with st.spinner("神经网络前向传播中..."):
-                try:
-                    df = fetch_and_clean_data(format_ts_code(st_code), 'qfq', '20210101')
-                    scaler = MinMaxScaler()
-                    scaled = scaler.fit_transform(df['Close'].values.reshape(-1, 1))
-                    X, y = [], []
-                    for i in range(slen, len(scaled)): X.append(scaled[i - slen:i, 0]); y.append(scaled[i, 0])
-                    X_t, y_t = torch.tensor(np.array(X), dtype=torch.float32).unsqueeze(-1), torch.tensor(np.array(y),
-                                                                                                          dtype=torch.float32)
+            if not model_choices:
+                st.error("主公，请至少选择一种预测模型！")
+            else:
+                with st.spinner("神经网络前向传播中..."):
+                    try:
+                        df = fetch_and_clean_data(format_ts_code(st_code), 'qfq', '20210101')
+                        scaler = MinMaxScaler()
+                        scaled = scaler.fit_transform(df['Close'].values.reshape(-1, 1))
+                        X, y = [], []
+                        for i in range(slen, len(scaled)):
+                            X.append(scaled[i - slen:i, 0])
+                            y.append(scaled[i, 0])
+                        X_t = torch.tensor(np.array(X), dtype=torch.float32).unsqueeze(-1)
+                        y_t = torch.tensor(np.array(y), dtype=torch.float32)
 
 
-                    class LSTM(nn.Module):
-                        def __init__(self): super().__init__(); self.lstm = nn.LSTM(1, 64, 2,
-                                                                                    batch_first=True); self.fc = nn.Linear(
-                            64, 1)
+                        # 模型架构定义
+                        class LSTM_Model(nn.Module):
+                            def __init__(self): super().__init__(); self.lstm = nn.LSTM(1, 64, 2,
+                                                                                        batch_first=True); self.fc = nn.Linear(
+                                64, 1)
 
-                        def forward(self, x): out, _ = self.lstm(x); return self.fc(out[:, -1, :])
+                            def forward(self, x): out, _ = self.lstm(x); return self.fc(out[:, -1, :])
 
 
-                    model = LSTM();
-                    opt = torch.optim.Adam(model.parameters(), lr=0.01);
-                    crit = nn.MSELoss()
-                    lbox, pbar = st.empty(), st.progress(0)
-                    for e in range(eps):
-                        model.train();
-                        opt.zero_grad();
-                        pred = model(X_t);
-                        loss = crit(pred.squeeze(), y_t);
-                        loss.backward();
-                        opt.step()
-                        lbox.code(f"Epoch {e + 1}/{eps}, Loss: {loss.item():.6f}");
-                        pbar.progress((e + 1) / eps)
-                    model.eval();
-                    test_p = model(X_t[-100:]).detach().numpy()
-                    st.session_state.dl_result = {"dates": df['trade_date'].iloc[-100:],
-                                                  "actual": df['Close'].iloc[-100:],
-                                                  "pred": scaler.inverse_transform(test_p).flatten()}
-                except Exception as e:
-                    st.error(f"DL 异常: {e}")
+                        class GRU_Model(nn.Module):
+                            def __init__(self): super().__init__(); self.gru = nn.GRU(1, 64, 2,
+                                                                                      batch_first=True); self.fc = nn.Linear(
+                                64, 1)
+
+                            def forward(self, x): out, _ = self.gru(x); return self.fc(out[:, -1, :])
+
+
+                        class CNN_1D_Model(nn.Module):
+                            def __init__(self, seq_len):
+                                super().__init__()
+                                self.conv = nn.Conv1d(in_channels=1, out_channels=32, kernel_size=3, padding=1)
+                                self.fc = nn.Linear(32 * seq_len, 1)
+
+                            def forward(self, x):
+                                x = x.permute(0, 2, 1)  # [batch, slen, 1] -> [batch, 1, slen]
+                                x = torch.relu(self.conv(x))
+                                x = x.reshape(x.size(0), -1)  # flatten
+                                return self.fc(x)
+
+
+                        preds_dict = {}
+                        lbox, pbar = st.empty(), st.progress(0)
+
+                        # 遍历所选模型进行分别训练
+                        for m_idx, m_name in enumerate(model_choices):
+                            lbox.markdown(f"**正在训练 {m_name} 模型...**")
+                            if m_name == "LSTM":
+                                model = LSTM_Model()
+                            elif m_name == "GRU":
+                                model = GRU_Model()
+                            elif m_name == "1D-CNN":
+                                model = CNN_1D_Model(slen)
+
+                            opt = torch.optim.Adam(model.parameters(), lr=0.01)
+                            crit = nn.MSELoss()
+
+                            for e in range(eps):
+                                model.train()
+                                opt.zero_grad()
+                                pred = model(X_t)
+                                loss = crit(pred.squeeze(), y_t)
+                                loss.backward()
+                                opt.step()
+
+                                # 更新总体进度条
+                                total_progress = (m_idx * eps + e + 1) / (len(model_choices) * eps)
+                                pbar.progress(total_progress)
+                                lbox.markdown(f"**{m_name}** | Epoch {e + 1}/{eps} | Loss: {loss.item():.6f}")
+
+                            model.eval()
+                            test_p = model(X_t[-100:]).detach().numpy()
+                            preds_dict[m_name] = scaler.inverse_transform(test_p).flatten()
+
+                        lbox.success("✅ 矩阵训练完毕！")
+                        st.session_state.dl_result = {
+                            "dates": df['trade_date'].iloc[-100:],
+                            "actual": df['Close'].iloc[-100:],
+                            "preds": preds_dict
+                        }
+                    except Exception as e:
+                        st.error(f"DL 张量异常: {e}")
         st.markdown('</div>', unsafe_allow_html=True)
+
     with col_r:
         if st.session_state.dl_result:
             res = st.session_state.dl_result
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹', line=dict(color='#00ffcc')))
-            fig.add_trace(
-                go.Scatter(x=res['dates'], y=res['pred'], name='LSTM 预测', line=dict(color='#ff00ff', dash='dot')))
+            fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹 (Actual)',
+                                     line=dict(color='#00ffcc', width=2)))
+
+            # 定义模型专属颜色
+            color_map = {"LSTM": "#ff00ff", "GRU": "#ffff00", "1D-CNN": "#00bfff"}
+
+            # 绘制各个独立模型
+            for m_name, pred_array in res['preds'].items():
+                fig.add_trace(go.Scatter(x=res['dates'], y=pred_array, name=f'{m_name} 预测',
+                                         line=dict(color=color_map.get(m_name, '#ffffff'), dash='dot', width=1)))
+
+            # 🔥 如果选中了多个模型，计算并绘制均值融合曲线 (Ensemble) 🔥
+            if len(res['preds']) > 1:
+                ensemble_pred = np.mean(list(res['preds'].values()), axis=0)
+                fig.add_trace(go.Scatter(x=res['dates'], y=ensemble_pred, name='🔥 均值融合 (Ensemble)',
+                                         line=dict(color='#ff4b4b', width=3)))
+
             fig.update_layout(height=500, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
-                              plot_bgcolor='rgba(0,0,0,0.1)', dragmode='pan', hovermode='x')
+                              plot_bgcolor='rgba(0,0,0,0.1)', dragmode='pan', hovermode='x',
+                              legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
             st.plotly_chart(fig, use_container_width=True)
             st.markdown('</div>', unsafe_allow_html=True)
