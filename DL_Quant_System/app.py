@@ -65,7 +65,7 @@ if "bt_result" not in st.session_state: st.session_state.bt_result = None
 if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 if "is_live_trading" not in st.session_state: st.session_state.is_live_trading = False
 
-# /// 2. UI/UX 强化 (光暗双生引擎 + 悬浮舱 + 满屏侧边栏) ///
+# /// 2. UI/UX 强化 (光暗双生引擎 + 悬浮舱 + 绝对死角封锁) ///
 st.markdown("""
 <style>
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
@@ -81,8 +81,8 @@ st.markdown("""
     .sub-text { color: #cbd5e1 !important; }
     .danger-text { color: #ff4b4b !important; }
 
-    /* 🔥 暴力强制侧边栏满屏：高度 100vh，无视上下预留区 */
-    section[data-testid="stSidebar"] { 
+    /* 🔥 暴力强制侧边栏满屏无死角：确保到底部！ */
+    [data-testid="stSidebar"] { 
         top: 0 !important; 
         bottom: 0 !important; 
         height: 100vh !important; 
@@ -90,11 +90,15 @@ st.markdown("""
         background: rgba(5, 8, 14, 0.75) !important; 
         backdrop-filter: blur(25px) !important; 
         border-right: 1px solid rgba(255,255,255,0.08) !important; 
+        display: flex !important;
+        flex-direction: column !important;
     }
-    /* 强迫其内部容器也占满高度 */
-    section[data-testid="stSidebar"] > div {
-        height: 100vh !important;
-        padding-top: 2rem !important; 
+    /* 强行撑满侧边栏内的所有包装容器，剿灭左下角黑框 */
+    [data-testid="stSidebar"] > div, 
+    [data-testid="stSidebarUserContent"] {
+        height: 100% !important;
+        min-height: 100vh !important;
+        flex-grow: 1 !important;
     }
 
     div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; padding: 14px 18px !important; margin-bottom: 10px !important; border-radius: 12px !important; border-left: 4px solid transparent !important; }
@@ -124,7 +128,7 @@ st.markdown("""
     .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.9) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }
 
     /* 浅色满屏侧边栏 */
-    .stApp[data-custom-theme='light'] section[data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.85) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.85) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
 
     .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.8) !important; border-left: 4px solid transparent !important; }
     .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
