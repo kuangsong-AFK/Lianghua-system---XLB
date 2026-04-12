@@ -41,7 +41,7 @@ if "bt_result" not in st.session_state: st.session_state.bt_result = None
 if "sys_logs" not in st.session_state: st.session_state.sys_logs = []
 if "is_live_trading" not in st.session_state: st.session_state.is_live_trading = False
 
-# /// 2. 空间流形导航逻辑 (记录坐标，计算滑动方向，并强制置顶) ///
+# /// 2. 空间流形导航逻辑与置顶引掣 ///
 PAGES = [
     "🏠 系统总览 (监控中控)",
     "🤖 AI 策略引擎 (LLM)",
@@ -53,6 +53,7 @@ PAGES = [
 
 if "curr_page" not in st.session_state: st.session_state.curr_page = PAGES[0]
 if "prev_page" not in st.session_state: st.session_state.prev_page = PAGES[0]
+if "just_switched" not in st.session_state: st.session_state.just_switched = False
 
 with st.sidebar:
     st.markdown("### 🎓 小吕布量化 Pro")
@@ -60,22 +61,31 @@ with st.sidebar:
     st.markdown("---")
     selected_page = st.radio("导航菜单", PAGES, label_visibility="collapsed")
 
-# 动态计算相对位移方向，并触发强制滚动置顶
+# 动态计算相对位移方向并检测是否切换
 if selected_page != st.session_state.curr_page:
-    # 🔥 黑魔法：只要切换页面，瞬间平滑滚动到最顶部！
-    components.html("<script>window.parent.scrollTo({top: 0, behavior: 'smooth'});</script>", height=0, width=0)
     st.session_state.prev_page = st.session_state.curr_page
     st.session_state.curr_page = selected_page
+    st.session_state.just_switched = True
+else:
+    st.session_state.just_switched = False
 
 prev_idx = PAGES.index(st.session_state.prev_page)
 curr_idx = PAGES.index(st.session_state.curr_page)
 
 if curr_idx > prev_idx:
-    anim_name = "slideUpIn"
+    anim_name = "slideUpIn"  # 往下点：新页面从下往上推入
 elif curr_idx < prev_idx:
-    anim_name = "slideDownIn"
+    anim_name = "slideDownIn"  # 往上点：新页面从上往下坠入
 else:
-    anim_name = "fadeIn"
+    anim_name = "fadeIn"  # 首次加载或原点：单纯淡入
+
+# 🔥 页面切换时，强行瞬间滚动到最顶端！
+if st.session_state.just_switched:
+    components.html("""
+    <script>
+        window.parent.scrollTo({top: 0, behavior: 'instant'});
+    </script>
+    """, height=0, width=0)
 
 # /// 3. 涡轮增压引擎：全局唯一常驻 JS 守护进程 ///
 components.html("""
@@ -139,27 +149,16 @@ components.html("""
 </script>
 """, height=0, width=0)
 
-# /// 4. 终极 CSS 注入 (含物理惯性动画与去锚点优化) ///
+# /// 4. 终极 CSS 注入 (防隐藏锁死 Header + 物理惯性动画 + 去锚点) ///
 st.markdown(f"""
 <style>
     /* 背景流体动画 */
     @keyframes fluidFlow {{ 0% {{ background-position: 0% 50%; }} 25% {{ background-position: 50% 100%; }} 50% {{ background-position: 100% 50%; }} 75% {{ background-position: 50% 0%; }} 100% {{ background-position: 0% 50%; }} }}
 
-    /* 空间流形切换动画定义 */
-    @keyframes slideUpIn {{
-        0% {{ opacity: 0; transform: translateY(50px); }}
-        100% {{ opacity: 1; transform: translateY(0); }}
-    }}
-    @keyframes slideDownIn {{
-        0% {{ opacity: 0; transform: translateY(-50px); }}
-        100% {{ opacity: 1; transform: translateY(0); }}
-    }}
-    @keyframes fadeIn {{
-        0% {{ opacity: 0; }}
-        100% {{ opacity: 1; }}
-    }}
+    @keyframes slideUpIn {{ 0% {{ opacity: 0; transform: translateY(50px); }} 100% {{ opacity: 1; transform: translateY(0); }} }}
+    @keyframes slideDownIn {{ 0% {{ opacity: 0; transform: translateY(-50px); }} 100% {{ opacity: 1; transform: translateY(0); }} }}
+    @keyframes fadeIn {{ 0% {{ opacity: 0; }} 100% {{ opacity: 1; }} }}
 
-    /* 将计算出的动画变量赋予主容器 */
     .block-container {{ 
         animation: {anim_name} 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; 
         background: transparent !important; 
@@ -167,14 +166,18 @@ st.markdown(f"""
         padding-bottom: 120px !important; 
     }}
 
-    /* 🔥 修复关键点 1：恢复顶栏点击，侧边栏收缩键满血复活！ */
-    header[data-testid="stHeader"] {{ background: transparent !important; z-index: 99999 !important; }}
+    /* 🔥 永远锁定 Header 不被滚动隐藏，恢复点击权限！ 🔥 */
+    header[data-testid="stHeader"] {{ 
+        background: transparent !important; 
+        transform: translateY(0) !important; /* 彻底击杀向下滚动时的隐藏机制 */
+        transition: none !important;
+        z-index: 99999 !important; 
+    }}
 
-    /* 🔥 修复关键点 2：精准隐形标题链条锚点，不伤及无辜 */
-    a.header-anchor {{ display: none !important; pointer-events: none !important; }}
-    .stMarkdown h1:hover a.header-anchor, 
-    .stMarkdown h2:hover a.header-anchor, 
-    .stMarkdown h3:hover a.header-anchor {{ display: none !important; }}
+    /* 彻底剿灭 Streamlit 标题旁边的锚点链接防误触滚动 */
+    .stMarkdown a.header-anchor {{ display: none !important; pointer-events: none !important; }}
+    .stMarkdown h1 a, .stMarkdown h2 a, .stMarkdown h3 a, .stMarkdown h4 a {{ display: none !important; pointer-events: none !important; }}
+    .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg, .stMarkdown h4 svg {{ display: none !important; }}
 
     [data-testid="stAppViewContainer"] {{ background: transparent !important; }}
     [data-testid="stBottomBlock"], [data-testid="stBottom"], [data-testid="stBottom"] > div {{ background-color: transparent !important; background: transparent !important; border: none !important; }}
@@ -223,7 +226,6 @@ st.markdown(f"""
     .stApp[data-custom-theme='light'] [data-testid="stPopoverBody"] {{ background-color: rgba(255, 255, 255, 0.98) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 10px 40px rgba(0,0,0,0.1) !important; }}
     .stApp[data-custom-theme='light'] .js-plotly-plot .g-gtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-xtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-ytitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .xtick text, .stApp[data-custom-theme='light'] .js-plotly-plot .ytick text, .stApp[data-custom-theme='light'] .js-plotly-plot .legendtext {{ fill: #1e293b !important; }}
 
-    /* Agent 战报节点 */
     .agent-status-node {{ padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; }}
     .agent-status-node.success {{ background: rgba(0, 255, 204, 0.1); border-left-color: #00ffcc; color: #00ffcc; }}
     .agent-status-node.error {{ background: rgba(255, 75, 75, 0.1); border-left-color: #ff4b4b; color: #ff4b4b; }}
