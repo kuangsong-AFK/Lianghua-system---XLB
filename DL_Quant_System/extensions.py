@@ -1,16 +1,27 @@
 # ==========================================
-# 文件名：extensions.py
-# 功能：未来所有的新增业务逻辑、新页面、新算法统统写在这里
+# 文件名：extensions.py (扩展功能先锋营)
+# 功能：统一管理和路由所有的新增模块
 # ==========================================
 import streamlit as st
-import pandas as pd
-import numpy as np
+
+# 1. 引入我们刚刚新建的 3D 噜噜模块
+import feat_lulu_3d
 
 
 def render_new_features_page():
     st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3><p class="sub-text">模块化架构已打通，新功能将在此列装。</p></div>',
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3><p class="sub-text">模块化架构已打通，新兵器随时可在此列装。</p></div>',
         unsafe_allow_html=True)
 
-    st.success("✅ 报告主公：`extensions.py` 扩展营已成功连线主程序！")
-    st.info("💡 您未来的新想法（如新的因子计算、新的爬虫模块等）都可以直接写在这个文件里，主程序完全不受影响！")
+    # 2. 使用标签页管理不同功能
+    tab1, tab2, tab3 = st.tabs(["🦦 3D 噜噜培育舱", "🐂 AI 选股雷达 (待开发)", "💼 龙虎榜监控 (待开发)"])
+
+    with tab1:
+        # 调用 3D 渲染函数
+        feat_lulu_3d.render_3d_lulu()
+
+    with tab2:
+        st.warning("选股雷达功能开发中，主公未来可在此施展才华。")
+
+    with tab3:
+        st.warning("龙虎榜监控功能开发中...")
