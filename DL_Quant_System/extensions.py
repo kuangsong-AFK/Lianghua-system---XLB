@@ -9,11 +9,14 @@ import os
 
 def summon_3d_lulu():
     """读取本地 GLB 模型并注入到前端"""
-    file_path = "lulu.glb"
+
+    # 🔥 核心修复：获取当前代码所在的绝对路径，精准雷达锁定！🔥
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(current_dir, "lulu.glb")
 
     # 1. 检查模型文件是否存在
     if not os.path.exists(file_path):
-        st.warning("⚠️ 报告主公：未找到 `lulu.glb` 模型文件，请检查是否已放入同级目录。")
+        st.warning(f"⚠️ 报告主公：在精准路径 `{file_path}` 未找到模型，请检查文件拼写。")
         return
 
     # 2. 将 GLB 文件转化为 Base64 流，突破云端读取限制
@@ -64,11 +67,13 @@ def summon_3d_lulu():
                 // 2. 初始化 Three.js 渲染环境 (背景透明)
                 const scene = new THREE.Scene();
                 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-                // 摄像机位置，如果您觉得模型太大/太小，可以修改这里的值 (X, Y, Z)
+                // 摄像机位置，控制模型在框里的远近大小
                 camera.position.set(0, 1.5, 5); 
 
                 const renderer = new THREE.WebGLRenderer({{ alpha: true, antialias: true }});
                 renderer.setSize(200, 200);
+                // 使用 sRGB 编码，让腾讯混元材质颜色更逼真
+                renderer.outputEncoding = THREE.sRGBEncoding; 
                 luluBox.appendChild(renderer.domElement);
 
                 // 添加神仙光影
@@ -79,7 +84,7 @@ def summon_3d_lulu():
                 scene.add(dirLight);
 
                 // 3. 解析并加载主公的 GLB 模型
-                let mixer; // 动画混合器
+                let mixer; 
                 const loader = new THREE.GLTFLoader();
                 const glbDataUrl = "data:application/octet-stream;base64,{glb_b64}";
 
@@ -87,20 +92,19 @@ def summon_3d_lulu():
                     const model = gltf.scene;
 
                     // 模型初始姿态微调 (Y轴下沉一点居中)
-                    model.position.y = -1; 
+                    model.position.y = -1.2; 
 
                     scene.add(model);
 
-                    // 如果腾讯混元生成了内置动画(绑骨后的待机动画)，则直接播放！
+                    // 如果有内置骨骼动画，直接播放！
                     if (gltf.animations && gltf.animations.length > 0) {{
                         mixer = new THREE.AnimationMixer(model);
                         const action = mixer.clipAction(gltf.animations[0]);
                         action.play();
                     }}
 
-                    // 鼠标跟随旋转互动
+                    // 鼠标跟随旋转互动 (转头效果)
                     doc.addEventListener('mousemove', (e) => {{
-                        // 让模型微微转头看向鼠标
                         const mouseX = (e.clientX / window.innerWidth) * 2 - 1;
                         const mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
                         model.rotation.y = mouseX * 0.5;
@@ -141,9 +145,8 @@ def summon_3d_lulu():
                     isDragging = false;
                     luluBox.style.cursor = 'grab';
 
-                    // 点击触发气泡
                     if (isClick) {{
-                        const ts = ["主公，我变 3D 啦！✨", "量化大赚，吃橘子！🍊", "调用 Kimi 中...🧠"];
+                        const ts = ["主公，我变 3D 啦！✨", "量化大赚，吃橘子！🍊", "调用 Kimi 中...🧠", "盯盘好累喔...🦦"];
                         bubble.innerText = ts[Math.floor(Math.random() * ts.length)];
                         bubble.style.opacity = '1';
                         setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
@@ -163,7 +166,7 @@ def render_new_features_page():
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3><p class="sub-text">模块化架构已打通，新兵器随时可在此列装。</p></div>',
         unsafe_allow_html=True)
 
-    st.info("✅ 报告主公：已在底层发起 3D 引擎召唤阵！请看右下角！")
+    st.info("✅ 报告主公：已在底层精准锚定并加载 3D 噜噜！请看右下角！")
 
     # 唤醒咱们刚刚写的 3D 引擎！
     summon_3d_lulu()
