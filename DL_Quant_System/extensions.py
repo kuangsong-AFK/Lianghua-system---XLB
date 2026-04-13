@@ -9,13 +9,13 @@ import os
 
 
 def summon_global_3d_lulu():
-    """终极寄生版：解决视距、眼神跟随、单击与双击"""
+    """终极寄生版：4K超清画质 + PC/移动双端完美拖拽"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(current_dir, "lulu.glb")
 
     if not os.path.exists(file_path): return
 
-    with st.spinner("正在加载 3D 引擎与交互模块..."):
+    with st.spinner("正在加载超清 3D 引擎与移动端交互模块..."):
         with open(file_path, "rb") as f:
             glb_b64 = base64.b64encode(f.read()).decode("utf-8")
 
@@ -44,27 +44,30 @@ def summon_global_3d_lulu():
                         const win = window;
                         const doc = document;
 
-                        let state = 'IDLE'; // 状态机：IDLE, STRUGGLING, DANCING
+                        let state = 'IDLE'; 
                         let danceTimer = 0;
 
-                        // 1. 扩大悬浮舱尺寸，防止半截身子！
+                        // 1. 扩大尺寸，让噜噜更大更清晰
                         const petBox = doc.createElement('div');
                         petBox.id = 'lulu-global-pet';
-                        petBox.style.cssText = "position: fixed; bottom: 30px; right: 30px; width: 300px; height: 300px; z-index: 9999999; cursor: grab; user-select: none; pointer-events: auto; transition: transform 0.2s;";
+                        petBox.style.cssText = "position: fixed; bottom: 30px; right: 20px; width: 300px; height: 300px; z-index: 9999999; cursor: grab; user-select: none; pointer-events: auto; transition: transform 0.2s; touch-action: none;"; // touch-action:none 防止手机拖拽时屏幕跟着滚
                         doc.body.appendChild(petBox);
 
-                        // 优化气泡位置
                         const bubble = doc.createElement('div');
                         bubble.style.cssText = "position: absolute; top: 10px; left: 50%; transform: translateX(-50%); opacity: 0; background: rgba(20, 28, 45, 0.95); border: 1px solid #ff8c00; color: #fff; padding: 8px 15px; border-radius: 12px; font-size: 14px; white-space: nowrap; transition: opacity 0.3s; pointer-events: none;";
                         petBox.appendChild(bubble);
 
-                        // 2. 初始化环境：拉远相机并降低高度
+                        // 2. 超清渲染环境
                         const scene = new THREE.Scene();
+                        // 镜头拉近 (Z: 5.5 改为 5.0)，高度微调
                         const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-                        camera.position.set(0, 0.5, 6.5); // (X左右, Y高低, Z远近) 这样能看清全身
+                        camera.position.set(0, 0.8, 5.0); 
 
                         const renderer = new THREE.WebGLRenderer({{ alpha: true, antialias: true }});
-                        renderer.setSize(300, 300); // 必须和悬浮舱一样大
+                        renderer.setSize(300, 300);
+
+                        // 🔥 核心修复：开启视网膜超清适配，告别模糊！🔥
+                        renderer.setPixelRatio(win.devicePixelRatio ? win.devicePixelRatio : 1);
                         renderer.outputEncoding = THREE.sRGBEncoding;
                         petBox.appendChild(renderer.domElement);
 
@@ -75,13 +78,13 @@ def summon_global_3d_lulu():
                         scene.add(dirLight);
 
                         let model, mixer;
-                        let targetRotY = 0; // 眼神跟随目标角度
+                        let targetRotY = 0; 
                         let targetRotX = 0;
 
                         const loader = new THREE.GLTFLoader();
                         loader.load("data:application/octet-stream;base64," + win.__LULU_B64__, (gltf) => {{
                             model = gltf.scene;
-                            model.position.set(0, -1.2, 0); // 居中摆放
+                            model.position.set(0, -1.2, 0); 
                             scene.add(model);
 
                             if (gltf.animations.length > 0) {{
@@ -89,18 +92,22 @@ def summon_global_3d_lulu():
                                 mixer.clipAction(gltf.animations[0]).play();
                             }}
 
-                            // 获取全网页鼠标移动，计算眼神目标角度
-                            doc.addEventListener('mousemove', (e) => {{
+                            // 眼神跟随 (同时兼容鼠标和触摸)
+                            const updateLookAt = (clientX, clientY) => {{
                                 if (state === 'IDLE') {{
-                                    const mouseX = (e.clientX / win.innerWidth) * 2 - 1;
-                                    const mouseY = -(e.clientY / win.innerHeight) * 2 + 1;
+                                    const mouseX = (clientX / win.innerWidth) * 2 - 1;
+                                    const mouseY = -(clientY / win.innerHeight) * 2 + 1;
                                     targetRotY = mouseX * 0.8;
                                     targetRotX = -mouseY * 0.4;
                                 }}
-                            }});
+                            }};
+                            doc.addEventListener('mousemove', (e) => updateLookAt(e.clientX, e.clientY));
+                            doc.addEventListener('touchmove', (e) => {{
+                                if(e.touches.length > 0) updateLookAt(e.touches[0].clientX, e.touches[0].clientY);
+                            }}, {{passive: true}});
                         }});
 
-                        // 3. 渲染主循环 (引擎心脏)
+                        // 3. 渲染循环
                         const clock = new THREE.Clock();
                         function animate() {{
                             win.requestAnimationFrame(animate);
@@ -110,31 +117,20 @@ def summon_global_3d_lulu():
 
                             if (model) {{
                                 if (state === 'STRUGGLING') {{
-                                    // 挣扎：重置身体朝向并高频抖动
-                                    model.rotation.y = 0;
-                                    model.rotation.x = 0;
+                                    model.rotation.y = 0; model.rotation.x = 0;
                                     model.position.x = Math.sin(time * 50) * 0.05;
                                     model.rotation.z = Math.cos(time * 50) * 0.1;
                                     model.position.y = -1.2;
                                 }} else if (state === 'DANCING') {{
-                                    // 跳舞：跳跃 + 旋转
                                     model.position.y = -1.2 + Math.abs(Math.sin(time * 10)) * 0.5;
                                     model.rotation.y += 0.2;
-                                    model.rotation.x = 0;
-                                    model.rotation.z = 0;
-                                    model.position.x = 0;
+                                    model.rotation.x = 0; model.rotation.z = 0; model.position.x = 0;
 
                                     danceTimer -= delta;
-                                    if (danceTimer <= 0) {{ 
-                                        state = 'IDLE'; 
-                                        model.position.y = -1.2; 
-                                    }}
+                                    if (danceTimer <= 0) {{ state = 'IDLE'; model.position.y = -1.2; }}
                                 }} else {{
-                                    // 闲置：微弱呼吸 + 眼神平滑跟随鼠标！
                                     model.position.y = -1.2 + Math.sin(time * 2) * 0.02;
-                                    model.position.x = 0;
-                                    model.rotation.z = 0;
-                                    // 让模型平滑转向目标角度 (插值动画，显得很灵动)
+                                    model.position.x = 0; model.rotation.z = 0;
                                     model.rotation.y += (targetRotY - model.rotation.y) * 0.1;
                                     model.rotation.x += (targetRotX - model.rotation.x) * 0.1;
                                 }}
@@ -143,12 +139,16 @@ def summon_global_3d_lulu():
                         }}
                         animate();
 
-                        // 4. 全局交互事件判定
+                        // 4. 🔥 全端融合交互引擎 (PC 鼠标 + 手机触摸) 🔥
                         let isDragging = false, initX, initY, startL, startT, isClick = true;
 
-                        petBox.onmousedown = (e) => {{
+                        // 统一坐标获取方法
+                        const getX = (e) => e.touches ? e.touches[0].clientX : e.clientX;
+                        const getY = (e) => e.touches ? e.touches[0].clientY : e.clientY;
+
+                        const startDrag = (e) => {{
                             isDragging = true; isClick = true; state = 'STRUGGLING';
-                            initX = e.clientX; initY = e.clientY;
+                            initX = getX(e); initY = getY(e);
                             const r = petBox.getBoundingClientRect();
                             startL = r.left; startT = r.top;
                             petBox.style.bottom = 'auto'; petBox.style.right = 'auto';
@@ -157,37 +157,62 @@ def summon_global_3d_lulu():
                             petBox.style.transform = 'scale(1.05)';
                         }};
 
-                        doc.addEventListener('mousemove', (e) => {{
+                        const doDrag = (e) => {{
                             if (!isDragging) return;
-                            if (Math.abs(e.clientX - initX) > 5) isClick = false; // 动了就不是点击
-                            petBox.style.left = (startL + e.clientX - initX) + 'px';
-                            petBox.style.top = (startT + e.clientY - initY) + 'px';
-                        }});
+                            const curX = getX(e); const curY = getY(e);
+                            if (Math.abs(curX - initX) > 5 || Math.abs(curY - initY) > 5) isClick = false;
+                            petBox.style.left = (startL + curX - initX) + 'px';
+                            petBox.style.top = (startT + curY - initY) + 'px';
+                            // 手机端拖拽时阻止页面滚动
+                            if(e.touches) e.preventDefault(); 
+                        }};
 
-                        doc.addEventListener('mouseup', () => {{
+                        const endDrag = () => {{
                             if (!isDragging) return;
                             isDragging = false; 
                             petBox.style.cursor = 'grab';
                             petBox.style.transform = 'scale(1)';
                             if (state !== 'DANCING') state = 'IDLE';
 
-                            // 单击判定：触发说话
                             if (isClick) {{
-                                const ts = ["主公，我在这呢！🥰", "量化大赚！吃橘子！🍊", "点击我也不会晕的~🦦", "今天赚了多少呀？💸"];
+                                const ts = ["主公，手机上我也能飞啦！📱", "量化大赚！吃橘子！🍊", "屏幕好高清呀~🦦", "今天赚了多少呀？💸"];
                                 bubble.innerText = ts[Math.floor(Math.random() * ts.length)];
                                 bubble.style.opacity = '1';
                                 setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
                             }}
-                        }});
+                        }};
 
-                        // 双击判定：触发跳舞
-                        petBox.ondblclick = () => {{
+                        const doDance = () => {{
                             state = 'DANCING';
-                            danceTimer = 3.0; // 跳舞3秒
+                            danceTimer = 3.0; 
                             bubble.innerText = "好耶！开心转圈圈！💃🕺";
                             bubble.style.opacity = '1';
                             setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
                         }};
+
+                        // 绑定电脑鼠标事件
+                        petBox.addEventListener('mousedown', startDrag);
+                        doc.addEventListener('mousemove', doDrag);
+                        doc.addEventListener('mouseup', endDrag);
+                        petBox.addEventListener('dblclick', doDance);
+
+                        // 绑定手机触摸事件 ( passive: false 允许阻止默认滚动 )
+                        petBox.addEventListener('touchstart', startDrag, {{passive: false}});
+                        doc.addEventListener('touchmove', doDrag, {{passive: false}});
+                        doc.addEventListener('touchend', endDrag);
+
+                        // 手机端模拟双击跳舞
+                        let lastTap = 0;
+                        petBox.addEventListener('touchend', (e) => {{
+                            const currentTime = new Date().getTime();
+                            const tapLength = currentTime - lastTap;
+                            if (tapLength < 500 && tapLength > 0) {{
+                                doDance();
+                                e.preventDefault();
+                            }}
+                            lastTap = currentTime;
+                        }});
+
                     }})();
                 `;
                 parentDoc.body.appendChild(script);
@@ -203,4 +228,4 @@ def render_new_features_page():
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3></div>',
         unsafe_allow_html=True)
-    st.info("💡 交互说明：单击说话，拖拽挣扎，双击跳舞！")
+    st.info("💡 交互说明：\n1. **电脑端**：单机说话，拖拽挣扎，双击跳舞。\n2. **手机端**：单击说话，按住滑动，快速点两下跳舞。")
