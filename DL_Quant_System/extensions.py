@@ -9,13 +9,13 @@ import os
 
 
 def summon_global_3d_lulu():
-    """终极寄生版：解决空气墙边缘阻挡 + 终极物理防抖防误触"""
+    """终极寄生版：修复幽灵拖拽 Bug + 完美触控 + AFK系统"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(current_dir, "lulu.glb")
 
     if not os.path.exists(file_path): return
 
-    with st.spinner("正在加载终极物理触控引擎..."):
+    with st.spinner("正在修复触控引擎离合器..."):
         with open(file_path, "rb") as f:
             glb_b64 = base64.b64encode(f.read()).decode("utf-8")
 
@@ -52,10 +52,8 @@ def summon_global_3d_lulu():
                         let idleActionTimer = 0;
 
                         const petSize = 280; 
-                        // 🔥 核心破解1：允许空气墙溢出屏幕外 80px，让实体完美贴边 🔥
                         const overflowLimit = 80; 
 
-                        // 1. 创建物理悬浮舱
                         const petBox = doc.createElement('div');
                         petBox.id = 'lulu-global-pet';
                         petBox.style.cssText = "position: fixed; bottom: 20px; right: 20px; width: " + petSize + "px; height: " + petSize + "px; z-index: 9999999; cursor: grab; user-select: none; pointer-events: auto; transition: transform 0.2s; touch-action: none;"; 
@@ -65,7 +63,6 @@ def summon_global_3d_lulu():
                         bubble.style.cssText = "position: absolute; top: 0px; left: 50%; transform: translateX(-50%); opacity: 0; background: rgba(20, 28, 45, 0.95); border: 1px solid #ff8c00; color: #fff; padding: 8px 15px; border-radius: 12px; font-size: 14px; white-space: nowrap; transition: opacity 0.3s; pointer-events: none;";
                         petBox.appendChild(bubble);
 
-                        // 2. 超清渲染环境
                         const scene = new THREE.Scene();
                         const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
                         camera.position.set(0, 0.8, 5.5); 
@@ -112,7 +109,6 @@ def summon_global_3d_lulu():
                             }}, {{passive: true}});
                         }});
 
-                        // 3. 渲染循环 & 挂机检测引擎
                         const clock = new THREE.Clock();
                         function animate() {{
                             win.requestAnimationFrame(animate);
@@ -171,8 +167,9 @@ def summon_global_3d_lulu():
                         }}
                         animate();
 
-                        // 4. 电竞级触控引擎
+                        // 🔥 4. 电竞级触控引擎 (加装离合器) 🔥
                         let isDragging = false, initX, initY, startL, startT, isPossibleClick = false;
+                        let isHolding = false; // 核心！按压离合器开关
                         let clickTimeout = null;
                         let lastTapTime = 0;
 
@@ -196,6 +193,7 @@ def summon_global_3d_lulu():
                         }};
 
                         const startInteraction = (e) => {{
+                            isHolding = true; // 踩下离合器，开始监听拖拽！
                             initX = getX(e); initY = getY(e);
                             const r = petBox.getBoundingClientRect();
                             startL = r.left; startT = r.top;
@@ -208,10 +206,12 @@ def summon_global_3d_lulu():
                         }};
 
                         const moveInteraction = (e) => {{
+                            // 🔥 致命拦截：如果没有按住，绝不执行后续逻辑 🔥
+                            if (!isHolding) return; 
+
                             const curX = getX(e); const curY = getY(e);
                             const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
 
-                            // 🔥 核心破解2：将死区调大到 20 像素！彻底解决肉垫压迫产生的形变误触 🔥
                             if (moveDist > 20) {{ 
                                 if (!isDragging) {{
                                     isDragging = true;
@@ -225,8 +225,6 @@ def summon_global_3d_lulu():
 
                                 let newLeft = startL + curX - initX;
                                 let newTop = startT + curY - initY;
-
-                                // 🔥 空气墙穿透计算：允许坐标出现负数或超出屏幕宽度，让透明边框滚出去，实体贴边 🔥
                                 newLeft = Math.max(-overflowLimit, Math.min(newLeft, win.innerWidth - petSize + overflowLimit));
                                 newTop = Math.max(-overflowLimit, Math.min(newTop, win.innerHeight - petSize + overflowLimit));
 
@@ -238,6 +236,7 @@ def summon_global_3d_lulu():
                         }};
 
                         const endInteraction = (e) => {{
+                            isHolding = false; // 松开离合器，雷达静默！
                             petBox.style.transition = 'transform 0.2s'; 
                             petBox.style.cursor = 'grab';
                             petBox.style.transform = 'scale(1)';
@@ -269,9 +268,13 @@ def summon_global_3d_lulu():
                         doc.addEventListener('mousemove', moveInteraction);
                         doc.addEventListener('mouseup', endInteraction);
 
+                        // 为了防止鼠标拖动太快跑到浏览器外面松手，再加一个保险
+                        doc.addEventListener('mouseleave', endInteraction);
+
                         petBox.addEventListener('touchstart', startInteraction, {{passive: true}});
                         doc.addEventListener('touchmove', moveInteraction, {{passive: false}});
                         doc.addEventListener('touchend', endInteraction);
+                        doc.addEventListener('touchcancel', endInteraction);
 
                     }})();
                 `;
@@ -288,4 +291,4 @@ def render_new_features_page():
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3></div>',
         unsafe_allow_html=True)
-    st.info("💡 移动端交互已升级：增加 20px 物理防抖死区、允许空气墙穿透屏幕边缘贴靠！")
+    st.info("💡 移动端交互已升至终极版：加装按压离合器，彻底消灭幽灵拖拽与误触！")
