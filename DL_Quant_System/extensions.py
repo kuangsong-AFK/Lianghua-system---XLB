@@ -9,13 +9,19 @@ import os
 
 
 def summon_global_3d_lulu():
-    """终极寄生版：修复幽灵拖拽 Bug + 完美触控 + AFK系统"""
+    """极致性能版：错峰加载 + 移动端降载 + 完美交互"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(current_dir, "lulu.glb")
 
     if not os.path.exists(file_path): return
 
-    with st.spinner("正在修复触控引擎离合器..."):
+    # 提示主公压缩模型
+    file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
+    if file_size_mb > 10:
+        st.warning(
+            f"⚠️ 警告：检测到 3D 模型高达 {file_size_mb:.1f} MB！这会导致网页严重卡顿。强烈建议使用在线工具将模型材质压缩至 5MB 以下！")
+
+    with st.spinner("正在后台为您错峰加载 3D 引擎..."):
         with open(file_path, "rb") as f:
             glb_b64 = base64.b64encode(f.read()).decode("utf-8")
 
@@ -44,9 +50,10 @@ def summon_global_3d_lulu():
                         const win = window;
                         const doc = document;
 
+                        const isMobile = win.innerWidth <= 768;
+
                         let state = 'IDLE'; 
                         let danceTimer = 0;
-
                         let lastActivityTime = Date.now();
                         let idleActionState = 'NONE'; 
                         let idleActionTimer = 0;
@@ -67,9 +74,13 @@ def summon_global_3d_lulu():
                         const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
                         camera.position.set(0, 0.8, 5.5); 
 
-                        const renderer = new THREE.WebGLRenderer({{ alpha: true, antialias: true }});
+                        // 🔥 性能优化1：手机端强行关闭抗锯齿 (antialias: false) 省下大量 GPU 算力 🔥
+                        const renderer = new THREE.WebGLRenderer({{ alpha: true, antialias: !isMobile }});
                         renderer.setSize(petSize, petSize);
-                        renderer.setPixelRatio(win.devicePixelRatio ? Math.min(win.devicePixelRatio, 2) : 1);
+
+                        // 🔥 性能优化2：手机端像素比锁死为 1，电脑端最高锁死为 1.5 🔥
+                        const maxPixelRatio = isMobile ? 1 : 1.5;
+                        renderer.setPixelRatio(Math.min(win.devicePixelRatio || 1, maxPixelRatio));
                         renderer.outputEncoding = THREE.sRGBEncoding;
                         petBox.appendChild(renderer.domElement);
 
@@ -107,6 +118,9 @@ def summon_global_3d_lulu():
                             doc.addEventListener('touchmove', (e) => {{
                                 if(e.touches.length > 0) updateLookAt(e.touches[0].clientX, e.touches[0].clientY);
                             }}, {{passive: true}});
+
+                            // 🔥 性能优化3：模型加载完成后才开始渲染循环，不抢占资源 🔥
+                            animate();
                         }});
 
                         const clock = new THREE.Clock();
@@ -165,11 +179,9 @@ def summon_global_3d_lulu():
                             }}
                             renderer.render(scene, camera);
                         }}
-                        animate();
 
-                        // 🔥 4. 电竞级触控引擎 (加装离合器) 🔥
                         let isDragging = false, initX, initY, startL, startT, isPossibleClick = false;
-                        let isHolding = false; // 核心！按压离合器开关
+                        let isHolding = false;
                         let clickTimeout = null;
                         let lastTapTime = 0;
 
@@ -193,7 +205,7 @@ def summon_global_3d_lulu():
                         }};
 
                         const startInteraction = (e) => {{
-                            isHolding = true; // 踩下离合器，开始监听拖拽！
+                            isHolding = true; 
                             initX = getX(e); initY = getY(e);
                             const r = petBox.getBoundingClientRect();
                             startL = r.left; startT = r.top;
@@ -206,7 +218,6 @@ def summon_global_3d_lulu():
                         }};
 
                         const moveInteraction = (e) => {{
-                            // 🔥 致命拦截：如果没有按住，绝不执行后续逻辑 🔥
                             if (!isHolding) return; 
 
                             const curX = getX(e); const curY = getY(e);
@@ -236,7 +247,7 @@ def summon_global_3d_lulu():
                         }};
 
                         const endInteraction = (e) => {{
-                            isHolding = false; // 松开离合器，雷达静默！
+                            isHolding = false; 
                             petBox.style.transition = 'transform 0.2s'; 
                             petBox.style.cursor = 'grab';
                             petBox.style.transform = 'scale(1)';
@@ -267,8 +278,6 @@ def summon_global_3d_lulu():
                         petBox.addEventListener('mousedown', startInteraction);
                         doc.addEventListener('mousemove', moveInteraction);
                         doc.addEventListener('mouseup', endInteraction);
-
-                        // 为了防止鼠标拖动太快跑到浏览器外面松手，再加一个保险
                         doc.addEventListener('mouseleave', endInteraction);
 
                         petBox.addEventListener('touchstart', startInteraction, {{passive: true}});
@@ -280,7 +289,9 @@ def summon_global_3d_lulu():
                 `;
                 parentDoc.body.appendChild(script);
             }};
-            initLulu();
+
+            // 🔥 性能优化4：强制延迟 1.5 秒点火，绝不抢占网页开屏首屏渲染时间！ 🔥
+            setTimeout(initLulu, 1500); 
         }}
     </script>
     """
@@ -291,4 +302,4 @@ def render_new_features_page():
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3></div>',
         unsafe_allow_html=True)
-    st.info("💡 移动端交互已升至终极版：加装按压离合器，彻底消灭幽灵拖拽与误触！")
+    st.info("💡 性能已优化：1.5秒错峰加载 + 移动端节能渲染。**请务必将您的 20MB 模型压缩至 3MB 以下以获得终极丝滑体验！**")
