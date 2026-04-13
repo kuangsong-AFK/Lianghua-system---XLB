@@ -15,7 +15,7 @@ import uuid
 import math
 from PIL import Image
 
-# 🔥 仅此一处微调：召唤您的先锋营文件 🔥
+# 🔥 核心微创1：安全导入扩展先锋营 🔥
 try:
     import extensions
 except ImportError:
@@ -70,7 +70,7 @@ if "is_live_trading" not in st.session_state: st.session_state.is_live_trading =
 # ==========================================
 # 2. 空间流形导航逻辑与置顶引掣
 # ==========================================
-# 🔥 仅此一处微调：导航栏增加扩展插件中心 🔥
+# 🔥 核心微创2：导航栏增加扩展插件中心 🔥
 PAGES = ["🏠 系统总览 (监控中控)", "🤖 AI 策略引擎 (LLM)", "📈 深度静态全量回测", "⚡ 实时高频交易 (Live)",
          "🧠 深度学习预测矩阵", "🛡️ 论文审计日志", "🧩 扩展插件中心"]
 
@@ -154,6 +154,10 @@ components.html(f"""
     observer.observe(window.parent.document.body, {{ childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }});
 </script>
 """, height=0, width=0)
+
+# 🔥 核心微创3：自动召唤 3D 噜噜 (全局寄生) 🔥
+if extensions:
+    extensions.summon_global_3d_lulu()
 
 # ==========================================
 # 4. 极致静态 CSS + 动态动画
@@ -843,9 +847,9 @@ elif selected_page == PAGES[5]:
     with c2:
         st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
 
-# 🔥 仅此一处微调：将新的挂载点路由到先锋营 🔥
+# 🔥 核心微创4：增加扩展插件中心的路由渲染 🔥
 elif selected_page == PAGES[6]:
     if extensions:
         extensions.render_new_features_page()
     else:
-        st.warning("🧩 扩展插件模块 (extensions.py) 尚未建立或发生异常，请检查文件是否存在。")
+        st.error("🧩 扩展模块加载失败，请检查 `extensions.py` 文件是否存在。")
