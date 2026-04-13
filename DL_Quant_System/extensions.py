@@ -1,6 +1,5 @@
 # ==========================================
 # 文件名：extensions.py (扩展功能先锋营)
-# 功能：统一管理和路由所有的新增模块
 # ==========================================
 import streamlit as st
 import streamlit.components.v1 as components
@@ -9,17 +8,16 @@ import os
 
 
 def summon_global_3d_lulu():
-    """终极寄生版：4K超清画质 + 完美响应式全端适配 (修复 SyntaxError 语法冲突)"""
+    """终极寄生版：固定大尺寸 + 待机挂机(AFK)互动系统"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(current_dir, "lulu.glb")
 
     if not os.path.exists(file_path): return
 
-    with st.spinner("正在加载超清 3D 引擎与移动端适配模块..."):
+    with st.spinner("正在加载 3D 引擎与 AFK 待机系统..."):
         with open(file_path, "rb") as f:
             glb_b64 = base64.b64encode(f.read()).decode("utf-8")
 
-    # 注意：此处使用传统的 JS 字符串拼接 (+) 替换了 ${}，完美避开 Python f-string 冲突！
     html_code = f"""
     <script>
         const parentWin = window.parent;
@@ -48,32 +46,32 @@ def summon_global_3d_lulu():
                         let state = 'IDLE'; 
                         let danceTimer = 0;
 
-                        // 响应式尺寸计算器
-                        const getPetSize = () => win.innerWidth <= 768 ? 160 : 300;
-                        const getPetBottom = () => win.innerWidth <= 768 ? 15 : 30;
-                        const getPetRight = () => win.innerWidth <= 768 ? 10 : 20;
-                        const getFontSize = () => win.innerWidth <= 768 ? '12px' : '14px';
+                        // 🔥 新增：AFK 待机系统变量 🔥
+                        let lastActivityTime = Date.now();
+                        let idleActionState = 'NONE'; // 待机子动作
+                        let idleActionTimer = 0;
 
-                        let currentSize = getPetSize();
+                        // 固定傲人尺寸，不再缩小！
+                        const petSize = 280; 
 
-                        // 1. 创建物理悬浮舱 (使用 + 拼接字符串防止 Python 报错)
+                        // 1. 创建物理悬浮舱
                         const petBox = doc.createElement('div');
                         petBox.id = 'lulu-global-pet';
-                        petBox.style.cssText = "position: fixed; bottom: " + getPetBottom() + "px; right: " + getPetRight() + "px; width: " + currentSize + "px; height: " + currentSize + "px; z-index: 9999999; cursor: grab; user-select: none; pointer-events: auto; transition: transform 0.2s; touch-action: none;"; 
+                        petBox.style.cssText = "position: fixed; bottom: 20px; right: 20px; width: " + petSize + "px; height: " + petSize + "px; z-index: 9999999; cursor: grab; user-select: none; pointer-events: auto; transition: transform 0.2s; touch-action: none;"; 
                         doc.body.appendChild(petBox);
 
                         const bubble = doc.createElement('div');
-                        bubble.style.cssText = "position: absolute; top: " + (win.innerWidth <= 768 ? '-5px' : '10px') + "; left: 50%; transform: translateX(-50%); opacity: 0; background: rgba(20, 28, 45, 0.95); border: 1px solid #ff8c00; color: #fff; padding: 6px 12px; border-radius: 12px; font-size: " + getFontSize() + "; white-space: nowrap; transition: opacity 0.3s; pointer-events: none;";
+                        bubble.style.cssText = "position: absolute; top: 0px; left: 50%; transform: translateX(-50%); opacity: 0; background: rgba(20, 28, 45, 0.95); border: 1px solid #ff8c00; color: #fff; padding: 8px 15px; border-radius: 12px; font-size: 14px; white-space: nowrap; transition: opacity 0.3s; pointer-events: none;";
                         petBox.appendChild(bubble);
 
                         // 2. 超清渲染环境
                         const scene = new THREE.Scene();
                         const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-                        camera.position.set(0, 0.8, win.innerWidth <= 768 ? 5.5 : 5.0); 
+                        camera.position.set(0, 0.8, 5.5); 
 
                         const renderer = new THREE.WebGLRenderer({{ alpha: true, antialias: true }});
-                        renderer.setSize(currentSize, currentSize);
-                        renderer.setPixelRatio(win.devicePixelRatio ? win.devicePixelRatio : 1);
+                        renderer.setSize(petSize, petSize);
+                        renderer.setPixelRatio(win.devicePixelRatio ? Math.min(win.devicePixelRatio, 2) : 1); // 限制最大像素比防卡顿
                         renderer.outputEncoding = THREE.sRGBEncoding;
                         petBox.appendChild(renderer.domElement);
 
@@ -99,7 +97,10 @@ def summon_global_3d_lulu():
                             }}
 
                             const updateLookAt = (clientX, clientY) => {{
-                                if (state === 'IDLE') {{
+                                // 重置挂机时间
+                                lastActivityTime = Date.now();
+
+                                if (state === 'IDLE' && idleActionState === 'NONE') {{
                                     const mouseX = (clientX / win.innerWidth) * 2 - 1;
                                     const mouseY = -(clientY / win.innerHeight) * 2 + 1;
                                     targetRotY = mouseX * 0.8;
@@ -112,21 +113,7 @@ def summon_global_3d_lulu():
                             }}, {{passive: true}});
                         }});
 
-                        // 监听窗口尺寸变化
-                        win.addEventListener('resize', () => {{
-                            const newSize = getPetSize();
-                            if (newSize !== currentSize) {{
-                                currentSize = newSize;
-                                petBox.style.width = currentSize + 'px';
-                                petBox.style.height = currentSize + 'px';
-                                renderer.setSize(currentSize, currentSize);
-                                camera.position.set(0, 0.8, win.innerWidth <= 768 ? 5.5 : 5.0);
-                                bubble.style.fontSize = getFontSize();
-                                bubble.style.top = win.innerWidth <= 768 ? '-5px' : '10px';
-                            }}
-                        }});
-
-                        // 3. 渲染循环
+                        // 3. 渲染循环 & 挂机检测引擎
                         const clock = new THREE.Clock();
                         function animate() {{
                             win.requestAnimationFrame(animate);
@@ -134,7 +121,29 @@ def summon_global_3d_lulu():
                             const time = clock.getElapsedTime();
                             if (mixer) mixer.update(delta);
 
+                            const now = Date.now();
+
+                            // 🔥 挂机(AFK)检测逻辑 🔥
+                            if (state === 'IDLE' && idleActionState === 'NONE') {{
+                                if (now - lastActivityTime > 30000) {{ // 30秒无操作
+                                    const actions = ['HOP', 'LOOK_AROUND', 'SPEAK'];
+                                    const act = actions[Math.floor(Math.random() * actions.length)];
+                                    idleActionState = act;
+                                    idleActionTimer = 2.5; // 动作持续 2.5 秒
+                                    lastActivityTime = now; // 动作完重置计时
+
+                                    if (act === 'SPEAK') {{
+                                        const texts = ["主公，您睡着了吗？🦦", "盯盘好累喔，发呆中...", "呼噜噜...💤"];
+                                        bubble.innerText = texts[Math.floor(Math.random() * texts.length)];
+                                        bubble.style.opacity = '1';
+                                        setTimeout(() => {{ bubble.style.opacity = '0'; }}, 4000);
+                                        idleActionState = 'NONE'; 
+                                    }}
+                                }}
+                            }}
+
                             if (model) {{
+                                // 处理交互状态
                                 if (state === 'STRUGGLING') {{
                                     model.rotation.y = 0; model.rotation.x = 0;
                                     model.position.x = Math.sin(time * 50) * 0.05;
@@ -147,7 +156,21 @@ def summon_global_3d_lulu():
 
                                     danceTimer -= delta;
                                     if (danceTimer <= 0) {{ state = 'IDLE'; model.position.y = -1.2; }}
-                                }} else {{
+                                }} 
+                                // 处理待机自发动作
+                                else if (idleActionState === 'HOP') {{
+                                    model.position.y = -1.2 + Math.abs(Math.sin(time * 15)) * 0.3;
+                                    model.rotation.x = 0; model.rotation.y = 0;
+                                    idleActionTimer -= delta;
+                                    if (idleActionTimer <= 0) {{ idleActionState = 'NONE'; model.position.y = -1.2; }}
+                                }} else if (idleActionState === 'LOOK_AROUND') {{
+                                    model.rotation.y = Math.sin(time * 3) * 0.6; // 左右张望
+                                    model.rotation.x = 0;
+                                    idleActionTimer -= delta;
+                                    if (idleActionTimer <= 0) {{ idleActionState = 'NONE'; model.rotation.y = targetRotY; }}
+                                }} 
+                                // 正常静默闲置
+                                else {{
                                     model.position.y = -1.2 + Math.sin(time * 2) * 0.02;
                                     model.position.x = 0; model.rotation.z = 0;
                                     model.rotation.y += (targetRotY - model.rotation.y) * 0.1;
@@ -166,6 +189,8 @@ def summon_global_3d_lulu():
 
                         const startDrag = (e) => {{
                             isDragging = true; isClick = true; state = 'STRUGGLING';
+                            idleActionState = 'NONE'; // 打断待机动作
+                            lastActivityTime = Date.now();
                             initX = getX(e); initY = getY(e);
                             const r = petBox.getBoundingClientRect();
                             startL = r.left; startT = r.top;
@@ -182,8 +207,8 @@ def summon_global_3d_lulu():
 
                             let newLeft = startL + curX - initX;
                             let newTop = startT + curY - initY;
-                            newLeft = Math.max(0, Math.min(newLeft, win.innerWidth - currentSize));
-                            newTop = Math.max(0, Math.min(newTop, win.innerHeight - currentSize));
+                            newLeft = Math.max(0, Math.min(newLeft, win.innerWidth - petSize));
+                            newTop = Math.max(0, Math.min(newTop, win.innerHeight - petSize));
 
                             petBox.style.left = newLeft + 'px';
                             petBox.style.top = newTop + 'px';
@@ -196,10 +221,11 @@ def summon_global_3d_lulu():
                             isDragging = false; 
                             petBox.style.cursor = 'grab';
                             petBox.style.transform = 'scale(1)';
+                            lastActivityTime = Date.now();
                             if (state !== 'DANCING') state = 'IDLE';
 
                             if (isClick) {{
-                                const ts = ["主公，手机上我也很乖巧！📱", "量化大赚！吃橘子！🍊", "屏幕好高清呀~🦦", "今天赚了多少呀？💸"];
+                                const ts = ["主公，手机上我也很乖巧！📱", "量化大赚！吃橘子！🍊", "点击我也不会晕的~🦦"];
                                 bubble.innerText = ts[Math.floor(Math.random() * ts.length)];
                                 bubble.style.opacity = '1';
                                 setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
@@ -209,6 +235,7 @@ def summon_global_3d_lulu():
                         const doDance = () => {{
                             state = 'DANCING';
                             danceTimer = 3.0; 
+                            lastActivityTime = Date.now();
                             bubble.innerText = "好耶！开心转圈圈！💃🕺";
                             bubble.style.opacity = '1';
                             setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
@@ -250,4 +277,4 @@ def render_new_features_page():
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3></div>',
         unsafe_allow_html=True)
     st.info(
-        "💡 交互说明：\n1. **电脑端**：单击说话，拖拽挣扎，双击跳舞。\n2. **手机端自适应**：自动缩小防遮挡，触摸滑动防止越界，快速点两下跳舞。")
+        "💡 交互说明：\n1. **挂机陪伴**：放置 30 秒不理它，它会自己蹦跶、四处张望或找您搭话！\n2. **尺寸还原**：手机端不再缩小尺寸，全端统一 280x280 大图霸气呈现！")
