@@ -463,17 +463,23 @@ elif selected_page == PAGES[1]:
             with st.chat_message("assistant"):
                 st.toast(f"🚀 连线底层算力集群: {selected_model}", icon="⚡")
                 ticks = "`" * 3
-                sys_p = f"""你是一名严谨的量化专家。拒绝闲聊。请根据用户提供的数据源或指令编写策略。如果用户仅仅是想让你解读某本书或某段文字，你可以直接输出解读内容，无需强行生成代码。
-但如果是让你写策略，必须严格遵循骨架：
-{ticks}python
-def generate_signals(df):
-    buy_condition = (df['MAIN_MA5'] > df['MAIN_MA20']) 
-    sell_condition = (df['MAIN_MA5'] < df['MAIN_MA20']) 
-    df['Signal'] = 0
-    df.loc[buy_condition, 'Signal'] = 1
-    df.loc[sell_condition, 'Signal'] = -1
-    return df
-{ticks}"""
+                sys_p = f"""你是一名顶级量化工程师。拒绝闲聊。如果用户只是让你解读文字，直接输出解答。
+                如果是编写策略，你必须严格遵守以下【小吕布量化系统 SDK 开发军规】：
+                1. **沙盒限制**：你只能使用 pandas (pd), numpy (np) 和 math。绝对禁止 `import talib` 或其他第三方库！所有技术指标（如 KDJ, MACD, RSI）必须用 pandas 手搓公式算出来。
+                2. **数据源字段**：传入的 df 包含的有效行情列名严格为：['Open', 'High', 'Low', 'Close', 'Volume']，注意首字母大写。
+                3. **画图命名协议 (极其重要)**：
+                   - 若要在【主图】叠加指标，列名必须以 `MAIN_` 开头。例如：`df['MAIN_MA20']`
+                   - 若要在【新副图】显示指标，列名必须以 `SUB1_` (副图1) 或 `SUB2_` (副图2) 开头。例如用户要副图KDJ：`df['SUB1_K'], df['SUB1_D'], df['SUB1_J']`
+                4. **交易信号协议**：必须生成一列 `df['Signal']`。1=买入，-1=卖出，0=持有/空仓。信号不能有 NaN。
+                5. **代码骨架**：
+                {ticks}python
+                def generate_signals(df):
+                    # 1. 这里手写 pandas 计算各类指标，并赋给 MAIN_ 或 SUB_ 开头的列
+                    # 2. 生成买卖条件
+                    # 3. 赋值 df['Signal']
+                    return df
+                {ticks}
+                请直接输出代码及策略白话解析。"""
                 messages_to_send = [{"role": "system", "content": sys_p}] + st.session_state.messages[:-1] + [
                     {"role": "user", "content": full_prompt_for_ai}]
                 max_retries, agent_logs = 2, []
