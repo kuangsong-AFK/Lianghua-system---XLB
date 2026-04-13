@@ -9,7 +9,7 @@ import os
 
 
 def summon_global_3d_lulu():
-    """终极寄生版：4K超清画质 + 完美响应式全端适配"""
+    """终极寄生版：4K超清画质 + 完美响应式全端适配 (修复 SyntaxError 语法冲突)"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(current_dir, "lulu.glb")
 
@@ -19,6 +19,7 @@ def summon_global_3d_lulu():
         with open(file_path, "rb") as f:
             glb_b64 = base64.b64encode(f.read()).decode("utf-8")
 
+    # 注意：此处使用传统的 JS 字符串拼接 (+) 替换了 ${}，完美避开 Python f-string 冲突！
     html_code = f"""
     <script>
         const parentWin = window.parent;
@@ -47,7 +48,7 @@ def summon_global_3d_lulu():
                         let state = 'IDLE'; 
                         let danceTimer = 0;
 
-                        // 🔥 核心重构：响应式尺寸计算器 🔥
+                        // 响应式尺寸计算器
                         const getPetSize = () => win.innerWidth <= 768 ? 160 : 300;
                         const getPetBottom = () => win.innerWidth <= 768 ? 15 : 30;
                         const getPetRight = () => win.innerWidth <= 768 ? 10 : 20;
@@ -55,19 +56,18 @@ def summon_global_3d_lulu():
 
                         let currentSize = getPetSize();
 
-                        // 1. 创建物理悬浮舱 (使用动态尺寸)
+                        // 1. 创建物理悬浮舱 (使用 + 拼接字符串防止 Python 报错)
                         const petBox = doc.createElement('div');
                         petBox.id = 'lulu-global-pet';
-                        petBox.style.cssText = \`position: fixed; bottom: \${getPetBottom()}px; right: \${getPetRight()}px; width: \${currentSize}px; height: \${currentSize}px; z-index: 9999999; cursor: grab; user-select: none; pointer-events: auto; transition: transform 0.2s; touch-action: none;\`; 
+                        petBox.style.cssText = "position: fixed; bottom: " + getPetBottom() + "px; right: " + getPetRight() + "px; width: " + currentSize + "px; height: " + currentSize + "px; z-index: 9999999; cursor: grab; user-select: none; pointer-events: auto; transition: transform 0.2s; touch-action: none;"; 
                         doc.body.appendChild(petBox);
 
                         const bubble = doc.createElement('div');
-                        bubble.style.cssText = \`position: absolute; top: \${win.innerWidth <= 768 ? '-5px' : '10px'}; left: 50%; transform: translateX(-50%); opacity: 0; background: rgba(20, 28, 45, 0.95); border: 1px solid #ff8c00; color: #fff; padding: 6px 12px; border-radius: 12px; font-size: \${getFontSize()}; white-space: nowrap; transition: opacity 0.3s; pointer-events: none;\`;
+                        bubble.style.cssText = "position: absolute; top: " + (win.innerWidth <= 768 ? '-5px' : '10px') + "; left: 50%; transform: translateX(-50%); opacity: 0; background: rgba(20, 28, 45, 0.95); border: 1px solid #ff8c00; color: #fff; padding: 6px 12px; border-radius: 12px; font-size: " + getFontSize() + "; white-space: nowrap; transition: opacity 0.3s; pointer-events: none;";
                         petBox.appendChild(bubble);
 
                         // 2. 超清渲染环境
                         const scene = new THREE.Scene();
-                        // 手机端因为画布小，需要把镜头再拉远一点点才能看全
                         const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
                         camera.position.set(0, 0.8, win.innerWidth <= 768 ? 5.5 : 5.0); 
 
@@ -112,7 +112,7 @@ def summon_global_3d_lulu():
                             }}, {{passive: true}});
                         }});
 
-                        // 🔥 核心重构：监听窗口尺寸变化 (手机横竖屏、电脑拉伸窗口) 🔥
+                        // 监听窗口尺寸变化
                         win.addEventListener('resize', () => {{
                             const newSize = getPetSize();
                             if (newSize !== currentSize) {{
@@ -180,10 +180,8 @@ def summon_global_3d_lulu():
                             const curX = getX(e); const curY = getY(e);
                             if (Math.abs(curX - initX) > 5 || Math.abs(curY - initY) > 5) isClick = false;
 
-                            // 边缘防溢出处理，不让噜噜被拖到屏幕外面
                             let newLeft = startL + curX - initX;
                             let newTop = startT + curY - initY;
-                            // 限制范围
                             newLeft = Math.max(0, Math.min(newLeft, win.innerWidth - currentSize));
                             newTop = Math.max(0, Math.min(newTop, win.innerHeight - currentSize));
 
