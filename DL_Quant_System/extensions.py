@@ -9,17 +9,16 @@ import os
 
 
 def summon_global_3d_lulu():
-    """终极寄生版：解决移动端误触 + 智能单双击分离 + AFK挂机"""
+    """终极寄生版：解决空气墙边缘阻挡 + 终极物理防抖防误触"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(current_dir, "lulu.glb")
 
     if not os.path.exists(file_path): return
 
-    with st.spinner("正在加载电竞级 3D 触控引擎..."):
+    with st.spinner("正在加载终极物理触控引擎..."):
         with open(file_path, "rb") as f:
             glb_b64 = base64.b64encode(f.read()).decode("utf-8")
 
-    # ⚠️ 严格使用字符串拼接 (+)，防止 Python 的 f-string 报错
     html_code = f"""
     <script>
         const parentWin = window.parent;
@@ -53,6 +52,8 @@ def summon_global_3d_lulu():
                         let idleActionTimer = 0;
 
                         const petSize = 280; 
+                        // 🔥 核心破解1：允许空气墙溢出屏幕外 80px，让实体完美贴边 🔥
+                        const overflowLimit = 80; 
 
                         // 1. 创建物理悬浮舱
                         const petBox = doc.createElement('div');
@@ -121,7 +122,6 @@ def summon_global_3d_lulu():
 
                             const now = Date.now();
 
-                            // 挂机检测
                             if (state === 'IDLE' && idleActionState === 'NONE') {{
                                 if (now - lastActivityTime > 30000) {{ 
                                     const actions = ['HOP', 'LOOK_AROUND', 'SPEAK'];
@@ -171,7 +171,7 @@ def summon_global_3d_lulu():
                         }}
                         animate();
 
-                        // 🔥 4. 电竞级触控引擎 (彻底重构) 🔥
+                        // 4. 电竞级触控引擎
                         let isDragging = false, initX, initY, startL, startT, isPossibleClick = false;
                         let clickTimeout = null;
                         let lastTapTime = 0;
@@ -179,7 +179,6 @@ def summon_global_3d_lulu():
                         const getX = (e) => e.touches ? e.touches[0].clientX : e.clientX;
                         const getY = (e) => e.touches ? e.touches[0].clientY : e.clientY;
 
-                        // 说话气泡封装
                         const doSpeak = (customTexts) => {{
                             const ts = customTexts || ["主公，我在这呢！🥰", "量化大赚！吃橘子！🍊", "点击我也不会晕的~🦦", "今天赚了多少呀？💸"];
                             bubble.innerText = ts[Math.floor(Math.random() * ts.length)];
@@ -187,7 +186,6 @@ def summon_global_3d_lulu():
                             setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
                         }};
 
-                        // 跳舞逻辑封装
                         const doDance = () => {{
                             state = 'DANCING';
                             danceTimer = 3.0; 
@@ -197,7 +195,6 @@ def summon_global_3d_lulu():
                             setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
                         }};
 
-                        // 按下瞬间：不直接认定拖拽，先观察
                         const startInteraction = (e) => {{
                             initX = getX(e); initY = getY(e);
                             const r = petBox.getBoundingClientRect();
@@ -206,18 +203,16 @@ def summon_global_3d_lulu():
                             isDragging = false; 
                             isPossibleClick = true; 
 
-                            // 定位准备
                             petBox.style.bottom = 'auto'; petBox.style.right = 'auto';
                             petBox.style.left = startL + 'px'; petBox.style.top = startT + 'px';
                         }};
 
-                        // 移动瞬间：判定距离，突破死区才算拖拽
                         const moveInteraction = (e) => {{
                             const curX = getX(e); const curY = getY(e);
-                            // 勾股定理计算手指滑动距离
                             const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
 
-                            if (moveDist > 10) {{ // 超过 10px 判定为正式拖拽
+                            // 🔥 核心破解2：将死区调大到 20 像素！彻底解决肉垫压迫产生的形变误触 🔥
+                            if (moveDist > 20) {{ 
                                 if (!isDragging) {{
                                     isDragging = true;
                                     isPossibleClick = false;
@@ -225,24 +220,25 @@ def summon_global_3d_lulu():
                                     idleActionState = 'NONE';
                                     petBox.style.cursor = 'grabbing';
                                     petBox.style.transform = 'scale(1.05)';
-                                    petBox.style.transition = 'none'; // 取消延迟，绝对跟手
+                                    petBox.style.transition = 'none'; 
                                 }}
 
                                 let newLeft = startL + curX - initX;
                                 let newTop = startT + curY - initY;
-                                newLeft = Math.max(0, Math.min(newLeft, win.innerWidth - petSize));
-                                newTop = Math.max(0, Math.min(newTop, win.innerHeight - petSize));
+
+                                // 🔥 空气墙穿透计算：允许坐标出现负数或超出屏幕宽度，让透明边框滚出去，实体贴边 🔥
+                                newLeft = Math.max(-overflowLimit, Math.min(newLeft, win.innerWidth - petSize + overflowLimit));
+                                newTop = Math.max(-overflowLimit, Math.min(newTop, win.innerHeight - petSize + overflowLimit));
 
                                 petBox.style.left = newLeft + 'px';
                                 petBox.style.top = newTop + 'px';
 
-                                if(e.cancelable) e.preventDefault(); // 真正拖动时阻止页面滚动
+                                if(e.cancelable) e.preventDefault(); 
                             }}
                         }};
 
-                        // 抬起瞬间：智能分流处理
                         const endInteraction = (e) => {{
-                            petBox.style.transition = 'transform 0.2s'; // 恢复动画
+                            petBox.style.transition = 'transform 0.2s'; 
                             petBox.style.cursor = 'grab';
                             petBox.style.transform = 'scale(1)';
                             lastActivityTime = Date.now();
@@ -250,20 +246,17 @@ def summon_global_3d_lulu():
                             if (isDragging) {{
                                 isDragging = false;
                                 if (state !== 'DANCING') state = 'IDLE';
-                                return; // 拖拽结束，直接退出，不触发任何点击事件
+                                return; 
                             }}
 
-                            // 走到这里说明是纯粹的“点击”
                             if (isPossibleClick) {{
                                 const currentTime = new Date().getTime();
                                 const tapLength = currentTime - lastTapTime;
-                                clearTimeout(clickTimeout); // 拦截上一次可能的单击
+                                clearTimeout(clickTimeout); 
 
-                                if (tapLength < 300 && tapLength > 0) {{
-                                    // 完美双击
+                                if (tapLength < 350 && tapLength > 0) {{
                                     doDance();
                                 }} else {{
-                                    // 延迟 300ms 确认没有第二下点击，再触发说话
                                     clickTimeout = setTimeout(() => {{
                                         doSpeak();
                                     }}, 300);
@@ -272,12 +265,10 @@ def summon_global_3d_lulu():
                             }}
                         }};
 
-                        // 统一绑定事件
                         petBox.addEventListener('mousedown', startInteraction);
                         doc.addEventListener('mousemove', moveInteraction);
                         doc.addEventListener('mouseup', endInteraction);
 
-                        // 移动端特别优化 (passive 策略)
                         petBox.addEventListener('touchstart', startInteraction, {{passive: true}});
                         doc.addEventListener('touchmove', moveInteraction, {{passive: false}});
                         doc.addEventListener('touchend', endInteraction);
@@ -297,4 +288,4 @@ def render_new_features_page():
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3></div>',
         unsafe_allow_html=True)
-    st.info("💡 移动端交互已升级：增加防误触死区、智能连击分离、0 延迟跟手拖拽！")
+    st.info("💡 移动端交互已升级：增加 20px 物理防抖死区、允许空气墙穿透屏幕边缘贴靠！")
