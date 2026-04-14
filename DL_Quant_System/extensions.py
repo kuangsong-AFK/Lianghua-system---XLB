@@ -6,6 +6,11 @@ import streamlit as st
 import streamlit.components.v1 as components
 import base64
 import os
+import tushare as ts
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 
 def summon_global_3d_lulu():
@@ -82,7 +87,6 @@ def summon_global_3d_lulu():
                         let targetRotY = 0; 
                         let targetRotX = 0;
 
-                        // 🔥 核心阵列：专装“真实物理肉身”的白名单 🔥
                         let clickableMeshes = [];
 
                         const loader = new THREE.GLTFLoader();
@@ -90,20 +94,18 @@ def summon_global_3d_lulu():
                             model = gltf.scene;
                             model.position.set(0, -1.2, 0); 
 
-                            // 🔥 白名单体检机制：剔除一切垃圾骨架和透明罩子 🔥
                             model.traverse((child) => {{
                                 if (child.isMesh) {{
                                     let isTrash = false;
                                     if (child.material) {{
-                                        // 只要是透明度低到看不见的，或者完全隐藏的，一律判定为垃圾
                                         if (child.material.transparent && child.material.opacity < 0.1) isTrash = true;
                                         if (child.material.opacity === 0) isTrash = true;
                                     }}
 
                                     if (isTrash) {{
-                                        child.visible = false; // 让垃圾隐身
+                                        child.visible = false; 
                                     }} else {{
-                                        clickableMeshes.push(child); // 把真实的肉块加入白名单！
+                                        clickableMeshes.push(child); 
                                     }}
                                 }}
                             }});
@@ -116,7 +118,6 @@ def summon_global_3d_lulu():
                             }}
                         }});
 
-                        // 🔥 激光雷达升级：只对准白名单扫描 🔥
                         const raycaster = new THREE.Raycaster();
                         const mouseNDC = new THREE.Vector2();
 
@@ -132,11 +133,9 @@ def summon_global_3d_lulu():
                             mouseNDC.y = -((clientY - rect.top) / petSize) * 2 + 1;
 
                             raycaster.setFromCamera(mouseNDC, camera);
-
-                            // 第二个参数 false 表示不需要递归查找子元素，因为我们已经把所有肉身拉平放在数组里了
                             const intersects = raycaster.intersectObjects(clickableMeshes, false);
 
-                            return intersects.length > 0; // 只要打中白名单里的东西，就说明点到了！
+                            return intersects.length > 0; 
                         }};
 
                         const updateLookAt = (clientX, clientY) => {{
@@ -359,11 +358,11 @@ def render_new_features_page():
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3></div>',
         unsafe_allow_html=True)
-    st.info("💡 雷达白名单已启用：过滤一切隐形骨架盒！鼠标现在只有碰到实体模型才会触发拦截。")
+    st.info("💡 核心交互与 3D 桌宠已全部稳定运行！")
 
 
 # ==========================================
-# 🔥 新增功能：期货全量审计 (归因)
+# 🔥 核心引擎：期货全量审计 (接通 Tushare)
 # ==========================================
 def render_futures_backtest():
     st.markdown(
@@ -376,18 +375,114 @@ def render_futures_backtest():
         margin_rate = st.slider("⚖️ 保证金比例 (%)", 5, 20, 12) / 100
         multiplier = st.number_input("🔢 合约乘数 (吨/手)", value=20, help="纯碱一手为20吨")
 
-        if st.button("🚀 开始穿透回测", type="primary", use_container_width=True):
-            st.info(f"正在调取 {fut_code} 的历史连续数据...")
-            st.success("杠杆乘数已注入，准备渲染回测曲线 (待接入主引擎)")
+        # 假设固定初始资金和每次开仓手数，方便模拟
+        init_cash = st.number_input("💰 初始资金", value=1000000, step=100000)
+        trade_lots = st.number_input("📦 每次开仓手数", value=10, step=1)
+
+        start_btn = st.button("🚀 开始穿透回测", type="primary", use_container_width=True)
 
     with c2:
-        st.markdown("""
-        <div class="metric-box" style="height: 250px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-            <p>预期展示区域</p>
-            <h2 style="color: #00ffcc;">回测图表与保证金回撤占用曲线</h2>
-            <p class="sub-text" style="margin-top: 10px;">(此处将调用主程序的 run_backtest_metrics 并附带杠杆系数计算)</p>
-        </div>
-        """, unsafe_allow_html=True)
+        if start_btn:
+            with st.spinner(f"正在通过 Tushare 调取 {fut_code} 历史连续数据..."):
+                try:
+                    # 1. 调取 Tushare 期货日线数据
+                    pro = ts.pro_api()
+                    df = pro.fut_daily(ts_code=fut_code, start_date='20230101')
+
+                    if df.empty:
+                        st.error(
+                            f"❌ 未获取到 {fut_code} 的数据。请检查代码是否正确 (如: SA2409.CZC, I2409.DCE)。注：部分数据需 Tushare 相应积分权限。")
+                    else:
+                        st.success("✅ 数据拉取成功！杠杆乘数已注入，开始进行动态推演...")
+
+                        # 2. 数据清洗与排序
+                        df = df.sort_values('trade_date').reset_index(drop=True)
+                        df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
+
+                        # 3. 模拟一个非常基础的双均线策略产生交易信号
+                        df['MA10'] = df['close'].rolling(10).mean()
+                        df['MA20'] = df['close'].rolling(20).mean()
+                        # 产生信号：金叉做多(1)，死叉做空(-1)
+                        df['Signal'] = np.where(df['MA10'] > df['MA20'], 1, -1)
+                        # 信号延迟一天作为实际持仓 (Pos)
+                        df['Pos'] = df['Signal'].shift(1).fillna(0)
+
+                        # 4. 期货真实杠杆盈亏计算核心逻辑
+                        # 绝对点数变化
+                        df['Point_PnL'] = df['close'] - df['close'].shift(1)
+
+                        # 单手实际盈亏金额 = 点数变化 * 乘数 * 仓位方向
+                        df['Cash_PnL_Per_Lot'] = df['Point_PnL'] * multiplier * df['Pos']
+
+                        # 总盈亏 = 单手盈亏 * 手数
+                        df['Total_PnL'] = df['Cash_PnL_Per_Lot'] * trade_lots
+
+                        # 动态资金权益 (Equity)
+                        df['Equity'] = init_cash + df['Total_PnL'].cumsum()
+
+                        # 占用保证金计算 = 结算价 * 乘数 * 保证金率 * 手数
+                        df['Margin_Used'] = df['close'] * multiplier * margin_rate * trade_lots
+
+                        # 5. 渲染专业级图表 (带资金与保证金占用情况)
+                        fig = make_subplots(
+                            rows=3, cols=1, shared_xaxes=True,
+                            vertical_spacing=0.05,
+                            row_heights=[0.5, 0.25, 0.25],
+                            subplot_titles=("K线与均线", "动态资金权益曲线 (带杠杆)", "保证金占用监控")
+                        )
+
+                        # Row 1: K线图
+                        fig.add_trace(go.Candlestick(
+                            x=df['trade_date'], open=df['open'], high=df['high'], low=df['low'], close=df['close'],
+                            name='K线'
+                        ), row=1, col=1)
+                        fig.add_trace(go.Scatter(x=df['trade_date'], y=df['MA10'], line=dict(color='yellow', width=1),
+                                                 name='MA10'), row=1, col=1)
+                        fig.add_trace(
+                            go.Scatter(x=df['trade_date'], y=df['MA20'], line=dict(color='cyan', width=1), name='MA20'),
+                            row=1, col=1)
+
+                        # Row 2: 资金曲线
+                        fig.add_trace(go.Scatter(
+                            x=df['trade_date'], y=df['Equity'], name='动态权益',
+                            line=dict(color='#00ffcc', width=2), fill='tozeroy', fillcolor='rgba(0, 255, 204, 0.1)'
+                        ), row=2, col=1)
+
+                        # Row 3: 保证金占用
+                        fig.add_trace(go.Scatter(
+                            x=df['trade_date'], y=df['Margin_Used'], name='占用保证金',
+                            line=dict(color='#ff4b4b', width=1), fill='tozeroy', fillcolor='rgba(255, 75, 75, 0.2)'
+                        ), row=3, col=1)
+
+                        fig.update_layout(
+                            height=700, template="plotly_dark",
+                            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                            xaxis_rangeslider_visible=False, margin=dict(l=10, r=10, t=40, b=10)
+                        )
+
+                        st.plotly_chart(fig, use_container_width=True)
+
+                        # 计算几个简单的绩效指标
+                        final_equity = df['Equity'].iloc[-1]
+                        total_return = (final_equity - init_cash) / init_cash * 100
+                        max_margin = df['Margin_Used'].max()
+
+                        c_res1, c_res2, c_res3 = st.columns(3)
+                        c_res1.metric("期末总权益", f"¥ {final_equity:,.2f}", f"{total_return:.2f}%")
+                        c_res2.metric("最高保证金占用", f"¥ {max_margin:,.2f}")
+                        c_res3.metric("资金使用率 (峰值)", f"{(max_margin / init_cash) * 100:.2f}%",
+                                      delta_color="inverse")
+
+                except Exception as e:
+                    st.error(f"系统运算发生熔断: {e}")
+        else:
+            st.markdown("""
+            <div class="metric-box" style="height: 250px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <p>等待主公下达指令</p>
+                <h2 style="color: #cbd5e1;">点击左侧 [开始穿透回测] 按钮</h2>
+                <p class="sub-text" style="margin-top: 10px;">系统将自动调取 Tushare 数据并结合杠杆进行推演计算</p>
+            </div>
+            """, unsafe_allow_html=True)
 
 
 # ==========================================
