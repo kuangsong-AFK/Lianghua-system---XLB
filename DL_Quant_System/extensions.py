@@ -9,19 +9,13 @@ import os
 
 
 def summon_global_3d_lulu():
-    """极致性能版：错峰加载 + 移动端降载 + 完美交互"""
+    """终极寄生版：3D 激光雷达(Raycasting) 像素级精准防空气墙误触"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(current_dir, "lulu.glb")
 
     if not os.path.exists(file_path): return
 
-    # 提示主公压缩模型
-    file_size_mb = os.path.getsize(file_path) / (1024 * 1024)
-    if file_size_mb > 10:
-        st.warning(
-            f"⚠️ 警告：检测到 3D 模型高达 {file_size_mb:.1f} MB！这会导致网页严重卡顿。强烈建议使用在线工具将模型材质压缩至 5MB 以下！")
-
-    with st.spinner("正在后台为您错峰加载 3D 引擎..."):
+    with st.spinner("正在加装 3D 激光雷达触控系统..."):
         with open(file_path, "rb") as f:
             glb_b64 = base64.b64encode(f.read()).decode("utf-8")
 
@@ -50,8 +44,6 @@ def summon_global_3d_lulu():
                         const win = window;
                         const doc = document;
 
-                        const isMobile = win.innerWidth <= 768;
-
                         let state = 'IDLE'; 
                         let danceTimer = 0;
                         let lastActivityTime = Date.now();
@@ -61,9 +53,10 @@ def summon_global_3d_lulu():
                         const petSize = 280; 
                         const overflowLimit = 80; 
 
+                        // 1. 创建物理悬浮舱 (🔥 默认 pointer-events: none，允许完全穿透空气墙 🔥)
                         const petBox = doc.createElement('div');
                         petBox.id = 'lulu-global-pet';
-                        petBox.style.cssText = "position: fixed; bottom: 20px; right: 20px; width: " + petSize + "px; height: " + petSize + "px; z-index: 9999999; cursor: grab; user-select: none; pointer-events: auto; transition: transform 0.2s; touch-action: none;"; 
+                        petBox.style.cssText = "position: fixed; bottom: 20px; right: 20px; width: " + petSize + "px; height: " + petSize + "px; z-index: 9999999; cursor: grab; user-select: none; pointer-events: none; transition: transform 0.2s; touch-action: none;"; 
                         doc.body.appendChild(petBox);
 
                         const bubble = doc.createElement('div');
@@ -74,13 +67,9 @@ def summon_global_3d_lulu():
                         const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
                         camera.position.set(0, 0.8, 5.5); 
 
-                        // 🔥 性能优化1：手机端强行关闭抗锯齿 (antialias: false) 省下大量 GPU 算力 🔥
-                        const renderer = new THREE.WebGLRenderer({{ alpha: true, antialias: !isMobile }});
+                        const renderer = new THREE.WebGLRenderer({{ alpha: true, antialias: win.innerWidth > 768 }});
                         renderer.setSize(petSize, petSize);
-
-                        // 🔥 性能优化2：手机端像素比锁死为 1，电脑端最高锁死为 1.5 🔥
-                        const maxPixelRatio = isMobile ? 1 : 1.5;
-                        renderer.setPixelRatio(Math.min(win.devicePixelRatio || 1, maxPixelRatio));
+                        renderer.setPixelRatio(win.devicePixelRatio ? Math.min(win.devicePixelRatio, 2) : 1);
                         renderer.outputEncoding = THREE.sRGBEncoding;
                         petBox.appendChild(renderer.domElement);
 
@@ -104,24 +93,38 @@ def summon_global_3d_lulu():
                                 mixer = new THREE.AnimationMixer(model);
                                 mixer.clipAction(gltf.animations[0]).play();
                             }}
-
-                            const updateLookAt = (clientX, clientY) => {{
-                                lastActivityTime = Date.now();
-                                if (state === 'IDLE' && idleActionState === 'NONE') {{
-                                    const mouseX = (clientX / win.innerWidth) * 2 - 1;
-                                    const mouseY = -(clientY / win.innerHeight) * 2 + 1;
-                                    targetRotY = mouseX * 0.8;
-                                    targetRotX = -mouseY * 0.4;
-                                }}
-                            }};
-                            doc.addEventListener('mousemove', (e) => updateLookAt(e.clientX, e.clientY));
-                            doc.addEventListener('touchmove', (e) => {{
-                                if(e.touches.length > 0) updateLookAt(e.touches[0].clientX, e.touches[0].clientY);
-                            }}, {{passive: true}});
-
-                            // 🔥 性能优化3：模型加载完成后才开始渲染循环，不抢占资源 🔥
-                            animate();
                         }});
+
+                        // 🔥 核心黑科技：3D 激光雷达 (Raycaster) 🔥
+                        const raycaster = new THREE.Raycaster();
+                        const mouseNDC = new THREE.Vector2();
+
+                        const checkHit = (clientX, clientY) => {{
+                            if (!model) return false;
+                            const rect = petBox.getBoundingClientRect();
+                            // 快速排查：如果不在框内，直接 return
+                            if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {{
+                                return false;
+                            }}
+                            // 计算 3D 坐标系下的相对位置
+                            mouseNDC.x = ((clientX - rect.left) / petSize) * 2 - 1;
+                            mouseNDC.y = -((clientY - rect.top) / petSize) * 2 + 1;
+
+                            // 发射激光！
+                            raycaster.setFromCamera(mouseNDC, camera);
+                            const intersects = raycaster.intersectObject(model, true);
+                            return intersects.length > 0; // 如果打中实体，返回 true
+                        }};
+
+                        const updateLookAt = (clientX, clientY) => {{
+                            lastActivityTime = Date.now();
+                            if (state === 'IDLE' && idleActionState === 'NONE') {{
+                                const mouseX = (clientX / win.innerWidth) * 2 - 1;
+                                const mouseY = -(clientY / win.innerHeight) * 2 + 1;
+                                targetRotY = mouseX * 0.8;
+                                targetRotX = -mouseY * 0.4;
+                            }}
+                        }};
 
                         const clock = new THREE.Clock();
                         function animate() {{
@@ -217,36 +220,84 @@ def summon_global_3d_lulu():
                             petBox.style.left = startL + 'px'; petBox.style.top = startT + 'px';
                         }};
 
-                        const moveInteraction = (e) => {{
-                            if (!isHolding) return; 
-
-                            const curX = getX(e); const curY = getY(e);
-                            const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
-
-                            if (moveDist > 20) {{ 
-                                if (!isDragging) {{
-                                    isDragging = true;
-                                    isPossibleClick = false;
-                                    state = 'STRUGGLING';
-                                    idleActionState = 'NONE';
-                                    petBox.style.cursor = 'grabbing';
-                                    petBox.style.transform = 'scale(1.05)';
-                                    petBox.style.transition = 'none'; 
+                        // 🔥 电脑端事件处理：动态切换空气墙穿透状态 🔥
+                        doc.addEventListener('mousemove', (e) => {{
+                            if (!isHolding) {{
+                                updateLookAt(e.clientX, e.clientY);
+                                // 如果没按住，进行雷达扫描
+                                if (checkHit(e.clientX, e.clientY)) {{
+                                    petBox.style.pointerEvents = 'auto'; // 打中实体，允许触摸
+                                }} else {{
+                                    petBox.style.pointerEvents = 'none'; // 打中空气，穿透空气墙！
                                 }}
+                            }} else {{
+                                // 拖拽中
+                                const curX = getX(e); const curY = getY(e);
+                                const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
 
-                                let newLeft = startL + curX - initX;
-                                let newTop = startT + curY - initY;
-                                newLeft = Math.max(-overflowLimit, Math.min(newLeft, win.innerWidth - petSize + overflowLimit));
-                                newTop = Math.max(-overflowLimit, Math.min(newTop, win.innerHeight - petSize + overflowLimit));
-
-                                petBox.style.left = newLeft + 'px';
-                                petBox.style.top = newTop + 'px';
-
-                                if(e.cancelable) e.preventDefault(); 
+                                if (moveDist > 20) {{ 
+                                    if (!isDragging) {{
+                                        isDragging = true;
+                                        isPossibleClick = false;
+                                        state = 'STRUGGLING';
+                                        idleActionState = 'NONE';
+                                        petBox.style.cursor = 'grabbing';
+                                        petBox.style.transform = 'scale(1.05)';
+                                        petBox.style.transition = 'none'; 
+                                    }}
+                                    let newLeft = startL + curX - initX;
+                                    let newTop = startT + curY - initY;
+                                    newLeft = Math.max(-overflowLimit, Math.min(newLeft, win.innerWidth - petSize + overflowLimit));
+                                    newTop = Math.max(-overflowLimit, Math.min(newTop, win.innerHeight - petSize + overflowLimit));
+                                    petBox.style.left = newLeft + 'px';
+                                    petBox.style.top = newTop + 'px';
+                                    if(e.cancelable) e.preventDefault(); 
+                                }}
                             }}
-                        }};
+                        }});
+
+                        // PC 端点击事件 (因为上面已经切换了 pointerEvents，只有点中实体才会触发)
+                        petBox.addEventListener('mousedown', startInteraction);
+
+                        // 🔥 移动端事件处理：全局拦截 + 雷达扫描 🔥
+                        doc.addEventListener('touchstart', (e) => {{
+                            // 手机端触摸瞬间，发射雷达
+                            if (checkHit(e.touches[0].clientX, e.touches[0].clientY)) {{
+                                // 点中实体！开始互动并拦截事件，不让背后的网页响应
+                                startInteraction(e);
+                                e.stopPropagation();
+                                if(e.cancelable) e.preventDefault();
+                            }}
+                            // 如果没点中，代码什么都不做，直接穿透空气墙点到背后的网页！
+                        }}, {{ capture: true, passive: false }});
+
+                        doc.addEventListener('touchmove', (e) => {{
+                            if (isHolding) {{
+                                // 正在拖拽噜噜
+                                const curX = getX(e); const curY = getY(e);
+                                const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
+
+                                if (moveDist > 20) {{ 
+                                    if (!isDragging) {{
+                                        isDragging = true; isPossibleClick = false;
+                                        state = 'STRUGGLING'; idleActionState = 'NONE';
+                                        petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; 
+                                    }}
+                                    let newLeft = startL + curX - initX; let newTop = startT + curY - initY;
+                                    newLeft = Math.max(-overflowLimit, Math.min(newLeft, win.innerWidth - petSize + overflowLimit));
+                                    newTop = Math.max(-overflowLimit, Math.min(newTop, win.innerHeight - petSize + overflowLimit));
+                                    petBox.style.left = newLeft + 'px'; petBox.style.top = newTop + 'px';
+
+                                    e.stopPropagation();
+                                    if(e.cancelable) e.preventDefault(); 
+                                }}
+                            }} else {{
+                                updateLookAt(e.touches[0].clientX, e.touches[0].clientY);
+                            }}
+                        }}, {{ passive: false }});
 
                         const endInteraction = (e) => {{
+                            if (!isHolding) return;
                             isHolding = false; 
                             petBox.style.transition = 'transform 0.2s'; 
                             petBox.style.cursor = 'grab';
@@ -259,6 +310,7 @@ def summon_global_3d_lulu():
                                 return; 
                             }}
 
+                            // 统一合并单双击处理
                             if (isPossibleClick) {{
                                 const currentTime = new Date().getTime();
                                 const tapLength = currentTime - lastTapTime;
@@ -275,23 +327,19 @@ def summon_global_3d_lulu():
                             }}
                         }};
 
-                        petBox.addEventListener('mousedown', startInteraction);
-                        doc.addEventListener('mousemove', moveInteraction);
                         doc.addEventListener('mouseup', endInteraction);
                         doc.addEventListener('mouseleave', endInteraction);
-
-                        petBox.addEventListener('touchstart', startInteraction, {{passive: true}});
-                        doc.addEventListener('touchmove', moveInteraction, {{passive: false}});
                         doc.addEventListener('touchend', endInteraction);
                         doc.addEventListener('touchcancel', endInteraction);
 
+                        // 错峰启动引擎
+                        setTimeout(animate, 1500);
                     }})();
                 `;
                 parentDoc.body.appendChild(script);
             }};
 
-            // 🔥 性能优化4：强制延迟 1.5 秒点火，绝不抢占网页开屏首屏渲染时间！ 🔥
-            setTimeout(initLulu, 1500); 
+            setTimeout(initLulu, 500); 
         }}
     </script>
     """
@@ -302,4 +350,4 @@ def render_new_features_page():
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3></div>',
         unsafe_allow_html=True)
-    st.info("💡 性能已优化：1.5秒错峰加载 + 移动端节能渲染。**请务必将您的 20MB 模型压缩至 3MB 以下以获得终极丝滑体验！**")
+    st.info("💡 终极触控已就绪：搭载 3D 激光雷达 (Raycasting)，空气墙彻底穿透！您可以自由点击噜噜身边的任何网页元素了！")
