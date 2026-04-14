@@ -301,7 +301,7 @@ def render_new_features_page():
 
 
 # ==========================================
-# 辅助函数：AI 策略执行器与图表渲染器 (完美复刻自 app.py)
+# 辅助函数：AI 策略执行器与图表渲染器
 # ==========================================
 def safe_exec_fut_strategy(code, df):
     safe_code = code.replace("pandas.np", "np")
@@ -318,7 +318,7 @@ def safe_exec_fut_strategy(code, df):
 
 def render_fut_charts(df):
     """
-    🔥 终极复刻：与原先的静态回测完全一样的渲染逻辑！
+    🔥 终极复刻：与静态全量回测完全一模一样的视觉体验！
     """
     main_inds = [c for c in df.columns if c.startswith('MAIN_')]
     sub_groups = {}
@@ -330,7 +330,6 @@ def render_fut_charts(df):
     fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.03,
                         row_heights=[0.5, 0.15] + [0.35 / max(1, len(sub_groups))] * len(sub_groups))
 
-    # 1. K线图与主图指标
     fig.add_trace(go.Candlestick(x=df['trade_date'], open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
                                  increasing_line_color='#FD1050', decreasing_line_color='#00FF00', name='K线'), row=1,
                   col=1)
@@ -338,7 +337,6 @@ def render_fut_charts(df):
     for i, col in enumerate(main_inds): fig.add_trace(
         go.Scatter(x=df['trade_date'], y=df[col], name=col, line=dict(width=1.2, color=colors[i % 4])), row=1, col=1)
 
-    # 买卖信号
     if 'Signal' in df.columns:
         buys, sells = df[df['Signal'] == 1], df[df['Signal'] == -1]
         fig.add_trace(go.Scatter(x=buys['trade_date'], y=buys['Low'] * 0.95, mode='markers',
@@ -347,12 +345,10 @@ def render_fut_charts(df):
                                  marker=dict(symbol='triangle-down', size=14, color='#FF00FF'), name='卖'), row=1,
                       col=1)
 
-    # 2. 成交量
     fig.add_trace(go.Bar(x=df['trade_date'], y=df.get('Volume', np.zeros(len(df))),
                          marker_color=np.where(df['Close'] >= df['Open'], '#FD1050', '#00FF00'), name='成交量'), row=2,
                   col=1)
 
-    # 3. 动态副图指标 (包括资金权益和保证金)
     row_idx = 3
     for gid in sorted(sub_groups.keys(), key=int):
         for i, col in enumerate(sub_groups[gid]):
@@ -377,7 +373,7 @@ def render_fut_charts(df):
 
 
 # ==========================================
-# 🔥 核心引擎：期货全量审计 (智能容错版)
+# 🔥 核心引擎：期货全量审计 (终极智能容错版)
 # ==========================================
 def render_futures_backtest():
     st.markdown(
@@ -399,12 +395,12 @@ def render_futures_backtest():
         selected_freq = freq_mapping[freq_choice]
 
         # 完美复刻股票UI：日期的下拉选择
-        span_mapping = {"近1年": 1, "近3年": 3, "近5年": 5, "近10年 (极限穿越)": 10}
-        span_choice = st.selectbox("⏳ 回测时间跨度", list(span_mapping.keys()), index=1)
+        span_mapping = {"近1个月": 0.08, "近3个月": 0.25, "近半年": 0.5, "近1年": 1, "近3年": 3}
+        span_choice = st.selectbox("⏳ 回测时间跨度", list(span_mapping.keys()), index=3)
         start_year = int(datetime.now().year - span_mapping[span_choice])
         start_date_str = f"{start_year}0101"
 
-        # 🔥 用户可以随意输入数字，也可以留空，留空由后台智能代劳 🔥
+        # 🔥 核弹级修复：真正变为文本输入框，留空由后台智能代劳 🔥
         margin_input_str = st.text_input("⚖️ 保证金比例 (%)", value="", placeholder="留空则自动查询最低并上调20%")
         multiplier_input_str = st.text_input("🔢 合约乘数 (吨/手)", value="", placeholder="留空则自动查询")
 
@@ -419,46 +415,61 @@ def render_futures_backtest():
                     df = None
                     found_code = ""
 
-                    # 🔥 核弹级修复1：专门破译郑商所 (ZCE) 的“三位数潜规则” 🔥
+                    # 💡 核心漏洞修复：只要带有数字 (比如 SA2609)，就说明是特定合约！强制把起点设为 2010年，榨干它的全生命周期数据！
+                    is_specific_contract = any(char.isdigit() for char in real_code)
+                    query_start = '20100101' if is_specific_contract else start_date_str
+
+                    # 🔥 核弹级修复：郑商所 (ZCE/CZC) 智能破译器 🔥
                     candidates = []
                     if '.' in real_code:
                         candidates.append(real_code)
                     else:
-                        match = re.match(r'^([A-Z]+)2(\d{3})$', real_code)
-                        if match:  # 如果是 SA2609 这种，Tushare可能认 SA609.ZCE
-                            short_code = match.group(1) + match.group(2)
-                            candidates.extend([f"{short_code}.ZCE", f"{short_code}.CZC"])
+                        match = re.match(r'^([A-Z]+)(\d+)$', real_code)
+                        if match:
+                            symbol = match.group(1)
+                            nums = match.group(2)
+                            # 如果用户输入 SA2609，Tushare可能认 SA609.CZC 或 SA2609.CZC
+                            if len(nums) == 4:
+                                short_nums = nums[1:]
+                                candidates.extend([f"{symbol}{nums}.CZC", f"{symbol}{short_nums}.CZC"])
+                            elif len(nums) == 3:
+                                long_nums = "2" + nums
+                                candidates.extend([f"{symbol}{nums}.CZC", f"{symbol}{long_nums}.CZC"])
+
                             candidates.extend(
                                 [f"{real_code}.DCE", f"{real_code}.SHF", f"{real_code}.CFFEX", f"{real_code}.INE"])
                         else:
                             candidates = [f"{real_code}{s}" for s in
-                                          ['.DCE', '.SHF', '.ZCE', '.CZC', '.CFFEX', '.INE', '']]
+                                          ['.DCE', '.SHF', '.CZC', '.ZCE', '.CFFEX', '.INE', '']]
 
-                    # 🔥 核弹级修复2：全境搜索机制，强制使用稳固的 pro_bar 通道 🔥
-                    last_err = ""
+                    # 全境搜索机制：无论是日线还是分钟线，全部交由稳如老狗的 pro_bar 和 fut_daily 处理
                     for test_code in candidates:
                         try:
                             if selected_freq == 'D':
-                                df_test = pro.fut_daily(ts_code=test_code, start_date=start_date_str)
+                                df_test = pro.fut_daily(ts_code=test_code, start_date=query_start)
+                                if df_test is None or df_test.empty:
+                                    df_test = ts.pro_bar(ts_code=test_code, asset='FT', freq='D',
+                                                         start_date=query_start)
                             else:
                                 df_test = ts.pro_bar(ts_code=test_code, asset='FT', freq=selected_freq,
-                                                     start_date=start_date_str)
+                                                     start_date=query_start)
 
                             if df_test is not None and not df_test.empty:
                                 df = df_test
                                 found_code = test_code
                                 break
-                        except Exception as e:
-                            last_err = str(e)
+                        except Exception:
+                            pass
 
                     if df is None or df.empty:
-                        msg = f"❌ 无法获取到 `{fut_code_input}` 的数据。\n"
-                        msg += f"1. 请检查您的回测跨度 ({span_choice}) 是否覆盖了该合约的存活期。\n"
-                        msg += "2. 如果请求分钟级数据，请确保 Tushare 积分达到权限要求。"
+                        msg = f"❌ 未能获取到 `{fut_code_input}` 的历史数据。\n\n"
+                        msg += f"**可能原因分析：**\n"
+                        msg += f"1. 该合约（如远月合约 {fut_code_input}）可能尚未上市交易，因此无历史数据沉淀。\n"
+                        msg += f"2. 若您查询的是分钟线数据，可能受限于 Tushare 积分权限（建议先切换回【日线】测试）。\n"
                         st.warning(msg)
                         st.session_state.fut_bt_run = False
                     else:
-                        # 🔥 核弹级修复3：自动窃取底层保证金并加持 20% 🔥
+                        # 🔥 核弹级修复：自动窃取底层保证金并加持 20% 🔥
                         api_margin, api_mult = 8.0, 10.0
                         try:
                             df_b = pro.fut_basic(ts_code=found_code)
@@ -520,7 +531,7 @@ def render_futures_backtest():
 
                         # 🔥 将结果作为副图通道发往 render_fut_charts 进行统一渲染 🔥
                         df['SUB98_Equity(杠杆资金)'] = df['Equity']
-                        df['SUB99_Margin(保证金占用)'] = df['Margin_Used']
+                        df['SUB99_Margin(占用)'] = df['Margin_Used']
 
                         final_equity = df['Equity'].iloc[-1]
                         total_return = (final_equity - init_cash) / init_cash
