@@ -9,13 +9,13 @@ import os
 
 
 def summon_global_3d_lulu():
-    """终极寄生版：X光材质穿透 + 完美消除透明空气墙误触"""
+    """终极寄生版：军用级雷达白名单，彻底无视上方骨骼包围盒与隐形空气墙"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(current_dir, "lulu.glb")
 
     if not os.path.exists(file_path): return
 
-    with st.spinner("正在启动 X 光级精准雷达触控系统..."):
+    with st.spinner("正在为雷达加装白名单识别系统..."):
         with open(file_path, "rb") as f:
             glb_b64 = base64.b64encode(f.read()).decode("utf-8")
 
@@ -53,7 +53,6 @@ def summon_global_3d_lulu():
                         const petSize = 280; 
                         const overflowLimit = 80; 
 
-                        // 默认完全穿透空气墙
                         const petBox = doc.createElement('div');
                         petBox.id = 'lulu-global-pet';
                         petBox.style.cssText = "position: fixed; bottom: 20px; right: 20px; width: " + petSize + "px; height: " + petSize + "px; z-index: 9999999; cursor: grab; user-select: none; pointer-events: none; transition: transform 0.2s; touch-action: none;"; 
@@ -83,17 +82,28 @@ def summon_global_3d_lulu():
                         let targetRotY = 0; 
                         let targetRotX = 0;
 
+                        // 🔥 核心阵列：专装“真实物理肉身”的白名单 🔥
+                        let clickableMeshes = [];
+
                         const loader = new THREE.GLTFLoader();
                         loader.load("data:application/octet-stream;base64," + win.__LULU_B64__, (gltf) => {{
                             model = gltf.scene;
                             model.position.set(0, -1.2, 0); 
 
-                            // 🔥 核心净化手术：暴力清除 AI 附带的透明垃圾网格 🔥
+                            // 🔥 白名单体检机制：剔除一切垃圾骨架和透明罩子 🔥
                             model.traverse((child) => {{
-                                if (child.isMesh && child.material) {{
-                                    // 如果材质透明度接近于 0，直接判定为垃圾背景板，隐身！
-                                    if (child.material.transparent && child.material.opacity < 0.1) {{
-                                        child.visible = false; 
+                                if (child.isMesh) {{
+                                    let isTrash = false;
+                                    if (child.material) {{
+                                        // 只要是透明度低到看不见的，或者完全隐藏的，一律判定为垃圾
+                                        if (child.material.transparent && child.material.opacity < 0.1) isTrash = true;
+                                        if (child.material.opacity === 0) isTrash = true;
+                                    }}
+
+                                    if (isTrash) {{
+                                        child.visible = false; // 让垃圾隐身
+                                    }} else {{
+                                        clickableMeshes.push(child); // 把真实的肉块加入白名单！
                                     }}
                                 }}
                             }});
@@ -106,12 +116,13 @@ def summon_global_3d_lulu():
                             }}
                         }});
 
-                        // 🔥 X光激光雷达：只检测真正的物理肉身 🔥
+                        // 🔥 激光雷达升级：只对准白名单扫描 🔥
                         const raycaster = new THREE.Raycaster();
                         const mouseNDC = new THREE.Vector2();
 
                         const checkHit = (clientX, clientY) => {{
-                            if (!model) return false;
+                            if (clickableMeshes.length === 0) return false;
+
                             const rect = renderer.domElement.getBoundingClientRect();
                             if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {{
                                 return false;
@@ -121,18 +132,11 @@ def summon_global_3d_lulu():
                             mouseNDC.y = -((clientY - rect.top) / petSize) * 2 + 1;
 
                             raycaster.setFromCamera(mouseNDC, camera);
-                            const intersects = raycaster.intersectObject(model, true);
 
-                            // 逐层扫描，过滤假透明墙
-                            for (let i = 0; i < intersects.length; i++) {{
-                                const hit = intersects[i].object;
-                                if (hit.isMesh && hit.visible) {{
-                                    // 坚决无视透明度极低的材质，只识别实物！
-                                    if (hit.material && hit.material.transparent && hit.material.opacity < 0.1) continue;
-                                    return true; // 确定击中真身！
-                                }}
-                            }}
-                            return false;
+                            // 第二个参数 false 表示不需要递归查找子元素，因为我们已经把所有肉身拉平放在数组里了
+                            const intersects = raycaster.intersectObjects(clickableMeshes, false);
+
+                            return intersects.length > 0; // 只要打中白名单里的东西，就说明点到了！
                         }};
 
                         const updateLookAt = (clientX, clientY) => {{
@@ -238,7 +242,6 @@ def summon_global_3d_lulu():
                             petBox.style.left = startL + 'px'; petBox.style.top = startT + 'px';
                         }};
 
-                        // 🔥 最高权限拦截器：在鼠标移动前强制检测 🔥
                         win.addEventListener('mousemove', (e) => {{
                             if (isHolding) {{
                                 const curX = getX(e); const curY = getY(e);
@@ -260,19 +263,17 @@ def summon_global_3d_lulu():
 
                             updateLookAt(e.clientX, e.clientY);
 
-                            // 如果击中真实肉身，瞬间开启点击接收
                             if (checkHit(e.clientX, e.clientY)) {{
                                 if (petBox.style.pointerEvents !== 'auto') {{
                                     petBox.style.pointerEvents = 'auto';
                                     petBox.style.cursor = 'grab';
                                 }}
                             }} else {{
-                                // 没击中肉身，立刻变成幽灵，允许鼠标穿透！
                                 if (petBox.style.pointerEvents !== 'none') {{
                                     petBox.style.pointerEvents = 'none';
                                 }}
                             }}
-                        }}, true); // true = 开启 Capture 阶段，优先拦截！
+                        }}, true);
 
                         const endInteraction = (e) => {{
                             if (!isHolding) return;
@@ -302,12 +303,10 @@ def summon_global_3d_lulu():
                             }}
                         }};
 
-                        // 仅当开启了 pointerEvents:auto 时，这里才会被触发
                         petBox.addEventListener('mousedown', startInteraction);
                         doc.addEventListener('mouseup', endInteraction);
                         doc.addEventListener('mouseleave', endInteraction);
 
-                        // 🔥 手机端同样的 X光透视逻辑 🔥
                         doc.addEventListener('touchstart', (e) => {{
                             if (checkHit(e.touches[0].clientX, e.touches[0].clientY)) {{
                                 petBox.style.pointerEvents = 'auto';
@@ -360,4 +359,4 @@ def render_new_features_page():
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3></div>',
         unsafe_allow_html=True)
-    st.info("💡 X光级触控已实装：自动过滤 AI 模型生成的隐形玻璃板，实现像素级‘指哪打哪’！")
+    st.info("💡 雷达白名单已启用：过滤一切隐形骨架盒！鼠标现在只有碰到实体模型才会触发拦截。")
