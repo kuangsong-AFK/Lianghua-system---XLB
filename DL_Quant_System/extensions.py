@@ -360,3 +360,73 @@ def render_new_features_page():
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3></div>',
         unsafe_allow_html=True)
     st.info("💡 雷达白名单已启用：过滤一切隐形骨架盒！鼠标现在只有碰到实体模型才会触发拦截。")
+
+
+# ==========================================
+# 🔥 新增功能：期货全量审计 (归因)
+# ==========================================
+def render_futures_backtest():
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🔗 期货全量审计与归因分析</h3><p class="sub-text">支持中金所、上期所、大商所、郑商所全品种合约穿透式回测，引入真实杠杆与保证金校验体系。</p></div>',
+        unsafe_allow_html=True)
+
+    c1, c2 = st.columns([1, 3])
+    with c1:
+        fut_code = st.text_input("🎯 期货合约代码", value="SA2409.CZC", help="纯碱主力合约示例")
+        margin_rate = st.slider("⚖️ 保证金比例 (%)", 5, 20, 12) / 100
+        multiplier = st.number_input("🔢 合约乘数 (吨/手)", value=20, help="纯碱一手为20吨")
+
+        if st.button("🚀 开始穿透回测", type="primary", use_container_width=True):
+            st.info(f"正在调取 {fut_code} 的历史连续数据...")
+            st.success("杠杆乘数已注入，准备渲染回测曲线 (待接入主引擎)")
+
+    with c2:
+        st.markdown("""
+        <div class="metric-box" style="height: 250px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+            <p>预期展示区域</p>
+            <h2 style="color: #00ffcc;">回测图表与保证金回撤占用曲线</h2>
+            <p class="sub-text" style="margin-top: 10px;">(此处将调用主程序的 run_backtest_metrics 并附带杠杆系数计算)</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+# ==========================================
+# 🔥 新增功能：期货高频沙盘
+# ==========================================
+def render_futures_sandbox():
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🌪️ 期货高频沙盘模拟推演</h3><p class="sub-text">Tick 级盘口模拟、毫秒级信号响应测试与动态滑点侦测。</p></div>',
+        unsafe_allow_html=True)
+    st.warning("⚠️ 高频警告：期货自带杠杆且波动剧烈，请确保您的‘止损熔断’脚本已装载且经过极寒测试。")
+
+    c_left, c_right = st.columns([1, 2.5])
+    with c_left:
+        # 模拟高频 L2 DOM 盘口
+        st.markdown("""
+        <div class="glass-card" style="padding: 15px;">
+            <h4 style="margin-top:0; color:#ff4b4b;">卖盘 (Ask)</h4>
+            <div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>卖五</span><span>2512</span><span>124</span></div>
+            <div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>卖四</span><span>2511</span><span>32</span></div>
+            <div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>卖三</span><span>2510</span><span>15</span></div>
+            <div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>卖二</span><span>2509</span><span>8</span></div>
+            <div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>卖一</span><span>2508</span><span>45</span></div>
+            <hr style="margin: 10px 0; border-color: rgba(255,255,255,0.1);">
+            <h3 style="margin:0; text-align:center; color:#00ffcc; text-shadow: 0 0 10px rgba(0,255,204,0.5);">现价: 2507</h3>
+            <hr style="margin: 10px 0; border-color: rgba(255,255,255,0.1);">
+            <h4 style="margin-top:0; color:#00ffcc;">买盘 (Bid)</h4>
+            <div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>买一</span><span>2506</span><span>89</span></div>
+            <div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>买二</span><span>2505</span><span>12</span></div>
+            <div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>买三</span><span>2504</span><span>56</span></div>
+            <div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>买四</span><span>2503</span><span>105</span></div>
+            <div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>买五</span><span>2502</span><span>210</span></div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with c_right:
+        st.markdown("""
+        <div class="metric-box" style="height: 380px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+            <p>高频推演</p>
+            <h2 style="color: #00ffcc;">Tick 走势图及 DOM 深度图渲染区</h2>
+            <p class="sub-text" style="margin-top: 10px;">(待后续接入 websocket 实时流数据)</p>
+        </div>
+        """, unsafe_allow_html=True)

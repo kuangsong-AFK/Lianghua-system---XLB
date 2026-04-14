@@ -70,9 +70,18 @@ if "is_live_trading" not in st.session_state: st.session_state.is_live_trading =
 # ==========================================
 # 2. 空间流形导航逻辑与置顶引掣
 # ==========================================
-# 🔥 核心微创2：导航栏增加扩展插件中心 🔥
-PAGES = ["🏠 系统总览 (监控中控)", "🤖 AI 策略引擎 (LLM)", "📈 深度静态全量回测", "⚡ 实时高频交易 (Live)",
-         "🧠 深度学习预测矩阵", "🛡️ 论文审计日志", "🧩 扩展插件中心"]
+# 🔥 核心微创2：导航栏增加期货双雄 🔥
+PAGES = [
+    "🏠 系统总览 (监控中控)",
+    "🤖 AI 策略引擎 (LLM)",
+    "📈 深度静态全量回测",
+    "⚡ 实时高频交易 (Live)",
+    "🧠 深度学习预测矩阵",
+    "🛡️ 论文审计日志",
+    "🔗 期货全量审计 (归因)",  # <--- 新增
+    "🌪️ 期货高频沙盘",        # <--- 新增
+    "🧩 扩展插件中心"
+]
 
 if "curr_page" not in st.session_state: st.session_state.curr_page = PAGES[0]
 if "prev_page" not in st.session_state: st.session_state.prev_page = PAGES[0]
@@ -847,8 +856,22 @@ elif selected_page == PAGES[5]:
     with c2:
         st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
 
-# 🔥 核心微创4：增加扩展插件中心的路由渲染 🔥
+# 🔥 新增功能：期货全量审计 (归因)
 elif selected_page == PAGES[6]:
+    if extensions:
+        extensions.render_futures_backtest()
+    else:
+        st.error("🧩 扩展模块加载失败，请检查 `extensions.py` 文件是否存在。")
+
+# 🔥 新增功能：期货高频沙盘
+elif selected_page == PAGES[7]:
+    if extensions:
+        extensions.render_futures_sandbox()
+    else:
+        st.error("🧩 扩展模块加载失败，请检查 `extensions.py` 文件是否存在。")
+
+# 原有的扩展插件中心 (现在顺延到了 PAGES[8])
+elif selected_page == PAGES[8]:
     if extensions:
         extensions.render_new_features_page()
     else:
