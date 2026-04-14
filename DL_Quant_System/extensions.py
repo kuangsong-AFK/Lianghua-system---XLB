@@ -9,13 +9,13 @@ import os
 
 
 def summon_global_3d_lulu():
-    """终极寄生版：3D 激光雷达(Raycasting) 像素级精准防空气墙误触"""
+    """终极寄生版：X光材质穿透 + 完美消除透明空气墙误触"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(current_dir, "lulu.glb")
 
     if not os.path.exists(file_path): return
 
-    with st.spinner("正在加装 3D 激光雷达触控系统..."):
+    with st.spinner("正在启动 X 光级精准雷达触控系统..."):
         with open(file_path, "rb") as f:
             glb_b64 = base64.b64encode(f.read()).decode("utf-8")
 
@@ -53,7 +53,7 @@ def summon_global_3d_lulu():
                         const petSize = 280; 
                         const overflowLimit = 80; 
 
-                        // 1. 创建物理悬浮舱 (🔥 默认 pointer-events: none，允许完全穿透空气墙 🔥)
+                        // 默认完全穿透空气墙
                         const petBox = doc.createElement('div');
                         petBox.id = 'lulu-global-pet';
                         petBox.style.cssText = "position: fixed; bottom: 20px; right: 20px; width: " + petSize + "px; height: " + petSize + "px; z-index: 9999999; cursor: grab; user-select: none; pointer-events: none; transition: transform 0.2s; touch-action: none;"; 
@@ -87,6 +87,17 @@ def summon_global_3d_lulu():
                         loader.load("data:application/octet-stream;base64," + win.__LULU_B64__, (gltf) => {{
                             model = gltf.scene;
                             model.position.set(0, -1.2, 0); 
+
+                            // 🔥 核心净化手术：暴力清除 AI 附带的透明垃圾网格 🔥
+                            model.traverse((child) => {{
+                                if (child.isMesh && child.material) {{
+                                    // 如果材质透明度接近于 0，直接判定为垃圾背景板，隐身！
+                                    if (child.material.transparent && child.material.opacity < 0.1) {{
+                                        child.visible = false; 
+                                    }}
+                                }}
+                            }});
+
                             scene.add(model);
 
                             if (gltf.animations.length > 0) {{
@@ -95,25 +106,33 @@ def summon_global_3d_lulu():
                             }}
                         }});
 
-                        // 🔥 核心黑科技：3D 激光雷达 (Raycaster) 🔥
+                        // 🔥 X光激光雷达：只检测真正的物理肉身 🔥
                         const raycaster = new THREE.Raycaster();
                         const mouseNDC = new THREE.Vector2();
 
                         const checkHit = (clientX, clientY) => {{
                             if (!model) return false;
-                            const rect = petBox.getBoundingClientRect();
-                            // 快速排查：如果不在框内，直接 return
+                            const rect = renderer.domElement.getBoundingClientRect();
                             if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {{
                                 return false;
                             }}
-                            // 计算 3D 坐标系下的相对位置
+
                             mouseNDC.x = ((clientX - rect.left) / petSize) * 2 - 1;
                             mouseNDC.y = -((clientY - rect.top) / petSize) * 2 + 1;
 
-                            // 发射激光！
                             raycaster.setFromCamera(mouseNDC, camera);
                             const intersects = raycaster.intersectObject(model, true);
-                            return intersects.length > 0; // 如果打中实体，返回 true
+
+                            // 逐层扫描，过滤假透明墙
+                            for (let i = 0; i < intersects.length; i++) {{
+                                const hit = intersects[i].object;
+                                if (hit.isMesh && hit.visible) {{
+                                    // 坚决无视透明度极低的材质，只识别实物！
+                                    if (hit.material && hit.material.transparent && hit.material.opacity < 0.1) continue;
+                                    return true; // 确定击中真身！
+                                }}
+                            }}
+                            return false;
                         }};
 
                         const updateLookAt = (clientX, clientY) => {{
@@ -160,7 +179,6 @@ def summon_global_3d_lulu():
                                     model.position.y = -1.2 + Math.abs(Math.sin(time * 10)) * 0.5;
                                     model.rotation.y += 0.2;
                                     model.rotation.x = 0; model.rotation.z = 0; model.position.x = 0;
-
                                     danceTimer -= delta;
                                     if (danceTimer <= 0) {{ state = 'IDLE'; model.position.y = -1.2; }}
                                 }} else if (idleActionState === 'HOP') {{
@@ -220,81 +238,41 @@ def summon_global_3d_lulu():
                             petBox.style.left = startL + 'px'; petBox.style.top = startT + 'px';
                         }};
 
-                        // 🔥 电脑端事件处理：动态切换空气墙穿透状态 🔥
-                        doc.addEventListener('mousemove', (e) => {{
-                            if (!isHolding) {{
-                                updateLookAt(e.clientX, e.clientY);
-                                // 如果没按住，进行雷达扫描
-                                if (checkHit(e.clientX, e.clientY)) {{
-                                    petBox.style.pointerEvents = 'auto'; // 打中实体，允许触摸
-                                }} else {{
-                                    petBox.style.pointerEvents = 'none'; // 打中空气，穿透空气墙！
-                                }}
-                            }} else {{
-                                // 拖拽中
-                                const curX = getX(e); const curY = getY(e);
-                                const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
-
-                                if (moveDist > 20) {{ 
-                                    if (!isDragging) {{
-                                        isDragging = true;
-                                        isPossibleClick = false;
-                                        state = 'STRUGGLING';
-                                        idleActionState = 'NONE';
-                                        petBox.style.cursor = 'grabbing';
-                                        petBox.style.transform = 'scale(1.05)';
-                                        petBox.style.transition = 'none'; 
-                                    }}
-                                    let newLeft = startL + curX - initX;
-                                    let newTop = startT + curY - initY;
-                                    newLeft = Math.max(-overflowLimit, Math.min(newLeft, win.innerWidth - petSize + overflowLimit));
-                                    newTop = Math.max(-overflowLimit, Math.min(newTop, win.innerHeight - petSize + overflowLimit));
-                                    petBox.style.left = newLeft + 'px';
-                                    petBox.style.top = newTop + 'px';
-                                    if(e.cancelable) e.preventDefault(); 
-                                }}
-                            }}
-                        }});
-
-                        // PC 端点击事件 (因为上面已经切换了 pointerEvents，只有点中实体才会触发)
-                        petBox.addEventListener('mousedown', startInteraction);
-
-                        // 🔥 移动端事件处理：全局拦截 + 雷达扫描 🔥
-                        doc.addEventListener('touchstart', (e) => {{
-                            // 手机端触摸瞬间，发射雷达
-                            if (checkHit(e.touches[0].clientX, e.touches[0].clientY)) {{
-                                // 点中实体！开始互动并拦截事件，不让背后的网页响应
-                                startInteraction(e);
-                                e.stopPropagation();
-                                if(e.cancelable) e.preventDefault();
-                            }}
-                            // 如果没点中，代码什么都不做，直接穿透空气墙点到背后的网页！
-                        }}, {{ capture: true, passive: false }});
-
-                        doc.addEventListener('touchmove', (e) => {{
+                        // 🔥 最高权限拦截器：在鼠标移动前强制检测 🔥
+                        win.addEventListener('mousemove', (e) => {{
                             if (isHolding) {{
-                                // 正在拖拽噜噜
                                 const curX = getX(e); const curY = getY(e);
                                 const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
 
                                 if (moveDist > 20) {{ 
                                     if (!isDragging) {{
-                                        isDragging = true; isPossibleClick = false;
-                                        state = 'STRUGGLING'; idleActionState = 'NONE';
+                                        isDragging = true; isPossibleClick = false; state = 'STRUGGLING'; idleActionState = 'NONE';
                                         petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; 
                                     }}
                                     let newLeft = startL + curX - initX; let newTop = startT + curY - initY;
                                     newLeft = Math.max(-overflowLimit, Math.min(newLeft, win.innerWidth - petSize + overflowLimit));
                                     newTop = Math.max(-overflowLimit, Math.min(newTop, win.innerHeight - petSize + overflowLimit));
                                     petBox.style.left = newLeft + 'px'; petBox.style.top = newTop + 'px';
-
-                                    e.stopPropagation();
                                     if(e.cancelable) e.preventDefault(); 
                                 }}
-                            }} else {{
-                                updateLookAt(e.touches[0].clientX, e.touches[0].clientY);
+                                return;
                             }}
-                        }}, {{ passive: false }});
+
+                            updateLookAt(e.clientX, e.clientY);
+
+                            // 如果击中真实肉身，瞬间开启点击接收
+                            if (checkHit(e.clientX, e.clientY)) {{
+                                if (petBox.style.pointerEvents !== 'auto') {{
+                                    petBox.style.pointerEvents = 'auto';
+                                    petBox.style.cursor = 'grab';
+                                }}
+                            }} else {{
+                                // 没击中肉身，立刻变成幽灵，允许鼠标穿透！
+                                if (petBox.style.pointerEvents !== 'none') {{
+                                    petBox.style.pointerEvents = 'none';
+                                }}
+                            }}
+                        }}, true); // true = 开启 Capture 阶段，优先拦截！
 
                         const endInteraction = (e) => {{
                             if (!isHolding) return;
@@ -310,7 +288,6 @@ def summon_global_3d_lulu():
                                 return; 
                             }}
 
-                            // 统一合并单双击处理
                             if (isPossibleClick) {{
                                 const currentTime = new Date().getTime();
                                 const tapLength = currentTime - lastTapTime;
@@ -319,20 +296,53 @@ def summon_global_3d_lulu():
                                 if (tapLength < 350 && tapLength > 0) {{
                                     doDance();
                                 }} else {{
-                                    clickTimeout = setTimeout(() => {{
-                                        doSpeak();
-                                    }}, 300);
+                                    clickTimeout = setTimeout(() => {{ doSpeak(); }}, 300);
                                 }}
                                 lastTapTime = currentTime;
                             }}
                         }};
 
+                        // 仅当开启了 pointerEvents:auto 时，这里才会被触发
+                        petBox.addEventListener('mousedown', startInteraction);
                         doc.addEventListener('mouseup', endInteraction);
                         doc.addEventListener('mouseleave', endInteraction);
+
+                        // 🔥 手机端同样的 X光透视逻辑 🔥
+                        doc.addEventListener('touchstart', (e) => {{
+                            if (checkHit(e.touches[0].clientX, e.touches[0].clientY)) {{
+                                petBox.style.pointerEvents = 'auto';
+                                startInteraction(e);
+                                e.stopPropagation();
+                            }} else {{
+                                petBox.style.pointerEvents = 'none';
+                            }}
+                        }}, {{ capture: true, passive: false }});
+
+                        doc.addEventListener('touchmove', (e) => {{
+                            if (isHolding) {{
+                                const curX = getX(e); const curY = getY(e);
+                                const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
+                                if (moveDist > 20) {{ 
+                                    if (!isDragging) {{
+                                        isDragging = true; isPossibleClick = false; state = 'STRUGGLING'; idleActionState = 'NONE';
+                                        petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; 
+                                    }}
+                                    let newLeft = startL + curX - initX; let newTop = startT + curY - initY;
+                                    newLeft = Math.max(-overflowLimit, Math.min(newLeft, win.innerWidth - petSize + overflowLimit));
+                                    newTop = Math.max(-overflowLimit, Math.min(newTop, win.innerHeight - petSize + overflowLimit));
+                                    petBox.style.left = newLeft + 'px'; petBox.style.top = newTop + 'px';
+
+                                    e.stopPropagation();
+                                    if(e.cancelable) e.preventDefault(); 
+                                }}
+                            }} else {{
+                                updateLookAt(e.touches[0].clientX, e.touches[0].clientY);
+                            }}
+                        }}, {{ passive: false }});
+
                         doc.addEventListener('touchend', endInteraction);
                         doc.addEventListener('touchcancel', endInteraction);
 
-                        // 错峰启动引擎
                         setTimeout(animate, 1500);
                     }})();
                 `;
@@ -350,4 +360,4 @@ def render_new_features_page():
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3></div>',
         unsafe_allow_html=True)
-    st.info("💡 终极触控已就绪：搭载 3D 激光雷达 (Raycasting)，空气墙彻底穿透！您可以自由点击噜噜身边的任何网页元素了！")
+    st.info("💡 X光级触控已实装：自动过滤 AI 模型生成的隐形玻璃板，实现像素级‘指哪打哪’！")
