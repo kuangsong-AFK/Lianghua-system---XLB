@@ -370,11 +370,11 @@ def render_fut_charts(df):
 
 
 # ==========================================
-# 🔥 核心引擎：期货全量审计 (带X光透视仪版本)
+# 🔥 核心引擎：期货全量审计 (终极探测诊断版)
 # ==========================================
 def render_futures_backtest():
     st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🔗 期货全量审计与归因分析</h3><p class="sub-text">支持全交易所，免输后缀，智能调取最低保证金与乘数，自带物理防呆防报错设计。</p></div>',
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🔗 期货全量审计与归因分析</h3><p class="sub-text">内置 Tushare 底层探测雷达，智能破解全交易所命名潜规则。</p></div>',
         unsafe_allow_html=True)
 
     if "fut_bt_run" not in st.session_state: st.session_state.fut_bt_run = False
@@ -383,14 +383,44 @@ def render_futures_backtest():
 
     c1, c2 = st.columns([1, 3])
     with c1:
-        fut_code_input = st.text_input("🎯 期货合约代码", value="SA2409", help="直接输入代码 (如 SA2409, I2409)")
+        # 🔥 终极神器：Tushare 真实代码探测雷达 🔥
+        with st.expander("🛠️ 找不到代码？点击启动【Tushare 代码探测雷达】", expanded=False):
+            probe_symbol = st.text_input("输入品种英文字母 (如 SA, RB, I)", value="SA")
+            if st.button("📡 扫描数据库真实合约"):
+                with st.spinner("正在直连底层数据库..."):
+                    try:
+                        exchanges = ['CZC', 'ZCE', 'DCE', 'SHF', 'CFFEX', 'INE']
+                        dfs = []
+                        for ex in exchanges:
+                            try:
+                                d = pro.fut_basic(exchange=ex)
+                                if d is not None and not d.empty: dfs.append(d)
+                            except:
+                                pass
+                        if dfs:
+                            df_all = pd.concat(dfs)
+                            # 过滤出以用户输入的字母开头的合约
+                            df_res = df_all[df_all['ts_code'].str.startswith(probe_symbol.upper(), na=False)]
+                            if not df_res.empty:
+                                st.success(f"雷达扫到 {len(df_res)} 个真实合约！请复制下方的 ts_code 使用：")
+                                st.dataframe(
+                                    df_res[['ts_code', 'name', 'list_date', 'delist_date']].sort_values('delist_date',
+                                                                                                        ascending=False).head(
+                                        20))
+                            else:
+                                st.warning(f"数据库中未找到 `{probe_symbol.upper()}` 相关的合约。")
+                    except Exception as e:
+                        st.error(f"雷达故障: {e}")
+
+        st.markdown("---")
+        fut_code_input = st.text_input("🎯 期货合约代码 (可使用雷达扫出的代码)", value="", placeholder="例如：SA409.CZC")
 
         freq_mapping = {"日线 (Daily)": "D", "60分钟 (60min)": "60min", "30分钟 (30min)": "30min",
                         "15分钟 (15min)": "15min", "5分钟 (5min)": "5min", "1分钟 (1min)": "1min"}
         freq_choice = st.selectbox("⏱️ 数据周期", list(freq_mapping.keys()), index=0)
         selected_freq = freq_mapping[freq_choice]
 
-        span_mapping = {"近1个月": 0.08, "近3个月": 0.25, "近半年": 0.5, "近1年": 1, "近3年": 3}
+        span_mapping = {"近1个月": 0.08, "近3个月": 0.25, "近半年": 0.5, "近1年": 1, "近3年": 3, "近5年": 5}
         span_choice = st.selectbox("⏳ 回测时间跨度", list(span_mapping.keys()), index=3)
         start_year = int(datetime.now().year - span_mapping[span_choice])
         start_date_str = f"{start_year}0101"
@@ -399,11 +429,14 @@ def render_futures_backtest():
         multiplier_input_str = st.text_input("🔢 合约乘数 (吨/手)", value="", placeholder="留空则自动查询")
 
         if st.button("🚀 开始穿透回测", type="primary", use_container_width=True):
-            st.session_state.fut_bt_run = True
+            if fut_code_input.strip() == "":
+                st.error("主公，请先输入期货代码！(若不知道代码，请点上方雷达扫描)")
+            else:
+                st.session_state.fut_bt_run = True
 
     with c2:
-        if st.session_state.fut_bt_run:
-            with st.spinner(f"正在启动雷达全网搜寻 {fut_code_input} 的 {freq_choice} 数据..."):
+        if st.session_state.fut_bt_run and fut_code_input.strip() != "":
+            with st.spinner(f"正在全网搜寻 {fut_code_input} 的 {freq_choice} 数据..."):
                 try:
                     real_code = fut_code_input.upper().strip()
                     df = None
@@ -434,9 +467,6 @@ def render_futures_backtest():
                             candidates = [f"{real_code}{s}" for s in
                                           ['.DCE', '.SHF', '.CZC', '.ZCE', '.CFFEX', '.INE', '']]
 
-                    # 🔥 X光透视仪：捕获所有底层的报错记录 🔥
-                    debug_logs = []
-
                     for test_code in candidates:
                         try:
                             # 统一交由 pro_bar 处理
@@ -450,17 +480,15 @@ def render_futures_backtest():
                                 df = df_test
                                 found_code = test_code
                                 break
-                            else:
-                                debug_logs.append(
-                                    f"扫描 {test_code}: 请求成功，但 Tushare 返回空数据 (可能是此周期无数据/合约未上市)。")
-                        except Exception as e:
-                            debug_logs.append(f"扫描 {test_code}: 被 Tushare 服务器拒绝 -> 报错信息: {str(e)}")
+                        except Exception:
+                            pass
 
                     if df is None or df.empty:
-                        st.error(f"❌ 终极诊断：系统已穷举所有组合，Tushare 全线拒绝或返回空数据！")
-                        with st.expander("🛠️ 点击查看【Tushare 底层报错日志】(请截图发给 AI 军师以排查限流或权限问题)",
-                                         expanded=True):
-                            st.code("\n".join(debug_logs), language="plaintext")
+                        msg = f"❌ 未能获取到 `{fut_code_input}` 的历史数据。\n\n"
+                        msg += f"**终极建议：**\n"
+                        msg += f"1. Tushare 内部的纯碱合约可能叫 `SA409.CZC` 而不是 `SA2409`。\n"
+                        msg += f"2. 请主公点击左侧 **【🛠️ Tushare 代码探测雷达】**，直接扫描出真实代码后再复制过来填入！\n"
+                        st.warning(msg)
                         st.session_state.fut_bt_run = False
                     else:
                         api_margin, api_mult = 8.0, 10.0
@@ -560,8 +588,8 @@ def render_futures_backtest():
             st.markdown("""
             <div class="metric-box" style="height: 250px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
                 <p>等待主公下达指令</p>
-                <h2 style="color: #cbd5e1;">输入真实合约代码后点击 [开始穿透回测]</h2>
-                <p class="sub-text" style="margin-top: 10px;">如：输入 SA2409、RB2410 等现实世界存在历史数据的合约</p>
+                <h2 style="color: #cbd5e1;">若不知道代码，请点左侧雷达扫描</h2>
+                <p class="sub-text" style="margin-top: 10px;">建议您回测曾经真实活跃过的老合约 (如 2309、2401 等)</p>
             </div>
             """, unsafe_allow_html=True)
 
