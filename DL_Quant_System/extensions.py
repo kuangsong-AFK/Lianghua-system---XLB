@@ -372,7 +372,7 @@ def render_fut_charts(df):
 
 
 # ==========================================
-# 🔥 核心引擎：期货全量审计 (统一视觉版)
+# 🔥 核心引擎：期货全量审计 (彻底清除幽灵图表版)
 # ==========================================
 def render_futures_backtest():
     st.markdown(
@@ -432,7 +432,10 @@ def render_futures_backtest():
             if fut_code_input.strip() == "":
                 st.error("主公，请先输入期货代码！(若不知道代码，请点上方雷达扫描)")
             else:
+                # 🔥 致命修复1：点击新查询的瞬间，立刻清除上一把残留的“幽灵图表”数据！
                 st.session_state.fut_bt_run = True
+                st.session_state.fut_bt_data = None
+                st.session_state.fut_bt_metrics = None
 
     with c2:
         if st.session_state.fut_bt_run and fut_code_input.strip() != "":
@@ -443,7 +446,12 @@ def render_futures_backtest():
                     found_code = ""
 
                     is_specific_contract = any(char.isdigit() for char in real_code)
-                    query_start = '20100101' if is_specific_contract else start_date_str
+
+                    # 🔥 致命修复2：分钟线数据量极大，绝对不能硬编码从2010年拉取！只有选择日线时才敢榨干寿命，否则严格遵循主公选择的“近1年”或“近3月”！
+                    if is_specific_contract and selected_freq == 'D':
+                        query_start = '20100101'
+                    else:
+                        query_start = start_date_str
 
                     candidates = []
                     if '.' in real_code:
@@ -484,7 +492,8 @@ def render_futures_backtest():
                     if df is None or df.empty:
                         msg = f"❌ 未能获取到 `{fut_code_input}` 的历史数据。\n\n"
                         msg += f"**终极建议：**\n"
-                        msg += f"1. 请主公点击左侧 **【🛠️ Tushare 代码探测雷达】**，直接扫描出真实代码后再复制过来填入！\n"
+                        msg += f"1. Tushare 内部的纯碱合约可能叫 `SA409.CZC` 而不是 `SA2409`。\n"
+                        msg += f"2. 请主公点击左侧 **【🛠️ Tushare 代码探测雷达】**，直接扫描出真实代码后再复制过来填入！\n"
                         st.warning(msg)
                         st.session_state.fut_bt_run = False
                     else:
@@ -527,7 +536,7 @@ def render_futures_backtest():
                         df['MAIN_MA5'] = df['Close'].rolling(window=5).mean()
                         df['MAIN_MA20'] = df['Close'].rolling(window=20).mean()
 
-                        # 自动补全 MACD 以复刻股票界面 (SUB1_)
+                        # 兼容股票策略，自动补全 MACD 副图指标
                         exp1 = df['Close'].ewm(span=12, adjust=False).mean()
                         exp2 = df['Close'].ewm(span=26, adjust=False).mean()
                         df['SUB1_MACD_DIFF'] = exp1 - exp2
@@ -549,8 +558,6 @@ def render_futures_backtest():
                         df['Total_PnL'] = df['Point_PnL'] * final_mult * trade_lots
                         df['Equity'] = init_cash + df['Total_PnL'].cumsum()
                         df['Margin_Used'] = df['Close'] * final_mult * final_margin_rate * trade_lots
-
-                        # 👇 末将已彻底铲除 SUB98(资金) 和 SUB99(保证金) 这两行代码！
 
                         final_equity = df['Equity'].iloc[-1]
                         total_return = (final_equity - init_cash) / init_cash
