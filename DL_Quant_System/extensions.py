@@ -370,7 +370,7 @@ def render_fut_charts(df):
 
 
 # ==========================================
-# 🔥 核心引擎：期货全量审计 (终极全网穷举版)
+# 🔥 核心引擎：期货全量审计 (带X光透视仪版本)
 # ==========================================
 def render_futures_backtest():
     st.markdown(
@@ -383,8 +383,7 @@ def render_futures_backtest():
 
     c1, c2 = st.columns([1, 3])
     with c1:
-        fut_code_input = st.text_input("🎯 期货合约代码", value="SA2409",
-                                       help="直接输入代码 (如 SA2409, I2409)，系统将自动帮您寻找对应交易所和历史数据！")
+        fut_code_input = st.text_input("🎯 期货合约代码", value="SA2409", help="直接输入代码 (如 SA2409, I2409)")
 
         freq_mapping = {"日线 (Daily)": "D", "60分钟 (60min)": "60min", "30分钟 (30min)": "30min",
                         "15分钟 (15min)": "15min", "5分钟 (5min)": "5min", "1分钟 (1min)": "1min"}
@@ -404,17 +403,15 @@ def render_futures_backtest():
 
     with c2:
         if st.session_state.fut_bt_run:
-            with st.spinner(f"正在全网搜寻 {fut_code_input} 的 {freq_choice} 数据..."):
+            with st.spinner(f"正在启动雷达全网搜寻 {fut_code_input} 的 {freq_choice} 数据..."):
                 try:
                     real_code = fut_code_input.upper().strip()
                     df = None
                     found_code = ""
 
-                    # 💡 时间戳绝对防御：只要带有数字 (说明是具体月份合约)，强行把起点设为 2010年，榨干它的全部寿命！
                     is_specific_contract = any(char.isdigit() for char in real_code)
                     query_start = '20100101' if is_specific_contract else start_date_str
 
-                    # 🔥 穷举翻译器：补齐 .ZCE 和 .CZC 的 3位与4位代码缺陷 🔥
                     candidates = []
                     if '.' in real_code:
                         candidates.append(real_code)
@@ -424,15 +421,12 @@ def render_futures_backtest():
                             symbol = match.group(1)
                             nums = match.group(2)
 
-                            # 把用户输入的原本组合先拼上所有可能的交易所后缀
                             for suf in ['.ZCE', '.CZC', '.DCE', '.SHF', '.CFFEX', '.INE']:
                                 candidates.append(f"{symbol}{nums}{suf}")
 
-                            # 郑商所特有情况：用户输了 4 位 (SA2409)，帮他降维成 3 位 (SA409) 匹配 ZCE/CZC
                             if len(nums) == 4:
                                 short_nums = nums[1:]
                                 candidates.extend([f"{symbol}{short_nums}.ZCE", f"{symbol}{short_nums}.CZC"])
-                            # 郑商所特有情况：用户输了 3 位 (SA409)，帮他升维成 4 位 (SA2409) 匹配 ZCE/CZC
                             elif len(nums) == 3:
                                 long_nums = "2" + nums
                                 candidates.extend([f"{symbol}{long_nums}.ZCE", f"{symbol}{long_nums}.CZC"])
@@ -440,13 +434,15 @@ def render_futures_backtest():
                             candidates = [f"{real_code}{s}" for s in
                                           ['.DCE', '.SHF', '.CZC', '.ZCE', '.CFFEX', '.INE', '']]
 
+                    # 🔥 X光透视仪：捕获所有底层的报错记录 🔥
+                    debug_logs = []
+
                     for test_code in candidates:
                         try:
-                            # 统一交由 pro_bar 处理，它是 Tushare 目前最稳定、兼容性最强的数据接口
+                            # 统一交由 pro_bar 处理
                             df_test = ts.pro_bar(ts_code=test_code, asset='FT', freq=selected_freq,
                                                  start_date=query_start)
 
-                            # 如果 pro_bar 对于日线偶尔抽风，上双重保险 fut_daily 顶住
                             if (df_test is None or df_test.empty) and selected_freq == 'D':
                                 df_test = pro.fut_daily(ts_code=test_code, start_date=query_start)
 
@@ -454,15 +450,17 @@ def render_futures_backtest():
                                 df = df_test
                                 found_code = test_code
                                 break
-                        except Exception:
-                            pass
+                            else:
+                                debug_logs.append(
+                                    f"扫描 {test_code}: 请求成功，但 Tushare 返回空数据 (可能是此周期无数据/合约未上市)。")
+                        except Exception as e:
+                            debug_logs.append(f"扫描 {test_code}: 被 Tushare 服务器拒绝 -> 报错信息: {str(e)}")
 
                     if df is None or df.empty:
-                        msg = f"❌ 未能获取到 `{fut_code_input}` 的历史数据。\n\n"
-                        msg += f"**可能原因分析：**\n"
-                        msg += f"1. 该合约（如远在未来的 {fut_code_input}）尚未在现实物理世界（当前为 2024 年真实数据层）产生足够的数据。\n"
-                        msg += f"2. 请更换为在现实中已经活跃过的合约进行测试，例如：`SA2409`、`RB2410`、`I2409`。\n"
-                        st.warning(msg)
+                        st.error(f"❌ 终极诊断：系统已穷举所有组合，Tushare 全线拒绝或返回空数据！")
+                        with st.expander("🛠️ 点击查看【Tushare 底层报错日志】(请截图发给 AI 军师以排查限流或权限问题)",
+                                         expanded=True):
+                            st.code("\n".join(debug_logs), language="plaintext")
                         st.session_state.fut_bt_run = False
                     else:
                         api_margin, api_mult = 8.0, 10.0
@@ -489,7 +487,7 @@ def render_futures_backtest():
                             final_mult = api_mult
 
                         st.success(
-                            f"✅ 成功锁定合约 **{found_code}** 历史数据！系统已自动应用乘数: **{final_mult}**, 最终执行保证金率: **{final_margin_rate * 100:.2f}%**")
+                            f"✅ 成功锁定真实数据：**{found_code}**！已启用乘数: **{final_mult}**, 最终保证金率: **{final_margin_rate * 100:.2f}%**")
 
                         if 'trade_time' in df.columns:
                             df['trade_date'] = pd.to_datetime(df['trade_time'])
