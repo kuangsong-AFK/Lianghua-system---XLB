@@ -317,6 +317,9 @@ def safe_exec_fut_strategy(code, df):
 
 
 def render_fut_charts(df):
+    """
+    🔥 终极原味复刻版：仅包含 K线、MA主图、成交量、MACD 等副图！
+    """
     main_inds = [c for c in df.columns if c.startswith('MAIN_')]
     sub_groups = {}
     for c in df.columns:
@@ -354,11 +357,10 @@ def render_fut_charts(df):
                     go.Bar(x=df['trade_date'], y=df[col], marker_color=np.where(df[col] >= 0, '#FD1050', '#00FF00'),
                            name=col), row=row_idx, col=1)
             else:
-                line_color = '#00ffcc' if 'Equity' in col else ('#ff4b4b' if 'Margin' in col else colors[i % 4])
-                fill_mode = 'tozeroy' if ('Equity' in col or 'Margin' in col) else 'none'
+                line_color = colors[i % 4]
                 fig.add_trace(
-                    go.Scatter(x=df['trade_date'], y=df[col], line=dict(width=1.5, color=line_color), name=col,
-                               fill=fill_mode), row=row_idx, col=1)
+                    go.Scatter(x=df['trade_date'], y=df[col], line=dict(width=1.5, color=line_color), name=col),
+                    row=row_idx, col=1)
         row_idx += 1
 
     fig.update_layout(height=500 + len(sub_groups) * 150, template="none", paper_bgcolor='rgba(0,0,0,0)',
@@ -370,7 +372,7 @@ def render_fut_charts(df):
 
 
 # ==========================================
-# 🔥 核心引擎：期货全量审计 (终极探测诊断版)
+# 🔥 核心引擎：期货全量审计 (统一视觉版)
 # ==========================================
 def render_futures_backtest():
     st.markdown(
@@ -383,7 +385,6 @@ def render_futures_backtest():
 
     c1, c2 = st.columns([1, 3])
     with c1:
-        # 🔥 终极神器：Tushare 真实代码探测雷达 🔥
         with st.expander("🛠️ 找不到代码？点击启动【Tushare 代码探测雷达】", expanded=False):
             probe_symbol = st.text_input("输入品种英文字母 (如 SA, RB, I)", value="SA")
             if st.button("📡 扫描数据库真实合约"):
@@ -399,7 +400,6 @@ def render_futures_backtest():
                                 pass
                         if dfs:
                             df_all = pd.concat(dfs)
-                            # 过滤出以用户输入的字母开头的合约
                             df_res = df_all[df_all['ts_code'].str.startswith(probe_symbol.upper(), na=False)]
                             if not df_res.empty:
                                 st.success(f"雷达扫到 {len(df_res)} 个真实合约！请复制下方的 ts_code 使用：")
@@ -469,10 +469,8 @@ def render_futures_backtest():
 
                     for test_code in candidates:
                         try:
-                            # 统一交由 pro_bar 处理
                             df_test = ts.pro_bar(ts_code=test_code, asset='FT', freq=selected_freq,
                                                  start_date=query_start)
-
                             if (df_test is None or df_test.empty) and selected_freq == 'D':
                                 df_test = pro.fut_daily(ts_code=test_code, start_date=query_start)
 
@@ -486,8 +484,7 @@ def render_futures_backtest():
                     if df is None or df.empty:
                         msg = f"❌ 未能获取到 `{fut_code_input}` 的历史数据。\n\n"
                         msg += f"**终极建议：**\n"
-                        msg += f"1. Tushare 内部的纯碱合约可能叫 `SA409.CZC` 而不是 `SA2409`。\n"
-                        msg += f"2. 请主公点击左侧 **【🛠️ Tushare 代码探测雷达】**，直接扫描出真实代码后再复制过来填入！\n"
+                        msg += f"1. 请主公点击左侧 **【🛠️ Tushare 代码探测雷达】**，直接扫描出真实代码后再复制过来填入！\n"
                         st.warning(msg)
                         st.session_state.fut_bt_run = False
                     else:
@@ -530,6 +527,13 @@ def render_futures_backtest():
                         df['MAIN_MA5'] = df['Close'].rolling(window=5).mean()
                         df['MAIN_MA20'] = df['Close'].rolling(window=20).mean()
 
+                        # 自动补全 MACD 以复刻股票界面 (SUB1_)
+                        exp1 = df['Close'].ewm(span=12, adjust=False).mean()
+                        exp2 = df['Close'].ewm(span=26, adjust=False).mean()
+                        df['SUB1_MACD_DIFF'] = exp1 - exp2
+                        df['SUB1_MACD_DEA'] = df['SUB1_MACD_DIFF'].ewm(span=9, adjust=False).mean()
+                        df['SUB1_MACD_HIST'] = 2 * (df['SUB1_MACD_DIFF'] - df['SUB1_MACD_DEA'])
+
                         if st.session_state.get('generated_code'):
                             df_ai = safe_exec_fut_strategy(st.session_state.generated_code, df)
                             for col in df_ai.columns:
@@ -546,8 +550,7 @@ def render_futures_backtest():
                         df['Equity'] = init_cash + df['Total_PnL'].cumsum()
                         df['Margin_Used'] = df['Close'] * final_mult * final_margin_rate * trade_lots
 
-                        df['SUB98_Equity(杠杆资金)'] = df['Equity']
-                        df['SUB99_Margin(占用)'] = df['Margin_Used']
+                        # 👇 末将已彻底铲除 SUB98(资金) 和 SUB99(保证金) 这两行代码！
 
                         final_equity = df['Equity'].iloc[-1]
                         total_return = (final_equity - init_cash) / init_cash
