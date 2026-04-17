@@ -300,7 +300,7 @@ def render_new_features_page():
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3></div>',
         unsafe_allow_html=True)
-    st.info("💡 核心交互与 3D 桌宠已全部稳定运行！")
+    st.info("💡 核心交互、3D 桌宠及内置 IDE 已全部稳定运行！")
 
 
 # ==========================================
@@ -320,6 +320,9 @@ def safe_exec_fut_strategy(code, df):
 
 
 def render_fut_charts(df):
+    """
+    🔥 终极真空折叠引擎：完美消除非交易时间空白，实现 K 线全局自适应！
+    """
     main_inds = [c for c in df.columns if c.startswith('MAIN_')]
     sub_groups = {}
     for c in df.columns:
@@ -330,6 +333,7 @@ def render_fut_charts(df):
     fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.03,
                         row_heights=[0.5, 0.15] + [0.35 / max(1, len(sub_groups))] * len(sub_groups))
 
+    # 核心黑科技1：将连续的 datetime 对象强制转化为离散的“字符串标签” (Category)
     if df['trade_date'].dt.time.nunique() <= 1:
         x_labels = df['trade_date'].dt.strftime('%Y-%m-%d')
     else:
@@ -344,6 +348,8 @@ def render_fut_charts(df):
 
     if 'Signal' in df.columns:
         buys, sells = df[df['Signal'] == 1], df[df['Signal'] == -1]
+
+        # 对应地转换买卖点的坐标
         if df['trade_date'].dt.time.nunique() <= 1:
             buy_x = buys['trade_date'].dt.strftime('%Y-%m-%d')
             sell_x = sells['trade_date'].dt.strftime('%Y-%m-%d')
@@ -379,6 +385,8 @@ def render_fut_charts(df):
         plot_bgcolor='rgba(0,0,0,0)', xaxis_rangeslider_visible=False, dragmode='pan',
         hovermode='x', showlegend=False, margin=dict(l=10, r=10, t=10, b=10)
     )
+
+    # 核心黑科技2：强制开启 Category (类别) 模式，并自动抽样显示标签 (nticks) 防止重叠
     fig.update_xaxes(type='category', categoryorder='array', categoryarray=x_labels, nticks=8, showgrid=True,
                      gridwidth=1, gridcolor='rgba(128,128,128,0.2)', tickangle=0)
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
@@ -475,7 +483,7 @@ def render_ide_page():
 
 
 # ==========================================
-# 🔥 核心引擎 2：期货全量审计 (AkShare)
+# 🔥 核心引擎 2：期货全量审计 (AkShare 开源神兵版)
 # ==========================================
 def render_futures_backtest():
     if not HAS_AKSHARE:
@@ -503,7 +511,6 @@ def render_futures_backtest():
             """)
         st.markdown("---")
 
-        # 🔥 修改1：输入框预加载置空 🔥
         fut_code_input = st.text_input("🎯 期货合约代码", value="", placeholder="直接输入，如: SA2409")
 
         freq_mapping = {"日线 (Daily)": "D", "60分钟 (60min)": "60", "30分钟 (30min)": "30", "15分钟 (15min)": "15",
@@ -516,7 +523,7 @@ def render_futures_backtest():
         start_year = int(datetime.now().year - span_mapping[span_choice])
         start_date_str = f"{start_year}0101"
 
-        margin_input_str = st.text_input("⚖️ 保证金比例 (%)", value="", placeholder="留空默认自动上调")
+        margin_input_str = st.text_input("⚖️ 保证金比例 (%)", value="", placeholder="留空默认 12%")
         multiplier_input_str = st.text_input("🔢 合约乘数 (吨/手)", value="", placeholder="留空自动匹配对应品种")
 
         if st.button("🚀 开始穿透回测", type="primary", use_container_width=True):
@@ -550,7 +557,8 @@ def render_futures_backtest():
 
                     if df is None or df.empty:
                         st.warning(
-                            f"⚠️ **触发容灾机制**：AkShare 接口未返回 `{real_code}` 的真实数据。\n\n系统已自动启动【底层沙盒模拟引擎】，为您瞬间生成逼真的 **{freq_choice}** 高频推演数据！")
+                            f"⚠️ **触发容灾机制**：AkShare 接口未返回 `{real_code}` 的真实数据（可能合约尚未上市或输入错误）。\n\n系统已自动启动【底层沙盒模拟引擎】，为您瞬间生成逼真的 **{freq_choice}** 高频推演数据！")
+
                         base_p = 3000 if 'RB' in real_code else (800 if 'I' in real_code else 2000)
                         volatility = base_p * 0.0015
 
@@ -625,22 +633,16 @@ def render_futures_backtest():
                         df['Ret'] = df['Close'].pct_change()
                         df['Pos'] = df.get('Signal', pd.Series([0] * len(df))).replace(0, np.nan).ffill().fillna(0)
 
-                        # 🔥 修改2：显式拆分多空双边计算，便于底层逻辑穿透 🔥
                         df['Price_Diff'] = df['Close'].diff().fillna(0)
                         init_cash, trade_lots = 1000000, 10
 
-                        # 做多收益：昨日持仓为1时，价格上涨赚钱
                         df['Long_PnL'] = np.where(df['Pos'].shift(1) == 1, df['Price_Diff'] * final_mult * trade_lots,
                                                   0)
-                        # 做空收益：昨日持仓为-1时，价格下跌赚钱（负负得正）
                         df['Short_PnL'] = np.where(df['Pos'].shift(1) == -1,
                                                    -df['Price_Diff'] * final_mult * trade_lots, 0)
 
-                        # 总点数盈亏 = 多头盈亏 + 空头盈亏
                         df['Total_PnL'] = df['Long_PnL'] + df['Short_PnL']
-
                         df['Equity'] = init_cash + df['Total_PnL'].cumsum()
-                        # 动态保证金占用：不论多空，按绝对持仓量计算
                         df['Margin_Used'] = df['Close'] * final_mult * final_margin_rate * trade_lots * df[
                             'Pos'].abs().shift(1).fillna(0)
 
@@ -693,11 +695,77 @@ def render_futures_sandbox():
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🌪️ 期货高频沙盘模拟推演</h3><p class="sub-text">Tick 级盘口模拟、毫秒级信号响应测试与动态滑点侦测。</p></div>',
         unsafe_allow_html=True)
-    st.info("沙盘已挂载完毕。等待行情 WebSocket 流接入...")
+    st.warning("⚠️ 高频警告：期货自带杠杆且波动剧烈，请确保您的‘止损熔断’脚本已装载且经过极寒测试。")
 
+    c_ctrl1, c_ctrl2, c_ctrl3, c_ctrl4 = st.columns(4)
+    with c_ctrl1:
+        sandbox_code = st.text_input("推演标的", value="SA2409")
+    with c_ctrl2:
+        base_price = st.number_input("初始基准价", value=2000.0)
+    with c_ctrl3:
+        speed = st.slider("脉冲频率 (秒)", 0.1, 2.0, 0.5)
+    with c_ctrl4:
+        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+        is_running = st.toggle("🚀 启动高频脉冲引擎")
 
-def render_new_features_page():
-    st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3></div>',
-        unsafe_allow_html=True)
-    st.info("💡 核心交互、3D 桌宠及内置 IDE 已全部稳定运行！")
+    st.markdown("---")
+
+    c_left, c_right = st.columns([1, 2.5])
+    dom_placeholder = c_left.empty()
+    chart_placeholder = c_right.empty()
+
+    if is_running:
+        current_price = base_price
+        tick_history = []
+
+        while is_running:
+            price_change = np.random.choice([-3, -2, -1, 0, 1, 2, 3])
+            current_price += price_change
+            tick_history.append(current_price)
+            if len(tick_history) > 100: tick_history.pop(0)
+
+            asks = [(current_price + i, np.random.randint(10, 500)) for i in range(5, 0, -1)]
+            bids = [(current_price - i, np.random.randint(10, 500)) for i in range(1, 6)]
+
+            with dom_placeholder.container():
+                st.markdown('<div class="glass-card" style="padding: 15px;">', unsafe_allow_html=True)
+                st.markdown('<h4 style="margin-top:0; color:#ff4b4b;">卖盘 (Ask)</h4>', unsafe_allow_html=True)
+                for i, (p, v) in enumerate(asks):
+                    st.markdown(
+                        f'<div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>卖{5 - i}</span><span>{p:.0f}</span><span>{v}</span></div>',
+                        unsafe_allow_html=True)
+
+                st.markdown('<hr style="margin: 10px 0; border-color: rgba(255,255,255,0.1);">', unsafe_allow_html=True)
+                color = "#FD1050" if price_change >= 0 else "#00FF00"
+                st.markdown(
+                    f'<h3 style="margin:0; text-align:center; color:{color}; text-shadow: 0 0 10px {color}80;">现价: {current_price:.0f}</h3>',
+                    unsafe_allow_html=True)
+                st.markdown('<hr style="margin: 10px 0; border-color: rgba(255,255,255,0.1);">', unsafe_allow_html=True)
+
+                st.markdown('<h4 style="margin-top:0; color:#00ffcc;">买盘 (Bid)</h4>', unsafe_allow_html=True)
+                for i, (p, v) in enumerate(bids):
+                    st.markdown(
+                        f'<div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>买{i + 1}</span><span>{p:.0f}</span><span>{v}</span></div>',
+                        unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            with chart_placeholder.container():
+                fig = go.Figure(data=go.Scatter(
+                    y=tick_history, mode='lines', line=dict(color='#00bfff', width=2),
+                    fill='tozeroy', fillcolor='rgba(0, 191, 255, 0.1)'
+                ))
+                fig.update_layout(
+                    height=380, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    margin=dict(l=0, r=0, t=10, b=0), xaxis=dict(showgrid=False, visible=False),
+                    yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)')
+                )
+                st.plotly_chart(fig, use_container_width=True, key=f"tick_chart_{time.time()}")
+
+            time.sleep(speed)
+    else:
+        dom_placeholder.info("请打开上方的【启动高频脉冲引擎】开关，唤醒沙盘。")
+        chart_placeholder.markdown("""
+        <div class="metric-box" style="height: 380px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+            <p>高频推演</p><h2 style="color: #00ffcc;">等待引擎唤醒...</h2>
+        </div>
+        """, unsafe_allow_html=True)
