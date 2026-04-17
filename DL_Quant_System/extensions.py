@@ -393,7 +393,6 @@ def render_ide_page():
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">💻 极客量化 IDE (代码沙盒编译器)</h3><p class="sub-text">您可以直接修改 AI 生成的策略，或者在此手动硬编码！支持一键沙盒运行测试，防止实盘崩溃。</p></div>',
         unsafe_allow_html=True)
 
-    # 默认代码模板
     default_code = """def generate_signals(df):
     # 【小吕布策略模板】在此处编写您的 Pandas 核心逻辑
     df['MAIN_MA5'] = df['Close'].rolling(window=5).mean()
@@ -430,7 +429,6 @@ def render_ide_page():
             with console_ph.container():
                 st.info("正在挂载虚拟沙盒测试环境...")
                 try:
-                    # 在沙盒中凭空捏造 100 根测试 K线
                     dates = pd.date_range('20240101', periods=100)
                     dummy_df = pd.DataFrame({
                         'trade_date': dates,
@@ -471,7 +469,6 @@ def render_ide_page():
                     st.code(str(e), language="python")
                     with st.expander("展开查看底层 Traceback 堆栈", expanded=False):
                         st.code(traceback.format_exc(), language="text")
-
         else:
             console_ph.info(
                 "等待您下达编译指令...\n\n点击左侧【运行防爆沙盒测试】按钮，系统将凭空生成虚拟行情数据并安全执行您的代码，绝不会导致实盘引擎崩溃。")
@@ -506,7 +503,8 @@ def render_futures_backtest():
             """)
         st.markdown("---")
 
-        fut_code_input = st.text_input("🎯 期货合约代码", value="SA2409", placeholder="直接输入，如: SA2409")
+        # 🔥 修改1：输入框预加载置空 🔥
+        fut_code_input = st.text_input("🎯 期货合约代码", value="", placeholder="直接输入，如: SA2409")
 
         freq_mapping = {"日线 (Daily)": "D", "60分钟 (60min)": "60", "30分钟 (30min)": "30", "15分钟 (15min)": "15",
                         "5分钟 (5min)": "5", "1分钟 (1min)": "1"}
@@ -518,7 +516,7 @@ def render_futures_backtest():
         start_year = int(datetime.now().year - span_mapping[span_choice])
         start_date_str = f"{start_year}0101"
 
-        margin_input_str = st.text_input("⚖️ 保证金比例 (%)", value="", placeholder="留空默认 12%")
+        margin_input_str = st.text_input("⚖️ 保证金比例 (%)", value="", placeholder="留空默认自动上调")
         multiplier_input_str = st.text_input("🔢 合约乘数 (吨/手)", value="", placeholder="留空自动匹配对应品种")
 
         if st.button("🚀 开始穿透回测", type="primary", use_container_width=True):
@@ -552,8 +550,7 @@ def render_futures_backtest():
 
                     if df is None or df.empty:
                         st.warning(
-                            f"⚠️ **触发容灾机制**：AkShare 接口未返回 `{real_code}` 的真实数据（可能合约尚未上市或输入错误）。\n\n系统已自动启动【底层沙盒模拟引擎】，为您瞬间生成逼真的 **{freq_choice}** 高频推演数据！")
-
+                            f"⚠️ **触发容灾机制**：AkShare 接口未返回 `{real_code}` 的真实数据。\n\n系统已自动启动【底层沙盒模拟引擎】，为您瞬间生成逼真的 **{freq_choice}** 高频推演数据！")
                         base_p = 3000 if 'RB' in real_code else (800 if 'I' in real_code else 2000)
                         volatility = base_p * 0.0015
 
@@ -628,11 +625,24 @@ def render_futures_backtest():
                         df['Ret'] = df['Close'].pct_change()
                         df['Pos'] = df.get('Signal', pd.Series([0] * len(df))).replace(0, np.nan).ffill().fillna(0)
 
-                        df['Point_PnL'] = df['Close'].diff() * df['Pos'].shift(1).fillna(0)
+                        # 🔥 修改2：显式拆分多空双边计算，便于底层逻辑穿透 🔥
+                        df['Price_Diff'] = df['Close'].diff().fillna(0)
                         init_cash, trade_lots = 1000000, 10
-                        df['Total_PnL'] = df['Point_PnL'] * final_mult * trade_lots
+
+                        # 做多收益：昨日持仓为1时，价格上涨赚钱
+                        df['Long_PnL'] = np.where(df['Pos'].shift(1) == 1, df['Price_Diff'] * final_mult * trade_lots,
+                                                  0)
+                        # 做空收益：昨日持仓为-1时，价格下跌赚钱（负负得正）
+                        df['Short_PnL'] = np.where(df['Pos'].shift(1) == -1,
+                                                   -df['Price_Diff'] * final_mult * trade_lots, 0)
+
+                        # 总点数盈亏 = 多头盈亏 + 空头盈亏
+                        df['Total_PnL'] = df['Long_PnL'] + df['Short_PnL']
+
                         df['Equity'] = init_cash + df['Total_PnL'].cumsum()
-                        df['Margin_Used'] = df['Close'] * final_mult * final_margin_rate * trade_lots
+                        # 动态保证金占用：不论多空，按绝对持仓量计算
+                        df['Margin_Used'] = df['Close'] * final_mult * final_margin_rate * trade_lots * df[
+                            'Pos'].abs().shift(1).fillna(0)
 
                         final_equity = df['Equity'].iloc[-1]
                         total_return = (final_equity - init_cash) / init_cash
@@ -654,7 +664,7 @@ def render_futures_backtest():
 
             c1, c2, c3, c4 = st.columns(4)
             c1.markdown(
-                f'<div class="metric-box"><p>累计收益 (带杠杆)</p><h2 class="highlight-text">{m["total"] * 100:.2f}%</h2></div>',
+                f'<div class="metric-box"><p>累计收益 (双边多空计算)</p><h2 class="highlight-text">{m["total"] * 100:.2f}%</h2></div>',
                 unsafe_allow_html=True)
             c2.markdown(
                 f'<div class="metric-box"><p>期末总权益</p><h2 class="highlight-text">¥ {m["init_cash"] * (1 + m["total"]):,.0f}</h2></div>',
