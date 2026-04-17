@@ -296,6 +296,13 @@ def summon_global_3d_lulu():
     components.html(html_code, height=0, width=0)
 
 
+def render_new_features_page():
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3></div>',
+        unsafe_allow_html=True)
+    st.info("💡 核心交互与 3D 桌宠已全部稳定运行！")
+
+
 # ==========================================
 # 辅助函数：AI 策略执行器与图表渲染器
 # ==========================================
@@ -405,7 +412,6 @@ def render_ide_page():
 
     with c1:
         st.markdown("#### ⌨️ 策略代码编辑区")
-        # 利用 Streamlit 原生组件，配合全局 CSS (已在 app.py 注入) 实现代码框样式
         user_code = st.text_area("Code Editor", value=current_code, height=450, label_visibility="collapsed")
 
         col_btn1, col_btn2 = st.columns(2)
