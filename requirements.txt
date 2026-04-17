@@ -9,3 +9,4 @@ scikit-learn
 torch
 PyPDF2
 python-docx
+akshare
