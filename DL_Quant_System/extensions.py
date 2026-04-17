@@ -8,6 +8,8 @@ import base64
 import os
 import pandas as pd
 import numpy as np
+import time
+import traceback
 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -294,13 +296,6 @@ def summon_global_3d_lulu():
     components.html(html_code, height=0, width=0)
 
 
-def render_new_features_page():
-    st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3></div>',
-        unsafe_allow_html=True)
-    st.info("💡 核心交互与 3D 桌宠已全部稳定运行！")
-
-
 # ==========================================
 # 辅助函数：AI 策略执行器与图表渲染器
 # ==========================================
@@ -318,9 +313,6 @@ def safe_exec_fut_strategy(code, df):
 
 
 def render_fut_charts(df):
-    """
-    🔥 终极真空折叠引擎：完美消除非交易时间空白，实现 K 线全局自适应！
-    """
     main_inds = [c for c in df.columns if c.startswith('MAIN_')]
     sub_groups = {}
     for c in df.columns:
@@ -331,8 +323,6 @@ def render_fut_charts(df):
     fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.03,
                         row_heights=[0.5, 0.15] + [0.35 / max(1, len(sub_groups))] * len(sub_groups))
 
-    # 核心黑科技1：将连续的 datetime 对象强制转化为离散的“字符串标签” (Category)
-    # 这样 Plotly 就不会在周末和晚上画出大段的空白，而是把 K线 紧紧挨在一起！
     if df['trade_date'].dt.time.nunique() <= 1:
         x_labels = df['trade_date'].dt.strftime('%Y-%m-%d')
     else:
@@ -347,8 +337,6 @@ def render_fut_charts(df):
 
     if 'Signal' in df.columns:
         buys, sells = df[df['Signal'] == 1], df[df['Signal'] == -1]
-
-        # 对应地转换买卖点的坐标
         if df['trade_date'].dt.time.nunique() <= 1:
             buy_x = buys['trade_date'].dt.strftime('%Y-%m-%d')
             sell_x = sells['trade_date'].dt.strftime('%Y-%m-%d')
@@ -380,42 +368,111 @@ def render_fut_charts(df):
         row_idx += 1
 
     fig.update_layout(
-        height=500 + len(sub_groups) * 150,
-        template="none",
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        xaxis_rangeslider_visible=False,
-        dragmode='pan',
-        hovermode='x',
-        showlegend=False,
-        margin=dict(l=10, r=10, t=10, b=10)  # 最大化利用屏幕空间
+        height=500 + len(sub_groups) * 150, template="none", paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)', xaxis_rangeslider_visible=False, dragmode='pan',
+        hovermode='x', showlegend=False, margin=dict(l=10, r=10, t=10, b=10)
     )
-
-    # 核心黑科技2：强制开启 Category (类别) 模式，并自动抽样显示标签 (nticks) 防止重叠
-    # 这一步完美解决了 K线 过长溢出屏幕的问题，实现完美自适应缩放！
-    fig.update_xaxes(
-        type='category',
-        categoryorder='array',
-        categoryarray=x_labels,
-        nticks=8,
-        showgrid=True,
-        gridwidth=1,
-        gridcolor='rgba(128,128,128,0.2)',
-        tickangle=0
-    )
-
-    fig.update_yaxes(
-        showgrid=True,
-        gridwidth=1,
-        gridcolor='rgba(128,128,128,0.2)',
-        autorange=True,
-        fixedrange=False
-    )
+    fig.update_xaxes(type='category', categoryorder='array', categoryarray=x_labels, nticks=8, showgrid=True,
+                     gridwidth=1, gridcolor='rgba(128,128,128,0.2)', tickangle=0)
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
     return fig
 
 
 # ==========================================
-# 🔥 核心引擎：期货全量审计 (AkShare 开源神兵版)
+# 🔥 核心引擎 1：极客量化 IDE (代码编译器)
+# ==========================================
+def render_ide_page():
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">💻 极客量化 IDE (代码沙盒编译器)</h3><p class="sub-text">您可以直接修改 AI 生成的策略，或者在此手动硬编码！支持一键沙盒运行测试，防止实盘崩溃。</p></div>',
+        unsafe_allow_html=True)
+
+    # 默认代码模板
+    default_code = """def generate_signals(df):
+    # 【小吕布策略模板】在此处编写您的 Pandas 核心逻辑
+    df['MAIN_MA5'] = df['Close'].rolling(window=5).mean()
+    df['MAIN_MA20'] = df['Close'].rolling(window=20).mean()
+
+    # 必须生成 Signal 列: 1买入, -1卖出, 0持有
+    df['Signal'] = np.where(df['MAIN_MA5'] > df['MAIN_MA20'], 1, -1)
+
+    return df"""
+
+    current_code = st.session_state.get('generated_code', '')
+    if not current_code.strip():
+        current_code = default_code
+
+    c1, c2 = st.columns([2.2, 1.8])
+
+    with c1:
+        st.markdown("#### ⌨️ 策略代码编辑区")
+        # 利用 Streamlit 原生组件，配合全局 CSS (已在 app.py 注入) 实现代码框样式
+        user_code = st.text_area("Code Editor", value=current_code, height=450, label_visibility="collapsed")
+
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            if st.button("💾 同步保存至全局引擎", use_container_width=True, type="primary"):
+                st.session_state.generated_code = user_code
+                st.success("✅ 代码已成功注入全局中枢！现在您可以切换到【全量回测】页面进行图表渲染了。")
+        with col_btn2:
+            run_debug = st.button("🐞 运行防爆沙盒测试", use_container_width=True)
+
+    with c2:
+        st.markdown("#### 🖥️ 编译器控制台 (Console)")
+        console_ph = st.empty()
+
+        if run_debug:
+            with console_ph.container():
+                st.info("正在挂载虚拟沙盒测试环境...")
+                try:
+                    # 在沙盒中凭空捏造 100 根测试 K线
+                    dates = pd.date_range('20240101', periods=100)
+                    dummy_df = pd.DataFrame({
+                        'trade_date': dates,
+                        'Open': np.random.uniform(2000, 2100, 100),
+                        'High': np.random.uniform(2100, 2150, 100),
+                        'Low': np.random.uniform(1950, 2000, 100),
+                        'Close': np.random.uniform(2000, 2100, 100),
+                        'Volume': np.random.randint(1000, 5000, 100)
+                    })
+
+                    st.text("🚀 正在强行编译执行您的代码...")
+                    start_time = time.time()
+                    res_df = safe_exec_fut_strategy(user_code, dummy_df)
+                    exec_time = time.time() - start_time
+
+                    st.success(f"✅ 编译完美通过！内核耗时: {exec_time:.4f} 秒")
+
+                    if 'Signal' in res_df.columns:
+                        try:
+                            sig_counts = res_df['Signal'].value_counts().to_dict()
+                        except:
+                            sig_counts = "获取分布失败，但列已生成。"
+                        st.write("🎯 **买卖信号探测统计**:")
+                        st.json(sig_counts)
+                    else:
+                        st.warning("⚠️ 警告：您的代码忘了返回 `Signal` 列！(规定 1=买入, -1=卖出, 0=观望)")
+
+                    custom_cols = [c for c in res_df.columns if c.startswith(('MAIN_', 'SUB'))]
+                    if custom_cols:
+                        st.write("📊 **主副图指标提取雷达**:")
+                        st.write(custom_cols)
+
+                    st.write("🔍 **沙盒返回的数据矩阵 (前 3 行)**:")
+                    st.dataframe(res_df.head(3))
+
+                except Exception as e:
+                    st.error("❌ 沙盒编译失败！您的代码存在语法或逻辑错误：")
+                    st.code(str(e), language="python")
+                    with st.expander("展开查看底层 Traceback 堆栈", expanded=False):
+                        st.code(traceback.format_exc(), language="text")
+
+        else:
+            console_ph.info(
+                "等待您下达编译指令...\n\n点击左侧【运行防爆沙盒测试】按钮，系统将凭空生成虚拟行情数据并安全执行您的代码，绝不会导致实盘引擎崩溃。")
+
+
+# ==========================================
+# 🔥 核心引擎 2：期货全量审计 (AkShare)
 # ==========================================
 def render_futures_backtest():
     if not HAS_AKSHARE:
@@ -604,7 +661,6 @@ def render_futures_backtest():
                 unsafe_allow_html=True)
 
             st.markdown("<div style='clear: both; margin-bottom: 30px;'></div>", unsafe_allow_html=True)
-
             st.plotly_chart(render_fut_charts(df), use_container_width=True, config={'scrollZoom': True})
 
         elif not st.session_state.fut_bt_run:
@@ -617,42 +673,15 @@ def render_futures_backtest():
             """, unsafe_allow_html=True)
 
 
-# ==========================================
-# 🔥 新增功能：期货高频沙盘
-# ==========================================
 def render_futures_sandbox():
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🌪️ 期货高频沙盘模拟推演</h3><p class="sub-text">Tick 级盘口模拟、毫秒级信号响应测试与动态滑点侦测。</p></div>',
         unsafe_allow_html=True)
-    st.warning("⚠️ 高频警告：期货自带杠杆且波动剧烈，请确保您的‘止损熔断’脚本已装载且经过极寒测试。")
+    st.info("沙盘已挂载完毕。等待行情 WebSocket 流接入...")
 
-    c_left, c_right = st.columns([1, 2.5])
-    with c_left:
-        st.markdown("""
-        <div class="glass-card" style="padding: 15px;">
-            <h4 style="margin-top:0; color:#ff4b4b;">卖盘 (Ask)</h4>
-            <div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>卖五</span><span>2512</span><span>124</span></div>
-            <div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>卖四</span><span>2511</span><span>32</span></div>
-            <div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>卖三</span><span>2510</span><span>15</span></div>
-            <div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>卖二</span><span>2509</span><span>8</span></div>
-            <div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>卖一</span><span>2508</span><span>45</span></div>
-            <hr style="margin: 10px 0; border-color: rgba(255,255,255,0.1);">
-            <h3 style="margin:0; text-align:center; color:#00ffcc; text-shadow: 0 0 10px rgba(0,255,204,0.5);">现价: 2507</h3>
-            <hr style="margin: 10px 0; border-color: rgba(255,255,255,0.1);">
-            <h4 style="margin-top:0; color:#00ffcc;">买盘 (Bid)</h4>
-            <div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>买一</span><span>2506</span><span>89</span></div>
-            <div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>买二</span><span>2505</span><span>12</span></div>
-            <div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>买三</span><span>2504</span><span>56</span></div>
-            <div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>买四</span><span>2503</span><span>105</span></div>
-            <div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>买五</span><span>2502</span><span>210</span></div>
-        </div>
-        """, unsafe_allow_html=True)
 
-    with c_right:
-        st.markdown("""
-        <div class="metric-box" style="height: 380px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-            <p>高频推演</p>
-            <h2 style="color: #00ffcc;">Tick 走势图及 DOM 深度图渲染区</h2>
-            <p class="sub-text" style="margin-top: 10px;">(待后续接入 websocket 实时流数据)</p>
-        </div>
-        """, unsafe_allow_html=True)
+def render_new_features_page():
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3></div>',
+        unsafe_allow_html=True)
+    st.info("💡 核心交互、3D 桌宠及内置 IDE 已全部稳定运行！")

@@ -70,16 +70,17 @@ if "is_live_trading" not in st.session_state: st.session_state.is_live_trading =
 # ==========================================
 # 2. 空间流形导航逻辑与置顶引掣
 # ==========================================
-# 🔥 核心微创2：导航栏增加期货双雄 🔥
+# 🔥 架构升级：在 AI 与回测之间，插入 IDE 编译器 🔥
 PAGES = [
     "🏠 系统总览 (监控中控)",
     "🤖 AI 策略引擎 (LLM)",
+    "💻 极客量化 IDE (代码编译)",  # <--- 新增 IDE 板块
     "📈 深度静态全量回测",
     "⚡ 实时高频交易 (Live)",
     "🧠 深度学习预测矩阵",
     "🛡️ 论文审计日志",
-    "🔗 期货全量审计 (归因)",  # <--- 新增
-    "🌪️ 期货高频沙盘",        # <--- 新增
+    "🔗 期货全量审计 (归因)",
+    "🌪️ 期货高频沙盘",
     "🧩 扩展插件中心"
 ]
 
@@ -130,8 +131,6 @@ components.html(f"""
             }}
 
             const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
-
-            // 🔥 绝杀修复：直接抓取已被 CSS 全局隐身的 file_uploader 的 input 原件 🔥
             const fileInput = doc.querySelector('div[data-testid="stFileUploader"] input[type="file"]');
 
             if (chatInputOuter && fileInput) {{
@@ -164,7 +163,6 @@ components.html(f"""
 </script>
 """, height=0, width=0)
 
-# 🔥 核心微创3：自动召唤 3D 噜噜 (全局寄生) 🔥
 if extensions:
     extensions.summon_global_3d_lulu()
 
@@ -182,8 +180,6 @@ st.markdown("""
     [data-testid="collapsedControl"], [data-testid="stToolbar"] { pointer-events: auto !important; opacity: 1 !important; visibility: visible !important; display: flex !important; transform: none !important;}
     .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
     [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
-
-    /* 🔥 终极神迹：利用 CSS 属性选择器，将原生的上传框瞬间流放至虚空！绝对不可见！ 🔥 */
     div[data-testid="stFileUploader"] { position: absolute !important; top: -9999px !important; left: -9999px !important; opacity: 0.01 !important; z-index: -9999 !important; height: 1px !important; width: 1px !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important; pointer-events: none !important; }
 
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
@@ -207,7 +203,9 @@ st.markdown("""
     [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; display: flex !important; align-items: center !important; }
     [data-testid="stChatInput"] [data-baseweb="textarea"], [data-testid="stChatInput"] [data-baseweb="textarea"] > div { background-color: transparent !important; border: none !important; box-shadow: none !important; outline: none !important; }
     [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }
-    [data-testid="stChatInputSubmitButton"] { background-color: #3b82f6 !important; border-radius: 50% !important; transition: all 0.3s ease; }
+
+    /* IDE 文本框极客字体注入 */
+    textarea { font-family: 'Consolas', 'Courier New', monospace !important; }
 
     .stApp[data-custom-theme='light'] { background-image: linear-gradient(132deg, #ffffff, #dbeafe, #e0e7ff, #f3e8ff, #ffffff) !important; background-size: 400% 400% !important; animation: fluidFlow 10s ease infinite !important; }
     .stApp[data-custom-theme='light'] .stMarkdown, .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] h4, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div { color: #1e293b !important; }
@@ -223,17 +221,11 @@ st.markdown("""
     .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
     .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.85) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08) !important; }
     .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea { color: #1e293b !important; }
-    .stApp[data-custom-theme='light'] .js-plotly-plot .g-gtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-xtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-ytitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .xtick text, .stApp[data-custom-theme='light'] .js-plotly-plot .ytick text, .stApp[data-custom-theme='light'] .js-plotly-plot .legendtext { fill: #1e293b !important; font-weight: 500 !important; }
-    .stApp[data-custom-theme='light'] [data-testid="collapsedControl"] svg, .stApp[data-custom-theme='light'] [data-testid="stToolbar"] svg { fill: #1e293b !important; color: #1e293b !important; }
-    .stApp[data-custom-theme='dark'] [data-testid="collapsedControl"] svg, .stApp[data-custom-theme='dark'] [data-testid="stToolbar"] svg { fill: #e2e8f0 !important; color: #e2e8f0 !important; }
 
     .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; }
     .agent-status-node.success { background: rgba(0, 255, 204, 0.1); border-left-color: #00ffcc; color: #00ffcc; }
     .agent-status-node.error { background: rgba(255, 75, 75, 0.1); border-left-color: #ff4b4b; color: #ff4b4b; }
     .agent-status-node.retry { background: rgba(255, 165, 0, 0.1); border-left-color: #ffa500; color: #ffa500; }
-    .stApp[data-custom-theme='light'] .agent-status-node.success { background: rgba(16, 185, 129, 0.1); border-left-color: #10b981; color: #047857; }
-    .stApp[data-custom-theme='light'] .agent-status-node.error { background: rgba(239, 68, 68, 0.1); border-left-color: #ef4444; color: #b91c1c; }
-    .stApp[data-custom-theme='light'] .agent-status-node.retry { background: rgba(245, 158, 11, 0.1); border-left-color: #f59e0b; color: #b45309; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -320,20 +312,36 @@ def render_smart_charts(df):
     rows = 2 + len(sub_groups)
     fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.03,
                         row_heights=[0.5, 0.15] + [0.35 / max(1, len(sub_groups))] * len(sub_groups))
-    fig.add_trace(go.Candlestick(x=df['trade_date'], open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
+
+    if df['trade_date'].dt.time.nunique() <= 1:
+        x_labels = df['trade_date'].dt.strftime('%Y-%m-%d')
+    else:
+        x_labels = df['trade_date'].dt.strftime('%m-%d %H:%M')
+
+    fig.add_trace(go.Candlestick(x=x_labels, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
                                  increasing_line_color='#FD1050', decreasing_line_color='#00FF00', name='K线'), row=1,
                   col=1)
     colors = ['#FFFF00', '#FF00FF', '#00FFFF', '#FFFFFF']
     for i, col in enumerate(main_inds): fig.add_trace(
-        go.Scatter(x=df['trade_date'], y=df[col], name=col, line=dict(width=1.2, color=colors[i % 4])), row=1, col=1)
+        go.Scatter(x=x_labels, y=df[col], name=col, line=dict(width=1.2, color=colors[i % 4])), row=1, col=1)
+
     if 'Signal' in df.columns:
         buys, sells = df[df['Signal'] == 1], df[df['Signal'] == -1]
-        fig.add_trace(go.Scatter(x=buys['trade_date'], y=buys['Low'] * 0.95, mode='markers',
+
+        if df['trade_date'].dt.time.nunique() <= 1:
+            buy_x = buys['trade_date'].dt.strftime('%Y-%m-%d')
+            sell_x = sells['trade_date'].dt.strftime('%Y-%m-%d')
+        else:
+            buy_x = buys['trade_date'].dt.strftime('%m-%d %H:%M')
+            sell_x = sells['trade_date'].dt.strftime('%m-%d %H:%M')
+
+        fig.add_trace(go.Scatter(x=buy_x, y=buys['Low'] * 0.95, mode='markers',
                                  marker=dict(symbol='triangle-up', size=14, color='#00FFFF'), name='买'), row=1, col=1)
-        fig.add_trace(go.Scatter(x=sells['trade_date'], y=sells['High'] * 1.05, mode='markers',
+        fig.add_trace(go.Scatter(x=sell_x, y=sells['High'] * 1.05, mode='markers',
                                  marker=dict(symbol='triangle-down', size=14, color='#FF00FF'), name='卖'), row=1,
                       col=1)
-    fig.add_trace(go.Bar(x=df['trade_date'], y=df.get('Volume', np.zeros(len(df))),
+
+    fig.add_trace(go.Bar(x=x_labels, y=df.get('Volume', np.zeros(len(df))),
                          marker_color=np.where(df['Close'] >= df['Open'], '#FD1050', '#00FF00'), name='成交量'), row=2,
                   col=1)
 
@@ -342,18 +350,19 @@ def render_smart_charts(df):
         for i, col in enumerate(sub_groups[gid]):
             if 'HIST' in col.upper():
                 fig.add_trace(
-                    go.Bar(x=df['trade_date'], y=df[col], marker_color=np.where(df[col] >= 0, '#FD1050', '#00FF00'),
+                    go.Bar(x=x_labels, y=df[col], marker_color=np.where(df[col] >= 0, '#FD1050', '#00FF00'),
                            name=col), row=row_idx, col=1)
             else:
                 fig.add_trace(
-                    go.Scatter(x=df['trade_date'], y=df[col], line=dict(width=1.2, color=colors[i % 4]), name=col),
+                    go.Scatter(x=x_labels, y=df[col], line=dict(width=1.2, color=colors[i % 4]), name=col),
                     row=row_idx, col=1)
         row_idx += 1
 
     fig.update_layout(height=500 + len(sub_groups) * 150, template="none", paper_bgcolor='rgba(0,0,0,0)',
                       plot_bgcolor='rgba(0,0,0,0)', xaxis_rangeslider_visible=False, dragmode='pan', hovermode='x',
-                      showlegend=False)
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
+                      showlegend=False, margin=dict(l=10, r=10, t=10, b=10))
+    fig.update_xaxes(type='category', categoryorder='array', categoryarray=x_labels, nticks=8, showgrid=True,
+                     gridwidth=1, gridcolor='rgba(128,128,128,0.2)', tickangle=0)
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
     return fig
 
@@ -412,7 +421,8 @@ elif selected_page == PAGES[1]:
         selected_model = st.selectbox("🧠 选择大模型算力通道", ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
                                       index=0)
     with ctrl_col2:
-        st.markdown("<div style='height: 32px;'></div>", unsafe_allow_html=True); enable_deep_think = st.toggle(
+        st.markdown("<div style='height: 32px;'></div>", unsafe_allow_html=True);
+        enable_deep_think = st.toggle(
             "💡 强子注入：开启深度思考引擎 (CoT)", value=False)
 
     chat_container = st.container()
@@ -420,7 +430,7 @@ elif selected_page == PAGES[1]:
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
 
-    # 🔥 真正核心：上传框已被 CSS 全局隐身至 -9999px，绝不会暴露在页面上 🔥
+    # 上传框全局隐身至 -9999px
     uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
                                       type=['pdf', 'doc', 'docx', 'csv', 'txt', 'png', 'jpg', 'jpeg'],
                                       label_visibility="collapsed")
@@ -498,7 +508,6 @@ elif selected_page == PAGES[1]:
                 max_retries, agent_logs = 2, []
                 last_error = ""
 
-                # 🔥 致命漏洞修复：绝对全局作用域声明，死防断网报错 🔥
                 full_resp = ""
                 msg_box = st.empty()
 
@@ -547,7 +556,10 @@ elif selected_page == PAGES[1]:
                                  'Close': np.random.rand(50) * 10})
                             dummy_df = add_default_indicators(dummy_df)
                             _ = execute_safely(extracted_code, dummy_df)
+
+                            # 🔥 AI 代码成功通过测试，写入全局引擎 🔥
                             st.session_state.generated_code = extracted_code
+
                             agent_logs.append(
                                 f'<div class="agent-status-node success">✅ <b>尝试 {attempt + 1}:</b> 代码通过沙盒预检 -> 策略已安全装载</div>')
                             st.markdown("".join(agent_logs), unsafe_allow_html=True)
@@ -567,7 +579,14 @@ elif selected_page == PAGES[1]:
                 st.session_state.messages.append({"role": "assistant", "content": full_resp})
         st.rerun()
 
+# 🔥 新增的极客量化 IDE 页面 🔥
 elif selected_page == PAGES[2]:
+    if extensions:
+        extensions.render_ide_page()
+    else:
+        st.error("🧩 扩展模块加载失败，请检查 `extensions.py` 文件是否存在。")
+
+elif selected_page == PAGES[3]:
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">📊 历史回测全量审计与归因分析</h3></div>',
         unsafe_allow_html=True)
@@ -613,7 +632,7 @@ elif selected_page == PAGES[2]:
 
             st.plotly_chart(render_smart_charts(df), use_container_width=True, config={'scrollZoom': True})
 
-elif selected_page == PAGES[3]:
+elif selected_page == PAGES[4]:
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
         unsafe_allow_html=True)
@@ -648,10 +667,12 @@ elif selected_page == PAGES[3]:
                         c[2].metric("并发收益", f"{(sub['Close'].pct_change().iloc[-1] * 100):.2f}%")
                     cht_ph.plotly_chart(render_smart_charts(sub), use_container_width=True)
                 except Exception as e:
-                    st.error(f"高频熔断: {e}"); st.session_state.is_live_trading = False; break
+                    st.error(f"高频熔断: {e}");
+                    st.session_state.is_live_trading = False;
+                    break
                 time.sleep(freq)
 
-elif selected_page == PAGES[4]:
+elif selected_page == PAGES[5]:
     with st.spinner("唤醒深度学习底层张量引擎..."):
         import torch
         import torch.nn as nn
@@ -844,7 +865,7 @@ elif selected_page == PAGES[4]:
             fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
             st.plotly_chart(fig, use_container_width=True)
 
-elif selected_page == PAGES[5]:
+elif selected_page == PAGES[6]:
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>',
         unsafe_allow_html=True)
@@ -856,22 +877,19 @@ elif selected_page == PAGES[5]:
     with c2:
         st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
 
-# 🔥 新增功能：期货全量审计 (归因)
-elif selected_page == PAGES[6]:
+elif selected_page == PAGES[7]:
     if extensions:
         extensions.render_futures_backtest()
     else:
         st.error("🧩 扩展模块加载失败，请检查 `extensions.py` 文件是否存在。")
 
-# 🔥 新增功能：期货高频沙盘
-elif selected_page == PAGES[7]:
+elif selected_page == PAGES[8]:
     if extensions:
         extensions.render_futures_sandbox()
     else:
         st.error("🧩 扩展模块加载失败，请检查 `extensions.py` 文件是否存在。")
 
-# 原有的扩展插件中心 (现在顺延到了 PAGES[8])
-elif selected_page == PAGES[8]:
+elif selected_page == PAGES[9]:
     if extensions:
         extensions.render_new_features_page()
     else:
