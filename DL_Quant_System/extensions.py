@@ -319,7 +319,7 @@ def safe_exec_fut_strategy(code, df):
 
 def render_fut_charts(df):
     """
-    🔥 终极原味复刻版：仅包含 K线、MA主图、成交量、MACD 等副图！
+    🔥 终极真空折叠引擎：完美消除非交易时间空白，实现 K 线全局自适应！
     """
     main_inds = [c for c in df.columns if c.startswith('MAIN_')]
     sub_groups = {}
@@ -331,22 +331,38 @@ def render_fut_charts(df):
     fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.03,
                         row_heights=[0.5, 0.15] + [0.35 / max(1, len(sub_groups))] * len(sub_groups))
 
-    fig.add_trace(go.Candlestick(x=df['trade_date'], open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
+    # 核心黑科技1：将连续的 datetime 对象强制转化为离散的“字符串标签” (Category)
+    # 这样 Plotly 就不会在周末和晚上画出大段的空白，而是把 K线 紧紧挨在一起！
+    if df['trade_date'].dt.time.nunique() <= 1:
+        x_labels = df['trade_date'].dt.strftime('%Y-%m-%d')
+    else:
+        x_labels = df['trade_date'].dt.strftime('%m-%d %H:%M')
+
+    fig.add_trace(go.Candlestick(x=x_labels, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
                                  increasing_line_color='#FD1050', decreasing_line_color='#00FF00', name='K线'), row=1,
                   col=1)
     colors = ['#FFFF00', '#FF00FF', '#00FFFF', '#FFFFFF']
     for i, col in enumerate(main_inds): fig.add_trace(
-        go.Scatter(x=df['trade_date'], y=df[col], name=col, line=dict(width=1.2, color=colors[i % 4])), row=1, col=1)
+        go.Scatter(x=x_labels, y=df[col], name=col, line=dict(width=1.2, color=colors[i % 4])), row=1, col=1)
 
     if 'Signal' in df.columns:
         buys, sells = df[df['Signal'] == 1], df[df['Signal'] == -1]
-        fig.add_trace(go.Scatter(x=buys['trade_date'], y=buys['Low'] * 0.95, mode='markers',
+
+        # 对应地转换买卖点的坐标
+        if df['trade_date'].dt.time.nunique() <= 1:
+            buy_x = buys['trade_date'].dt.strftime('%Y-%m-%d')
+            sell_x = sells['trade_date'].dt.strftime('%Y-%m-%d')
+        else:
+            buy_x = buys['trade_date'].dt.strftime('%m-%d %H:%M')
+            sell_x = sells['trade_date'].dt.strftime('%m-%d %H:%M')
+
+        fig.add_trace(go.Scatter(x=buy_x, y=buys['Low'] * 0.95, mode='markers',
                                  marker=dict(symbol='triangle-up', size=14, color='#00FFFF'), name='买'), row=1, col=1)
-        fig.add_trace(go.Scatter(x=sells['trade_date'], y=sells['High'] * 1.05, mode='markers',
+        fig.add_trace(go.Scatter(x=sell_x, y=sells['High'] * 1.05, mode='markers',
                                  marker=dict(symbol='triangle-down', size=14, color='#FF00FF'), name='卖'), row=1,
                       col=1)
 
-    fig.add_trace(go.Bar(x=df['trade_date'], y=df.get('Volume', np.zeros(len(df))),
+    fig.add_trace(go.Bar(x=x_labels, y=df.get('Volume', np.zeros(len(df))),
                          marker_color=np.where(df['Close'] >= df['Open'], '#FD1050', '#00FF00'), name='成交量'), row=2,
                   col=1)
 
@@ -355,20 +371,46 @@ def render_fut_charts(df):
         for i, col in enumerate(sub_groups[gid]):
             if 'HIST' in col.upper():
                 fig.add_trace(
-                    go.Bar(x=df['trade_date'], y=df[col], marker_color=np.where(df[col] >= 0, '#FD1050', '#00FF00'),
-                           name=col), row=row_idx, col=1)
+                    go.Bar(x=x_labels, y=df[col], marker_color=np.where(df[col] >= 0, '#FD1050', '#00FF00'), name=col),
+                    row=row_idx, col=1)
             else:
                 line_color = colors[i % 4]
-                fig.add_trace(
-                    go.Scatter(x=df['trade_date'], y=df[col], line=dict(width=1.5, color=line_color), name=col),
-                    row=row_idx, col=1)
+                fig.add_trace(go.Scatter(x=x_labels, y=df[col], line=dict(width=1.5, color=line_color), name=col),
+                              row=row_idx, col=1)
         row_idx += 1
 
-    fig.update_layout(height=500 + len(sub_groups) * 150, template="none", paper_bgcolor='rgba(0,0,0,0)',
-                      plot_bgcolor='rgba(0,0,0,0)', xaxis_rangeslider_visible=False, dragmode='pan', hovermode='x',
-                      showlegend=False)
-    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
+    fig.update_layout(
+        height=500 + len(sub_groups) * 150,
+        template="none",
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        xaxis_rangeslider_visible=False,
+        dragmode='pan',
+        hovermode='x',
+        showlegend=False,
+        margin=dict(l=10, r=10, t=10, b=10)  # 最大化利用屏幕空间
+    )
+
+    # 核心黑科技2：强制开启 Category (类别) 模式，并自动抽样显示标签 (nticks) 防止重叠
+    # 这一步完美解决了 K线 过长溢出屏幕的问题，实现完美自适应缩放！
+    fig.update_xaxes(
+        type='category',
+        categoryorder='array',
+        categoryarray=x_labels,
+        nticks=8,
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='rgba(128,128,128,0.2)',
+        tickangle=0
+    )
+
+    fig.update_yaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='rgba(128,128,128,0.2)',
+        autorange=True,
+        fixedrange=False
+    )
     return fig
 
 
@@ -403,7 +445,6 @@ def render_futures_backtest():
 
         fut_code_input = st.text_input("🎯 期货合约代码", value="SA2409", placeholder="直接输入，如: SA2409")
 
-        # AkShare 分钟线参数：'1', '5', '15', '30', '60'
         freq_mapping = {"日线 (Daily)": "D", "60分钟 (60min)": "60", "30分钟 (30min)": "30", "15分钟 (15min)": "15",
                         "5分钟 (5min)": "5", "1分钟 (1min)": "1"}
         freq_choice = st.selectbox("⏱️ 数据周期", list(freq_mapping.keys()), index=0)
@@ -429,11 +470,9 @@ def render_futures_backtest():
         if st.session_state.fut_bt_run and fut_code_input.strip() != "":
             with st.spinner(f"正在调取开源神兵 AkShare 获取 {fut_code_input} 的 {freq_choice} 数据..."):
                 try:
-                    # 剥离多余字符，AkShare 只要纯净的字母+数字
                     real_code = fut_code_input.upper().strip().split('.')[0]
                     df = None
 
-                    # 1. 根据周期选择不同的 AkShare API
                     try:
                         if selected_freq == 'D':
                             df_temp = ak.futures_zh_daily_sina(symbol=real_code)
@@ -446,9 +485,8 @@ def render_futures_backtest():
                                 df_temp['trade_date'] = pd.to_datetime(df_temp['datetime'])
                                 df = df_temp
                     except Exception as e:
-                        pass  # 下方容灾接管
+                        pass
 
-                    # 2. 如果 AkShare 没有查到 (可能合约没上市)，触发容灾沙盘给导师演示
                     if df is None or df.empty:
                         st.warning(
                             f"⚠️ **触发容灾机制**：AkShare 接口未返回 `{real_code}` 的真实数据（可能合约尚未上市或输入错误）。\n\n系统已自动启动【底层沙盒模拟引擎】，为您瞬间生成逼真的 **{freq_choice}** 高频推演数据！")
@@ -473,15 +511,12 @@ def render_futures_backtest():
                             np.random.normal(0, volatility / 1.5, periods_num))
                         df['volume'] = np.abs(np.random.normal(15000, 5000, periods_num)).astype(int)
                     else:
-                        # 对于查到的真实数据，按照用户选择的时间跨度进行切割
                         df = df[df['trade_date'] >= pd.to_datetime(start_date_str)].reset_index(drop=True)
 
                     if df.empty:
                         st.error("❌ 您选择的时间范围内没有数据。请尝试拉长【回测时间跨度】。")
                         st.session_state.fut_bt_run = False
                     else:
-                        # 3. 智能判断乘数和保证金 (利用咱们的硬编码大字典保障速度)
-                        # 列出所有常见品种的一手吨数
                         default_mult_map = {'SA': 20, 'RB': 10, 'I': 100, 'HC': 10, 'FG': 20, 'V': 5, 'P': 10, 'M': 10,
                                             'Y': 10, 'C': 10, 'CS': 10, 'JD': 10, 'CU': 5, 'AL': 5, 'ZN': 5, 'NI': 1,
                                             'AU': 1000, 'AG': 15, 'RU': 10, 'TA': 5, 'MA': 10, 'CF': 5, 'SR': 10,
@@ -490,7 +525,7 @@ def render_futures_backtest():
                         symbol_letter = sym_match.group(1).upper() if sym_match else 'SA'
 
                         api_mult = default_mult_map.get(symbol_letter, 10.0)
-                        api_margin = 10.0  # AkShare没有方便的接口查保证金，默认基准10%
+                        api_margin = 10.0
 
                         try:
                             final_margin_rate = float(margin_input_str) / 100.0 if margin_input_str.strip() else (
@@ -506,7 +541,6 @@ def render_futures_backtest():
                         st.success(
                             f"✅ 成功挂载：**{real_code}** ({freq_choice})！已应用底层查询乘数: **{final_mult}**, 智能计算保证金率: **{final_margin_rate * 100:.2f}%**")
 
-                        # 4. 数据清洗统一战线
                         mapping_base = {'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close',
                                         'volume': 'Volume', 'vol': 'Volume'}
                         for l_case, c_case in mapping_base.items():
@@ -515,7 +549,6 @@ def render_futures_backtest():
                         df['MAIN_MA5'] = df['Close'].rolling(window=5).mean()
                         df['MAIN_MA20'] = df['Close'].rolling(window=20).mean()
 
-                        # 兼容股票策略，自动补全 MACD 副图指标
                         exp1 = df['Close'].ewm(span=12, adjust=False).mean()
                         exp2 = df['Close'].ewm(span=26, adjust=False).mean()
                         df['SUB1_MACD_DIFF'] = exp1 - exp2
@@ -572,7 +605,6 @@ def render_futures_backtest():
 
             st.markdown("<div style='clear: both; margin-bottom: 30px;'></div>", unsafe_allow_html=True)
 
-            # 渲染那套完美统一的高端视觉图表
             st.plotly_chart(render_fut_charts(df), use_container_width=True, config={'scrollZoom': True})
 
         elif not st.session_state.fut_bt_run:
