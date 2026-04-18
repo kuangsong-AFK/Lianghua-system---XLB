@@ -44,9 +44,8 @@ def summon_global_3d_lulu():
     # ====================================================================
     PET_ROSTER = {
         "🍊 水豚噜噜": "lulu.glb",
-        "🐧 极客企鹅": "penguin.glb",
-        "🤖 量化机甲 (预留)": "robot.glb",
-        "🐱 招财猫 (预留)": "cat.glb"
+        "🐧 高雅企鹅": "penguin.glb",
+        "🐱 hello Kitty": "kitty.glb"
     }
 
     pet_b64 = {}
