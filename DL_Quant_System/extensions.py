@@ -327,7 +327,6 @@ def safe_exec_fut_strategy(code, df):
 
 
 def render_fut_charts(df):
-    # 将巨型依赖的导入延迟到这里，极大加速页面首开速度
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
 
@@ -363,9 +362,10 @@ def render_fut_charts(df):
             buy_x = buys['trade_date'].dt.strftime('%m-%d %H:%M')
             sell_x = sells['trade_date'].dt.strftime('%m-%d %H:%M')
 
-        fig.add_trace(go.Scatter(x=buy_x, y=buys['Low'] * 0.95, mode='markers',
+        # 🔥 优化：将偏移比例调整为千分之二 (0.998 / 1.002)，让箭头完美贴紧 K 线上下影线 🔥
+        fig.add_trace(go.Scatter(x=buy_x, y=buys['Low'] * 0.998, mode='markers',
                                  marker=dict(symbol='triangle-up', size=14, color='#00FFFF'), name='买'), row=1, col=1)
-        fig.add_trace(go.Scatter(x=sell_x, y=sells['High'] * 1.05, mode='markers',
+        fig.add_trace(go.Scatter(x=sell_x, y=sells['High'] * 1.002, mode='markers',
                                  marker=dict(symbol='triangle-down', size=14, color='#FF00FF'), name='卖'), row=1,
                       col=1)
 
@@ -395,6 +395,69 @@ def render_fut_charts(df):
     fig.update_xaxes(type='category', categoryorder='array', categoryarray=x_labels, nticks=8, showgrid=True,
                      gridwidth=1, gridcolor='rgba(128,128,128,0.2)', tickangle=0)
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
+    return fig
+
+
+def render_smart_charts(df):
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+
+    main_inds = [c for c in df.columns if c.startswith('MAIN_')]
+    sub_groups = {}
+    for c in df.columns:
+        if m := SUB_PATTERN.match(c):
+            sub_groups.setdefault(m.group(1), []).append(c)
+
+    fig = make_subplots(
+        rows=2 + len(sub_groups),
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.03,
+        row_heights=[0.5, 0.15] + [0.35 / max(1, len(sub_groups))] * len(sub_groups)
+    )
+
+    x_labels = df['trade_date'].dt.strftime('%Y-%m-%d' if df['trade_date'].dt.time.nunique() <= 1 else '%m-%d %H:%M')
+
+    fig.add_trace(
+        go.Candlestick(x=x_labels, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name='K线',
+                       increasing_line_color='#FD1050', decreasing_line_color='#00FF00'), row=1, col=1)
+
+    colors = ['#FFFF00', '#FF00FF', '#00FFFF', '#FFFFFF']
+    for i, c in enumerate(main_inds):
+        fig.add_trace(go.Scatter(x=x_labels, y=df[c], name=c, line=dict(color=colors[i % 4], width=1.2)), row=1, col=1)
+
+    if 'Signal' in df.columns:
+        # 🔥 优化：将偏移比例调整为千分之二 (0.998 / 1.002)，让箭头完美贴紧 K 线上下影线 🔥
+        for sig, name, c_str, sym, off in [(1, '买', '#00FFFF', 'triangle-up', 0.998),
+                                           (-1, '卖', '#FF00FF', 'triangle-down', 1.002)]:
+            mask = df['Signal'] == sig
+            fig.add_trace(
+                go.Scatter(
+                    x=x_labels[mask],
+                    y=df.loc[mask, 'Low' if sig == 1 else 'High'] * off,
+                    mode='markers',
+                    marker=dict(symbol=sym, size=14, color=c_str),
+                    name=name
+                ),
+                row=1, col=1
+            )
+
+    fig.add_trace(go.Bar(x=x_labels, y=df.get('Volume', np.zeros(len(df))),
+                         marker_color=np.where(df['Close'] >= df['Open'], '#FD1050', '#00FF00')), row=2, col=1)
+
+    for idx, gid in enumerate(sorted(sub_groups.keys(), key=int)):
+        for i, c in enumerate(sub_groups[gid]):
+            if 'HIST' in c.upper():
+                trace = go.Bar(x=x_labels, y=df[c], marker_color=np.where(df[c] >= 0, '#FD1050', '#00FF00'))
+            else:
+                trace = go.Scatter(x=x_labels, y=df[c], line=dict(color=colors[i % 4]))
+            fig.add_trace(trace, row=3 + idx, col=1)
+
+    fig.update_layout(height=500 + len(sub_groups) * 150, template="none", paper_bgcolor='rgba(0,0,0,0)',
+                      plot_bgcolor='rgba(0,0,0,0)', showlegend=False, margin=dict(l=10, r=10, t=10, b=10))
+    fig.update_xaxes(type='category', categoryorder='array', categoryarray=x_labels, nticks=8, showgrid=True,
+                     gridcolor='rgba(128,128,128,0.2)')
+    fig.update_yaxes(showgrid=True, gridcolor='rgba(128,128,128,0.2)')
     return fig
 
 
