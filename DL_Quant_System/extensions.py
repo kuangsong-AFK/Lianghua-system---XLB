@@ -37,7 +37,7 @@ SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 
 
 def summon_global_3d_lulu():
-    """终极寄生版：支持多模型无缝切换、彻底拦截原生右键菜单"""
+    """终极寄生版 V3：支持多模型无缝切换、彻底拦截原生右键菜单"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     # ====================================================================
@@ -66,20 +66,21 @@ def summon_global_3d_lulu():
     if not has_any_pet:
         return
 
-    # 将字典转为 JSON 字符串，准备注入 JS
+    # 将字典转为 JSON 字符串
     pets_json_str = json.dumps(pet_b64_data)
 
-    # 避免 Python f-string 与 JS 大括号冲突，采用 replace 注入
+    # 采用极其安全的变量挂载方式，杜绝字符串过大导致的解析崩溃
     html_template = """
     <script>
         const parentWin = window.parent;
         const parentDoc = parentWin.document;
 
-        if (!parentWin.__LULU_INITIALIZED__) {
-            parentWin.__LULU_INITIALIZED__ = true;
+        // V3 版本：确保强制刷新后执行最新代码
+        if (!parentWin.__LULU_V3_INITIALIZED__) {
+            parentWin.__LULU_V3_INITIALIZED__ = true;
 
-            // 注入模型数据字典
-            const modelsData = __PETS_JSON_DATA__;
+            // 安全挂载庞大的模型数据到顶级对象，避免模板字符串解析超载
+            parentWin.__PETS_JSON_DATA__ = __PETS_JSON_DATA__;
 
             const loadScript = (src) => new Promise((res) => {
                 const s = parentDoc.createElement('script');
@@ -96,7 +97,7 @@ def summon_global_3d_lulu():
                         const THREE = window.THREE;
                         const win = window;
                         const doc = document;
-                        const petData = window.parent.__PETS_JSON_DATA__ || ${JSON.stringify(modelsData)};
+                        const petData = window.__PETS_JSON_DATA__;
 
                         let state = 'IDLE'; 
                         let danceTimer = 0;
@@ -119,6 +120,7 @@ def summon_global_3d_lulu():
 
                         // -------------------- 自定义右键菜单构建 --------------------
                         const ctxMenu = doc.createElement('div');
+                        ctxMenu.id = 'lulu-ctx-menu';
                         ctxMenu.style.cssText = "position: fixed; display: none; background: rgba(15, 23, 35, 0.95); border: 1px solid rgba(0, 255, 204, 0.5); border-radius: 12px; padding: 6px; z-index: 10000000; color: #fff; font-size: 14px; min-width: 140px; box-shadow: 0 8px 24px rgba(0,0,0,0.8); backdrop-filter: blur(10px);";
                         doc.body.appendChild(ctxMenu);
 
@@ -137,7 +139,7 @@ def summon_global_3d_lulu():
                             item.onclick = (e) => {
                                 e.stopPropagation();
                                 ctxMenu.style.display = 'none';
-                                if(petData[petName] !== "") {
+                                if(petData[petName] && petData[petName] !== "") {
                                     switchModel(petData[petName], petName);
                                 } else {
                                     doSpeak(["主公，【" + petName + "】的模型文件还没放入军营哦！"]);
@@ -390,6 +392,9 @@ def summon_global_3d_lulu():
                 parentDoc.body.appendChild(script);
             };
             setTimeout(initLulu, 500); 
+        } else {
+            // 如果已经初始化过了，只热更新模型字典，防止重新注入脚本导致冲突
+            parentWin.__PETS_JSON_DATA__ = __PETS_JSON_DATA__;
         }
     </script>
     """
