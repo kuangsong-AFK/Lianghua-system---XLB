@@ -1,17 +1,17 @@
 # ==========================================
 # 文件名：extensions.py (扩展功能先锋营)
-# 功能：统一管理和路由所有的新增模块
+# 功能：极客 IDE、AkShare 期货、高频沙盘
 # ==========================================
 import streamlit as st
 import streamlit.components.v1 as components
 import base64
 import os
-import pandas as pd
-import numpy as np
 import time
 import traceback
 import math
 import re
+import pandas as pd
+import numpy as np
 from datetime import datetime
 
 # 🔥 提速核武 3：安全兼容版 Fragment 装饰器，实现沙盘无闪烁局部刷新 🔥
@@ -406,7 +406,7 @@ def render_ide_page():
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">💻 极客量化 IDE (代码沙盒编译器)</h3><p class="sub-text">您可以直接修改 AI 生成的策略，或者在此手动硬编码！支持一键沙盒运行测试，防止实盘崩溃。</p></div>',
         unsafe_allow_html=True)
 
-    # ================= 新手村模板库 =================
+    # ================= 新手村基础模板库 =================
     default_code = """def generate_signals(df):
     # 【小吕布策略模板】在此处编写您的 Pandas 核心逻辑
     df['MAIN_MA5'] = df['Close'].rolling(window=5).mean()
@@ -471,14 +471,25 @@ def render_ide_page():
         "🌊 震荡反转流 (超买超卖 KDJ)": kdj_code,
         "🚀 动量加速流 (量价 MACD)": macd_code
     }
-    # ================================================
+
+    # 🔥 预留接口：尝试从外部策略军火库动态加载高级策略 🔥
+    try:
+        import strategy_templates
+        import inspect
+        for name, func in inspect.getmembers(strategy_templates, inspect.isfunction):
+            if name.startswith("strategy_"):
+                display_name = "🛡️ 严谨：" + name.replace("strategy_", "").upper()
+                templates[display_name] = inspect.getsource(func)
+    except ImportError:
+        pass
+    # =======================================================
 
     c1, c2 = st.columns([2.2, 1.8])
 
     with c1:
         st.markdown("#### ⌨️ 策略代码编辑区")
 
-        # --- 新增：模板选择区 ---
+        # --- 策略模板加载器 UI ---
         t_col1, t_col2 = st.columns([3, 1])
         with t_col1:
             selected_tpl = st.selectbox("📚 预设经典策略模板", list(templates.keys()), label_visibility="collapsed")
