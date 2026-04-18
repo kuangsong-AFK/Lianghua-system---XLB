@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
 import time
 import os
+from datetime import datetime
 
 
 # ==========================================
@@ -123,14 +124,33 @@ def train_model():
             print(f"🔄 Epoch [{epoch + 1}/{epochs}] | 训练误差(Loss): {train_loss:.6f} | 阵地测试误差: {test_loss:.6f}")
 
     end_time = time.time()
-    print(f"\n🎉 炼丹完成！总耗时: {end_time - start_time:.2f} 秒 (RTX 5070 简直是性能怪兽！)")
+    print(f"\n🎉 炼丹完成！总耗时: {end_time - start_time:.2f} 秒")
 
-    # 4. 凝结仙丹 (导出权重文件)
-    os.makedirs('models', exist_ok=True)
-    save_path = 'models/da_lstm_sa_weights_v1.pth'
-    torch.save(model.state_dict(), save_path)
-    print(f"💊 极简仙丹(权重文件)已提取！保存在: {os.path.abspath(save_path)}")
-    print("💡 第二战役圆满收官！这颗仙丹随时可以空投到 Streamlit 云端指挥台！")
+    # ==========================================
+    # 4. 凝结仙丹 (专属兵器库与模型更新机制)
+    # ==========================================
+    print("\n📦 正在执行模型入库与新老交替程序...")
+
+    # 建立专属兵器库与历史档案馆
+    model_dir = 'models'
+    archive_dir = os.path.join(model_dir, 'archive')
+    os.makedirs(model_dir, exist_ok=True)
+    os.makedirs(archive_dir, exist_ok=True)
+
+    # 生成当前时间戳印记
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # 定义双轨存储路径
+    latest_path = os.path.join(model_dir, 'da_lstm_sa_latest.pth')
+    backup_path = os.path.join(archive_dir, f'da_lstm_sa_{timestamp}.pth')
+
+    # 执行物理存储
+    torch.save(model.state_dict(), backup_path)  # 先存入档案馆
+    torch.save(model.state_dict(), latest_path)  # 强制覆盖最新主型号
+
+    print(f"🗄️ 历史战绩已秘密归档至: {os.path.abspath(backup_path)}")
+    print(f"👑 【主将印绶更新】最新实盘模型已覆盖完毕: {os.path.abspath(latest_path)}")
+    print("💡 军师提示：网页端代码请死死绑定 `da_lstm_sa_latest.pth`，从此本地随意炼丹，云端自动享受最新战力！")
 
 
 if __name__ == "__main__":
