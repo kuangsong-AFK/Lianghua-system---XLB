@@ -47,7 +47,7 @@ def summon_global_3d_lulu():
         "🍊 水豚噜噜": "lulu.glb",
         "🐧 高雅企鹅": "penguin.glb",
         "🐱 hello Kitty": "kitty.glb",
-        "🐖 猪猪侠": "猪猪侠"
+        "🐖 猪猪侠": "猪猪侠.glb"
     }
 
     pet_b64 = {}
