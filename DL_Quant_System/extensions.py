@@ -37,17 +37,17 @@ SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 
 
 def summon_global_3d_lulu():
-    """终极动态版：全自动适应字典、JSON 数据岛技术、绝对镇压原生右键"""
+    """终极动态版：全自动适应字典、JSON 数据岛技术、支持 Draco 压缩模型"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     # ====================================================================
-    # 🔥 主公，您以后只需要改这个字典！后面所有的代码都会全自动适应！ 🔥
+    # 🔥 主公的花名册：自动匹配您的截图 🔥
     # ====================================================================
     PET_ROSTER = {
         "🍊 水豚噜噜": "lulu.glb",
         "🐧 高雅企鹅": "penguin.glb",
         "🐱 hello Kitty": "kitty.glb",
-        "🐖 猪猪侠": "猪猪侠.glb"
+        "🐷 猪猪侠": "pig.glb"
     }
 
     pet_b64 = {}
@@ -63,7 +63,7 @@ def summon_global_3d_lulu():
     if not any(pet_b64.values()):
         return
 
-    # 将字典打包成 JSON，通过“数据岛”技术传递，彻底杜绝代码写死！
+    # 将字典打包成 JSON，通过“数据岛”技术传递
     pets_json_str = json.dumps(pet_b64)
 
     html_code = f"""
@@ -78,7 +78,7 @@ def summon_global_3d_lulu():
         pWin.__PETS_JSON_DATA__ = JSON.parse(dataStr);
 
         // 强行覆盖执行标记，确保刷新网页必定重新生成菜单
-        pWin.__LULU_V5_INIT = true;
+        pWin.__LULU_V6_INIT = true;
 
         const loadScript = (src) => new Promise((res) => {{
             const s = pDoc.createElement('script');
@@ -86,9 +86,11 @@ def summon_global_3d_lulu():
         }});
 
         const initLulu = async () => {{
-            if (!pWin.THREE) {{
+            if (!pWin.THREE || !pWin.THREE.DRACOLoader) {{
                 await loadScript("https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js");
                 await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js");
+                // 🔥 新增：加配 DRACO 解码器引擎，专门解析被主公压缩过的高级模型 🔥
+                await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js");
             }}
 
             const script = pDoc.createElement('script');
@@ -97,9 +99,8 @@ def summon_global_3d_lulu():
                     const THREE = window.THREE;
                     const doc = document;
                     const win = window;
-                    const petData = window.__PETS_JSON_DATA__; // 全自动获取 Python 传来的字典
+                    const petData = window.__PETS_JSON_DATA__; 
 
-                    // 🔥 删除旧的组件，防止刷新后产生多个模型或菜单 🔥
                     const oldPet = doc.getElementById('lulu-global-pet');
                     if(oldPet) oldPet.remove();
                     const oldMenu = doc.getElementById('lulu-ctx-menu');
@@ -135,7 +136,6 @@ def summon_global_3d_lulu():
                     menuTitle.style.cssText = "padding: 6px 12px; color: #8b9bb4; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 4px; pointer-events: none;";
                     ctxMenu.appendChild(menuTitle);
 
-                    // 动态遍历 Python 传来的字典，生成菜单
                     Object.keys(petData).forEach(petName => {{
                         const item = doc.createElement('div');
                         item.innerText = petName;
@@ -165,7 +165,7 @@ def summon_global_3d_lulu():
                     renderer.setPixelRatio(win.devicePixelRatio ? Math.min(win.devicePixelRatio, 2) : 1);
                     renderer.outputEncoding = THREE.sRGBEncoding;
 
-                    // 🔥 绝对镇压：在画布底层直接拦截 contextmenu 事件，100% 封杀另存为菜单 🔥
+                    // 绝对镇压：拦截 contextmenu 事件
                     renderer.domElement.oncontextmenu = function(e) {{
                         e.preventDefault();
                         e.stopPropagation();
@@ -189,39 +189,58 @@ def summon_global_3d_lulu():
                     let targetRotX = 0;
                     let clickableMeshes = [];
 
+                    // 🔥 挂载 DRACO 超级解码器，解析被主公压缩过的高级模型 🔥
                     const loader = new THREE.GLTFLoader();
+                    const dracoLoader = new THREE.DRACOLoader();
+                    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.4.1/');
+                    loader.setDRACOLoader(dracoLoader);
 
                     const switchModel = (b64String, name) => {{
-                        if(currentModelObj) {{
-                            scene.remove(currentModelObj);
-                            clickableMeshes = [];
-                            mixer = null;
-                        }}
-                        loader.load("data:application/octet-stream;base64," + b64String, (gltf) => {{
-                            currentModelObj = gltf.scene;
-                            currentModelObj.position.set(0, -1.2, 0); 
+                        // 在加载新模型前，先保留旧模型的引用，以防新模型加载失败
+                        const oldModelRef = currentModelObj;
+                        const oldMeshesRef = clickableMeshes;
 
-                            currentModelObj.traverse((child) => {{
-                                if (child.isMesh) {{
-                                    let isTrash = false;
-                                    if (child.material) {{
-                                        if (child.material.transparent && child.material.opacity < 0.1) isTrash = true;
-                                        if (child.material.opacity === 0) isTrash = true;
-                                    }}
-                                    if (isTrash) {{ child.visible = false; }} 
-                                    else {{ clickableMeshes.push(child); }}
+                        loader.load(
+                            "data:application/octet-stream;base64," + b64String, 
+                            (gltf) => {{
+                                // 只有当新模型确认解压成功后，才销毁旧模型
+                                if(oldModelRef) {{
+                                    scene.remove(oldModelRef);
                                 }}
-                            }});
-                            scene.add(currentModelObj);
-                            if (gltf.animations.length > 0) {{
-                                mixer = new THREE.AnimationMixer(currentModelObj);
-                                mixer.clipAction(gltf.animations[0]).play();
+                                clickableMeshes = [];
+                                mixer = null;
+
+                                currentModelObj = gltf.scene;
+                                currentModelObj.position.set(0, -1.2, 0); 
+
+                                currentModelObj.traverse((child) => {{
+                                    if (child.isMesh) {{
+                                        let isTrash = false;
+                                        if (child.material) {{
+                                            if (child.material.transparent && child.material.opacity < 0.1) isTrash = true;
+                                            if (child.material.opacity === 0) isTrash = true;
+                                        }}
+                                        if (isTrash) {{ child.visible = false; }} 
+                                        else {{ clickableMeshes.push(child); }}
+                                    }}
+                                }});
+                                scene.add(currentModelObj);
+                                if (gltf.animations.length > 0) {{
+                                    mixer = new THREE.AnimationMixer(currentModelObj);
+                                    mixer.clipAction(gltf.animations[0]).play();
+                                }}
+                                if(name) doSpeak(["变身完成！我是" + name + " 😎"]);
+                            }},
+                            undefined,
+                            (error) => {{
+                                // 🔥 容灾机制：如果模型压缩坏了，就不切了，直接报错并保留原模型 🔥
+                                console.error("模型解析失败，可能压缩损坏：", error);
+                                doSpeak(["主公，【" + name + "】的模型好像压缩损坏了，无法变身！😭"]);
                             }}
-                            if(name) doSpeak(["变身完成！我是" + name + " 😎"]);
-                        }});
+                        );
                     }};
 
-                    // 首次启动：自动找字典里第一个有数据的模型
+                    // 首次启动
                     const initialPetKey = Object.keys(petData).find(k => petData[k] !== "");
                     if(initialPetKey) {{
                         switchModel(petData[initialPetKey], null);
@@ -318,7 +337,7 @@ def summon_global_3d_lulu():
                     }};
 
                     const startInteraction = (e) => {{
-                        if(e.button === 2) return; // 拦截拖拽右键
+                        if(e.button === 2) return; 
                         isHolding = true; initX = getX(e); initY = getY(e);
                         const r = petBox.getBoundingClientRect(); startL = r.left; startT = r.top;
                         isDragging = false; isPossibleClick = true; 
@@ -488,15 +507,11 @@ def render_fut_charts(df):
     return fig
 
 
-# ==========================================
-# 🔥 核心引擎 1：极客量化 IDE (代码编译器)
-# ==========================================
 def render_ide_page():
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">💻 极客量化 IDE (代码沙盒编译器)</h3><p class="sub-text">您可以直接修改 AI 生成的策略，或者在此手动硬编码！支持一键沙盒运行测试，防止实盘崩溃。</p></div>',
         unsafe_allow_html=True)
 
-    # ================= 新手村基础模板库 =================
     default_code = """def generate_signals(df):
     # 【小吕布策略模板】在此处编写您的 Pandas 核心逻辑
     df['MAIN_MA5'] = df['Close'].rolling(window=5).mean()
@@ -562,7 +577,6 @@ def render_ide_page():
         "🚀 动量加速流 (量价 MACD)": macd_code
     }
 
-    # 🔥 预留接口：尝试从外部策略军火库动态加载高级策略 🔥
     try:
         import strategy_templates
         import inspect
@@ -572,14 +586,12 @@ def render_ide_page():
                 templates[display_name] = inspect.getsource(func)
     except ImportError:
         pass
-    # =======================================================
 
     c1, c2 = st.columns([2.2, 1.8])
 
     with c1:
         st.markdown("#### ⌨️ 策略代码编辑区")
 
-        # --- 策略模板加载器 UI ---
         t_col1, t_col2 = st.columns([3, 1])
         with t_col1:
             selected_tpl = st.selectbox("📚 预设经典策略模板", list(templates.keys()), label_visibility="collapsed")
@@ -587,7 +599,6 @@ def render_ide_page():
             if st.button("📥 载入模板", use_container_width=True):
                 st.session_state.generated_code = templates[selected_tpl]
                 st.rerun()
-        # ------------------------
 
         current_code = st.session_state.get('generated_code', '')
         if not current_code.strip():
@@ -656,9 +667,6 @@ def render_ide_page():
                 "等待您下达编译指令...\n\n点击左侧【运行防爆沙盒测试】按钮，系统将凭空生成虚拟行情数据并安全执行您的代码，绝不会导致实盘引擎崩溃。")
 
 
-# ==========================================
-# 🔥 核心引擎 2：期货全量审计 (AkShare 开源神兵版)
-# ==========================================
 def render_futures_backtest():
     if not HAS_AKSHARE:
         st.error("🚨 警告：检测到未装备 AkShare 引擎！\n\n主公，请立即在终端执行以下军令完成列装：\n`pip install akshare`")
@@ -864,9 +872,6 @@ def render_futures_backtest():
             """, unsafe_allow_html=True)
 
 
-# ==========================================
-# 🔥 核心引擎 3：期货高频沙盘 (加装 Fragment 防闪烁黑科技)
-# ==========================================
 @st_fragment
 def render_futures_sandbox():
     st.markdown(
@@ -896,7 +901,6 @@ def render_futures_sandbox():
         tick_history = []
 
         while is_running:
-            # 引入更昂贵的绘图库在这里以懒加载方式启动，加速首屏
             import plotly.graph_objects as go
 
             price_change = np.random.choice([-3, -2, -1, 0, 1, 2, 3])
