@@ -1,20 +1,19 @@
 # ==========================================
 # 文件名：extensions.py (扩展功能先锋营)
-# 功能：统一管理和路由所有的新增模块
+# 功能：极客 IDE、AkShare 期货、高频沙盘
 # ==========================================
 import streamlit as st
 import streamlit.components.v1 as components
 import base64
 import os
-import pandas as pd
-import numpy as np
 import time
 import traceback
 import math
 import re
+import pandas as pd
+import numpy as np
 from datetime import datetime
 
-# 🔥 提速核武 3：安全兼容版 Fragment 装饰器，实现沙盘无闪烁局部刷新 🔥
 try:
     from streamlit import fragment as st_fragment
 except ImportError:
@@ -24,7 +23,7 @@ except ImportError:
         # 如果用户的 Streamlit 版本太低，则降级为普通函数，确保代码绝不报错
         st_fragment = lambda f: f
 
-    # 引入开源神兵 AkShare
+# 引入开源神兵 AkShare
 try:
     import akshare as ak
 
@@ -664,7 +663,7 @@ def render_futures_backtest():
                     st.error(f"系统运算发生熔断: {e}")
                     st.session_state.fut_bt_run = False
 
-        if st.session_state.fut_bt_data is not None:
+        if getattr(st.session_state, 'fut_bt_data', None) is not None:
             m = st.session_state.fut_bt_metrics
             df = st.session_state.fut_bt_data
 

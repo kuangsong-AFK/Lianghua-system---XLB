@@ -21,6 +21,12 @@ try:
 except ImportError:
     extensions = None
 
+# 🔥 预留接口 1：尝试加载未来的新功能文件 🔥
+try:
+    import custom_plugins
+except ImportError:
+    custom_plugins = None
+
 # ==========================================
 # 0. 环境优雅降级 (云端安全加载)
 # ==========================================
@@ -100,6 +106,10 @@ PAGES = [
     "🌪️ 期货高频沙盘",
     "🧩 扩展插件中心"
 ]
+
+# 🔥 预留接口 2：自动读取新文件里的页面，追加到导航栏 🔥
+if custom_plugins and hasattr(custom_plugins, 'EXTRA_PAGES'):
+    PAGES.extend(custom_plugins.EXTRA_PAGES)
 
 if "curr_page" not in st.session_state:
     st.session_state.curr_page = PAGES[0]
@@ -247,9 +257,6 @@ st.markdown("""
     .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
     .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.85) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08) !important; }
     .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea { color: #1e293b !important; }
-    .stApp[data-custom-theme='light'] .js-plotly-plot .g-gtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-xtitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .g-ytitle text, .stApp[data-custom-theme='light'] .js-plotly-plot .xtick text, .stApp[data-custom-theme='light'] .js-plotly-plot .ytick text, .stApp[data-custom-theme='light'] .js-plotly-plot .legendtext { fill: #1e293b !important; font-weight: 500 !important; }
-    .stApp[data-custom-theme='light'] [data-testid="collapsedControl"] svg, .stApp[data-custom-theme='light'] [data-testid="stToolbar"] svg { fill: #1e293b !important; color: #1e293b !important; }
-    .stApp[data-custom-theme='dark'] [data-testid="collapsedControl"] svg, .stApp[data-custom-theme='dark'] [data-testid="stToolbar"] svg { fill: #e2e8f0 !important; color: #e2e8f0 !important; }
 
     .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; }
     .agent-status-node.success { background: rgba(0, 255, 204, 0.1); border-left-color: #00ffcc; color: #00ffcc; }
@@ -870,9 +877,13 @@ elif selected_page == PAGES[4]:
 
 elif selected_page == PAGES[5]:
     with st.spinner("唤醒深度学习底层张量引擎..."):
-        import torch
-        import torch.nn as nn
-        from sklearn.preprocessing import MinMaxScaler
+        try:
+            import torch
+            import torch.nn as nn
+            from sklearn.preprocessing import MinMaxScaler
+        except ImportError:
+            st.error("🚨 需安装 torch 和 scikit-learn！")
+            st.stop()
 
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>',
@@ -1047,7 +1058,7 @@ elif selected_page == PAGES[5]:
 基于【{model_desc}】深度学习架构的自回归推演，得出：未来1天预测价为 {day1_pred:.2f}元，未来5天预测价为 {day5_pred:.2f}元。
 【模型信誉档案】：该模型在过去100天的历史拟合中，涨跌方向预测胜率为 {success_rate:.1f}%，平均绝对价格偏差度为 {mape:.2f}%。
 请你用大白话（限200字以内，绝对不能包含代码），向小白用户解释这个预测走势。
-关键要求：必须明确提到“{success_rate:.1f}%的胜率”和“{mape:.2f}%的偏差度”，并以此作为依据告诉用户这个预测结论“可信度有多高”，给出您的终极操作建议。"""
+给出您的终极操作建议。"""
                     try:
                         stream = client.chat.completions.create(
                             model="moonshot-v1-8k",
@@ -1125,3 +1136,10 @@ elif selected_page == PAGES[9]:
         extensions.render_new_features_page()
     else:
         st.error("🧩 扩展模块加载失败，请检查 `extensions.py` 文件是否存在。")
+
+# 🔥 预留接口 3：如果侧边栏点击了未来新建的页面，则自动通过 custom_plugins 渲染 🔥
+else:
+    if custom_plugins and hasattr(custom_plugins, 'route_and_render'):
+        custom_plugins.route_and_render(selected_page)
+    else:
+        st.error("🚧 该板块属于外部插件模块。请在同一目录下创建 `custom_plugins.py` 文件并实现接入接口！")
