@@ -10,14 +10,21 @@ import pandas as pd
 import numpy as np
 import time
 import traceback
-
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import math
 import re
 from datetime import datetime
 
-# 🔥 引入开源神兵 AkShare 🔥
+# 🔥 提速核武 3：安全兼容版 Fragment 装饰器，实现沙盘无闪烁局部刷新 🔥
+try:
+    from streamlit import fragment as st_fragment
+except ImportError:
+    try:
+        from streamlit import experimental_fragment as st_fragment
+    except ImportError:
+        # 如果用户的 Streamlit 版本太低，则降级为普通函数，确保代码绝不报错
+        st_fragment = lambda f: f
+
+    # 引入开源神兵 AkShare
 try:
     import akshare as ak
 
@@ -320,9 +327,10 @@ def safe_exec_fut_strategy(code, df):
 
 
 def render_fut_charts(df):
-    """
-    🔥 终极真空折叠引擎：完美消除非交易时间空白，实现 K 线全局自适应！
-    """
+    # 将巨型依赖的导入延迟到这里，极大加速页面首开速度
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+
     main_inds = [c for c in df.columns if c.startswith('MAIN_')]
     sub_groups = {}
     for c in df.columns:
@@ -333,7 +341,6 @@ def render_fut_charts(df):
     fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.03,
                         row_heights=[0.5, 0.15] + [0.35 / max(1, len(sub_groups))] * len(sub_groups))
 
-    # 核心黑科技1：将连续的 datetime 对象强制转化为离散的“字符串标签” (Category)
     if df['trade_date'].dt.time.nunique() <= 1:
         x_labels = df['trade_date'].dt.strftime('%Y-%m-%d')
     else:
@@ -349,7 +356,6 @@ def render_fut_charts(df):
     if 'Signal' in df.columns:
         buys, sells = df[df['Signal'] == 1], df[df['Signal'] == -1]
 
-        # 对应地转换买卖点的坐标
         if df['trade_date'].dt.time.nunique() <= 1:
             buy_x = buys['trade_date'].dt.strftime('%Y-%m-%d')
             sell_x = sells['trade_date'].dt.strftime('%Y-%m-%d')
@@ -386,7 +392,6 @@ def render_fut_charts(df):
         hovermode='x', showlegend=False, margin=dict(l=10, r=10, t=10, b=10)
     )
 
-    # 核心黑科技2：强制开启 Category (类别) 模式，并自动抽样显示标签 (nticks) 防止重叠
     fig.update_xaxes(type='category', categoryorder='array', categoryarray=x_labels, nticks=8, showgrid=True,
                      gridwidth=1, gridcolor='rgba(128,128,128,0.2)', tickangle=0)
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
@@ -523,7 +528,7 @@ def render_futures_backtest():
         start_year = int(datetime.now().year - span_mapping[span_choice])
         start_date_str = f"{start_year}0101"
 
-        margin_input_str = st.text_input("⚖️ 保证金比例 (%)", value="", placeholder="留空默认 12%")
+        margin_input_str = st.text_input("⚖️ 保证金比例 (%)", value="", placeholder="留空默认自动计算")
         multiplier_input_str = st.text_input("🔢 合约乘数 (吨/手)", value="", placeholder="留空自动匹配对应品种")
 
         if st.button("🚀 开始穿透回测", type="primary", use_container_width=True):
@@ -557,8 +562,7 @@ def render_futures_backtest():
 
                     if df is None or df.empty:
                         st.warning(
-                            f"⚠️ **触发容灾机制**：AkShare 接口未返回 `{real_code}` 的真实数据（可能合约尚未上市或输入错误）。\n\n系统已自动启动【底层沙盒模拟引擎】，为您瞬间生成逼真的 **{freq_choice}** 高频推演数据！")
-
+                            f"⚠️ **触发容灾机制**：AkShare 接口未返回 `{real_code}` 的真实数据。\n\n系统已自动启动【底层沙盒模拟引擎】，为您瞬间生成逼真的 **{freq_choice}** 高频推演数据！")
                         base_p = 3000 if 'RB' in real_code else (800 if 'I' in real_code else 2000)
                         volatility = base_p * 0.0015
 
@@ -691,6 +695,10 @@ def render_futures_backtest():
             """, unsafe_allow_html=True)
 
 
+# ==========================================
+# 🔥 核心引擎 3：期货高频沙盘 (加装 Fragment 防闪烁黑科技)
+# ==========================================
+@st_fragment
 def render_futures_sandbox():
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🌪️ 期货高频沙盘模拟推演</h3><p class="sub-text">Tick 级盘口模拟、毫秒级信号响应测试与动态滑点侦测。</p></div>',
@@ -719,6 +727,9 @@ def render_futures_sandbox():
         tick_history = []
 
         while is_running:
+            # 引入更昂贵的绘图库在这里以懒加载方式启动，加速首屏
+            import plotly.graph_objects as go
+
             price_change = np.random.choice([-3, -2, -1, 0, 1, 2, 3])
             current_price += price_change
             tick_history.append(current_price)
