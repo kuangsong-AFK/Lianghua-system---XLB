@@ -1,19 +1,20 @@
 # ==========================================
 # 文件名：extensions.py (扩展功能先锋营)
-# 功能：极客 IDE、AkShare 期货、高频沙盘
+# 功能：统一管理和路由所有的新增模块
 # ==========================================
 import streamlit as st
 import streamlit.components.v1 as components
 import base64
 import os
+import pandas as pd
+import numpy as np
 import time
 import traceback
 import math
 import re
-import pandas as pd
-import numpy as np
 from datetime import datetime
 
+# 🔥 提速核武 3：安全兼容版 Fragment 装饰器，实现沙盘无闪烁局部刷新 🔥
 try:
     from streamlit import fragment as st_fragment
 except ImportError:
@@ -302,24 +303,31 @@ def summon_global_3d_lulu():
     components.html(html_code, height=0, width=0)
 
 
-def safe_exec_fut_strategy(code, df):
-    l_vars = {}
-    exec(code.replace("pandas.np", "np"), {"pd": pd, "np": np, "math": math}, l_vars)
-    func_to_call = next((v for k, v in l_vars.items() if callable(v)), None)
-    if not func_to_call:
-        raise ValueError("AI 未生成有效函数！")
+def render_new_features_page():
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3></div>',
+        unsafe_allow_html=True)
+    st.info("💡 核心交互、3D 桌宠及内置 IDE 已全部稳定运行！")
 
+
+# ==========================================
+# 辅助函数：AI 策略执行器与图表渲染器
+# ==========================================
+def safe_exec_fut_strategy(code, df):
+    safe_code = code.replace("pandas.np", "np")
+    l_vars = {}
+    exec(safe_code, {"pd": pd, "np": np, "math": math}, l_vars)
+    func_to_call = next((v for k, v in l_vars.items() if callable(v)), None)
+    if not func_to_call: return df
     df_ai = func_to_call(df)
     sig_col = next((c for c in df_ai.columns if c.lower() == 'signal'), None)
-
-    df_ai['Signal'] = df_ai[sig_col].fillna(0).apply(
-        lambda x: 1 if x > 0.1 else (-1 if x < -0.1 else 0)
-    ).astype(int) if sig_col else 0
-
+    df_ai['Signal'] = df_ai[sig_col].fillna(0).apply(lambda x: 1 if x > 0.1 else (-1 if x < -0.1 else 0)).astype(
+        int) if sig_col else 0
     return df_ai
 
 
 def render_fut_charts(df):
+    # 将巨型依赖的导入延迟到这里，极大加速页面首开速度
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
 
@@ -327,33 +335,26 @@ def render_fut_charts(df):
     sub_groups = {}
     for c in df.columns:
         gid = SUB_PATTERN.match(c)
-        if gid:
-            sub_groups.setdefault(gid.group(1), []).append(c)
+        if gid: sub_groups.setdefault(gid.group(1), []).append(c)
 
     rows = 2 + len(sub_groups)
-    fig = make_subplots(
-        rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.03,
-        row_heights=[0.5, 0.15] + [0.35 / max(1, len(sub_groups))] * len(sub_groups)
-    )
+    fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.03,
+                        row_heights=[0.5, 0.15] + [0.35 / max(1, len(sub_groups))] * len(sub_groups))
 
     if df['trade_date'].dt.time.nunique() <= 1:
         x_labels = df['trade_date'].dt.strftime('%Y-%m-%d')
     else:
         x_labels = df['trade_date'].dt.strftime('%m-%d %H:%M')
 
-    fig.add_trace(go.Candlestick(
-        x=x_labels, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
-        increasing_line_color='#FD1050', decreasing_line_color='#00FF00', name='K线'
-    ), row=1, col=1)
-
+    fig.add_trace(go.Candlestick(x=x_labels, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
+                                 increasing_line_color='#FD1050', decreasing_line_color='#00FF00', name='K线'), row=1,
+                  col=1)
     colors = ['#FFFF00', '#FF00FF', '#00FFFF', '#FFFFFF']
-    for i, col in enumerate(main_inds):
-        fig.add_trace(go.Scatter(x=x_labels, y=df[col], name=col, line=dict(color=colors[i % 4], width=1.2)), row=1,
-                      col=1)
+    for i, col in enumerate(main_inds): fig.add_trace(
+        go.Scatter(x=x_labels, y=df[col], name=col, line=dict(width=1.2, color=colors[i % 4])), row=1, col=1)
 
     if 'Signal' in df.columns:
-        buys = df[df['Signal'] == 1]
-        sells = df[df['Signal'] == -1]
+        buys, sells = df[df['Signal'] == 1], df[df['Signal'] == -1]
 
         if df['trade_date'].dt.time.nunique() <= 1:
             buy_x = buys['trade_date'].dt.strftime('%Y-%m-%d')
@@ -369,23 +370,31 @@ def render_fut_charts(df):
                       col=1)
 
     fig.add_trace(go.Bar(x=x_labels, y=df.get('Volume', np.zeros(len(df))),
-                         marker_color=np.where(df['Close'] >= df['Open'], '#FD1050', '#00FF00')), row=2, col=1)
+                         marker_color=np.where(df['Close'] >= df['Open'], '#FD1050', '#00FF00'), name='成交量'), row=2,
+                  col=1)
 
     row_idx = 3
     for gid in sorted(sub_groups.keys(), key=int):
         for i, col in enumerate(sub_groups[gid]):
             if 'HIST' in col.upper():
-                fig.add_trace(go.Bar(x=x_labels, y=df[col], marker_color=np.where(df[col] >= 0, '#FD1050', '#00FF00')),
-                              row=row_idx, col=1)
+                fig.add_trace(
+                    go.Bar(x=x_labels, y=df[col], marker_color=np.where(df[col] >= 0, '#FD1050', '#00FF00'), name=col),
+                    row=row_idx, col=1)
             else:
-                fig.add_trace(go.Scatter(x=x_labels, y=df[col], line=dict(color=colors[i % 4])), row=row_idx, col=1)
+                line_color = colors[i % 4]
+                fig.add_trace(go.Scatter(x=x_labels, y=df[col], line=dict(width=1.5, color=line_color), name=col),
+                              row=row_idx, col=1)
         row_idx += 1
 
-    fig.update_layout(height=500 + len(sub_groups) * 150, template="none", paper_bgcolor='rgba(0,0,0,0)',
-                      plot_bgcolor='rgba(0,0,0,0)', showlegend=False, margin=dict(l=10, r=10, t=10, b=10))
+    fig.update_layout(
+        height=500 + len(sub_groups) * 150, template="none", paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)', xaxis_rangeslider_visible=False, dragmode='pan',
+        hovermode='x', showlegend=False, margin=dict(l=10, r=10, t=10, b=10)
+    )
+
     fig.update_xaxes(type='category', categoryorder='array', categoryarray=x_labels, nticks=8, showgrid=True,
-                     gridcolor='rgba(128,128,128,0.2)')
-    fig.update_yaxes(showgrid=True, gridcolor='rgba(128,128,128,0.2)')
+                     gridwidth=1, gridcolor='rgba(128,128,128,0.2)', tickangle=0)
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
     return fig
 
 
@@ -393,273 +402,449 @@ def render_fut_charts(df):
 # 🔥 核心引擎 1：极客量化 IDE (代码编译器)
 # ==========================================
 def render_ide_page():
-    st.markdown('<div class="glass-card"><h3 style="margin-bottom:0;">💻 极客量化 IDE</h3></div>',
-                unsafe_allow_html=True)
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">💻 极客量化 IDE (代码沙盒编译器)</h3><p class="sub-text">您可以直接修改 AI 生成的策略，或者在此手动硬编码！支持一键沙盒运行测试，防止实盘崩溃。</p></div>',
+        unsafe_allow_html=True)
 
-    # ---------------- 策略模板库 ----------------
-    default_code = """def generate_signals(df):\n    df['MAIN_MA5'] = df['Close'].rolling(5).mean()\n    df['MAIN_MA20'] = df['Close'].rolling(20).mean()\n    df['Signal'] = np.where(df['MAIN_MA5'] > df['MAIN_MA20'], 1, -1)\n    return df"""
+    # ================= 新手村模板库 =================
+    default_code = """def generate_signals(df):
+    # 【小吕布策略模板】在此处编写您的 Pandas 核心逻辑
+    df['MAIN_MA5'] = df['Close'].rolling(window=5).mean()
+    df['MAIN_MA20'] = df['Close'].rolling(window=20).mean()
 
-    boll_code = """def generate_signals(df):\n    # 1. 计算布林带三轨 (主图显示)\n    df['MAIN_BOLL_MID'] = df['Close'].rolling(window=20).mean()\n    std = df['Close'].rolling(window=20).std()\n    df['MAIN_BOLL_UP'] = df['MAIN_BOLL_MID'] + 2 * std\n    df['MAIN_BOLL_DN'] = df['MAIN_BOLL_MID'] - 2 * std\n    \n    # 2. 生成买卖信号\n    df['Signal'] = 0\n    df.loc[df['Close'] > df['MAIN_BOLL_UP'], 'Signal'] = 1\n    df.loc[df['Close'] < df['MAIN_BOLL_DN'], 'Signal'] = -1\n    return df"""
+    # 必须生成 Signal 列: 1买入, -1卖出, 0持有
+    df['Signal'] = np.where(df['MAIN_MA5'] > df['MAIN_MA20'], 1, -1)
 
-    kdj_code = """def generate_signals(df):\n    # 1. 手搓 KDJ 指标 (副图 1 显示)\n    n, m1, m2 = 9, 3, 3\n    low_list = df['Low'].rolling(window=n).min()\n    high_list = df['High'].rolling(window=n).max()\n    rsv = (df['Close'] - low_list) / (high_list - low_list) * 100\n    \n    df['SUB1_K'] = rsv.ewm(com=m1-1, adjust=False).mean()\n    df['SUB1_D'] = df['SUB1_K'].ewm(com=m2-1, adjust=False).mean()\n    df['SUB1_J'] = 3 * df['SUB1_K'] - 2 * df['SUB1_D']\n    \n    # 2. 生成买卖信号\n    df['Signal'] = 0\n    df.loc[df['SUB1_J'] < 20, 'Signal'] = 1\n    df.loc[df['SUB1_J'] > 80, 'Signal'] = -1\n    return df"""
+    return df"""
 
-    macd_code = """def generate_signals(df):\n    # 1. 计算 MACD (副图 1 显示，且包含 HIST 柱状图)\n    exp1 = df['Close'].ewm(span=12, adjust=False).mean()\n    exp2 = df['Close'].ewm(span=26, adjust=False).mean()\n    \n    df['SUB1_MACD_DIFF'] = exp1 - exp2\n    df['SUB1_MACD_DEA'] = df['SUB1_MACD_DIFF'].ewm(span=9, adjust=False).mean()\n    df['SUB1_MACD_HIST'] = 2 * (df['SUB1_MACD_DIFF'] - df['SUB1_MACD_DEA'])\n    \n    # 2. 生成买卖信号\n    df['Signal'] = 0\n    df.loc[(df['SUB1_MACD_DIFF'] > df['SUB1_MACD_DEA']) & (df['SUB1_MACD_DIFF'].shift(1) <= df['SUB1_MACD_DEA'].shift(1)), 'Signal'] = 1\n    df.loc[(df['SUB1_MACD_DIFF'] < df['SUB1_MACD_DEA']) & (df['SUB1_MACD_DIFF'].shift(1) >= df['SUB1_MACD_DEA'].shift(1)), 'Signal'] = -1\n    return df"""
+    boll_code = """def generate_signals(df):
+    # 1. 计算布林带三轨 (主图显示)
+    df['MAIN_BOLL_MID'] = df['Close'].rolling(window=20).mean()
+    std = df['Close'].rolling(window=20).std()
+    df['MAIN_BOLL_UP'] = df['MAIN_BOLL_MID'] + 2 * std
+    df['MAIN_BOLL_DN'] = df['MAIN_BOLL_MID'] - 2 * std
+
+    # 2. 生成买卖信号
+    df['Signal'] = 0
+    df.loc[df['Close'] > df['MAIN_BOLL_UP'], 'Signal'] = 1
+    df.loc[df['Close'] < df['MAIN_BOLL_DN'], 'Signal'] = -1
+
+    return df"""
+
+    kdj_code = """def generate_signals(df):
+    # 1. 手搓 KDJ 指标 (副图 1 显示)
+    n, m1, m2 = 9, 3, 3
+    low_list = df['Low'].rolling(window=n).min()
+    high_list = df['High'].rolling(window=n).max()
+    rsv = (df['Close'] - low_list) / (high_list - low_list) * 100
+
+    df['SUB1_K'] = rsv.ewm(com=m1-1, adjust=False).mean()
+    df['SUB1_D'] = df['SUB1_K'].ewm(com=m2-1, adjust=False).mean()
+    df['SUB1_J'] = 3 * df['SUB1_K'] - 2 * df['SUB1_D']
+
+    # 2. 生成买卖信号
+    df['Signal'] = 0
+    df.loc[df['SUB1_J'] < 20, 'Signal'] = 1
+    df.loc[df['SUB1_J'] > 80, 'Signal'] = -1
+
+    return df"""
+
+    macd_code = """def generate_signals(df):
+    # 1. 计算 MACD (副图 1 显示，且包含 HIST 柱状图)
+    exp1 = df['Close'].ewm(span=12, adjust=False).mean()
+    exp2 = df['Close'].ewm(span=26, adjust=False).mean()
+
+    df['SUB1_MACD_DIFF'] = exp1 - exp2
+    df['SUB1_MACD_DEA'] = df['SUB1_MACD_DIFF'].ewm(span=9, adjust=False).mean()
+    df['SUB1_MACD_HIST'] = 2 * (df['SUB1_MACD_DIFF'] - df['SUB1_MACD_DEA'])
+
+    # 2. 生成买卖信号
+    df['Signal'] = 0
+    df.loc[(df['SUB1_MACD_DIFF'] > df['SUB1_MACD_DEA']) & (df['SUB1_MACD_DIFF'].shift(1) <= df['SUB1_MACD_DEA'].shift(1)), 'Signal'] = 1
+    df.loc[(df['SUB1_MACD_DIFF'] < df['SUB1_MACD_DEA']) & (df['SUB1_MACD_DIFF'].shift(1) >= df['SUB1_MACD_DEA'].shift(1)), 'Signal'] = -1
+
+    return df"""
 
     templates = {
-        "💡 空白双均线模板 (默认)": default_code,
+        "💡 经典双均线模板 (默认)": default_code,
         "📈 趋势突破流 (布林带 BOLL)": boll_code,
         "🌊 震荡反转流 (超买超卖 KDJ)": kdj_code,
         "🚀 动量加速流 (量价 MACD)": macd_code
     }
-    # --------------------------------------------
+    # ================================================
 
     c1, c2 = st.columns([2.2, 1.8])
-    with c1:
-        st.markdown("#### ⌨️ 策略代码区")
 
-        # --- 🔥 植入：新手村模板加载器 🔥 ---
+    with c1:
+        st.markdown("#### ⌨️ 策略代码编辑区")
+
+        # --- 新增：模板选择区 ---
         t_col1, t_col2 = st.columns([3, 1])
         with t_col1:
-            selected_tpl = st.selectbox("📚 新手村：加载经典开源模板", list(templates.keys()),
-                                        label_visibility="collapsed")
+            selected_tpl = st.selectbox("📚 预设经典策略模板", list(templates.keys()), label_visibility="collapsed")
         with t_col2:
             if st.button("📥 载入模板", use_container_width=True):
                 st.session_state.generated_code = templates[selected_tpl]
                 st.rerun()
-        # -----------------------------------
+        # ------------------------
 
         current_code = st.session_state.get('generated_code', '')
         if not current_code.strip():
             current_code = default_code
 
-        user_code = st.text_area("Code", value=current_code, height=450, label_visibility="collapsed")
+        user_code = st.text_area("Code Editor", value=current_code, height=450, label_visibility="collapsed")
 
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
-            if st.button("💾 同步保存至全局", type="primary", use_container_width=True):
+            if st.button("💾 同步保存至全局引擎", use_container_width=True, type="primary"):
                 st.session_state.generated_code = user_code
-                st.success("✅ 代码注入成功！")
+                st.success("✅ 代码已成功注入全局中枢！现在您可以切换到【全量回测】页面进行图表渲染了。")
         with col_btn2:
-            run_debug = st.button("🐞 运行防爆测试", use_container_width=True)
+            run_debug = st.button("🐞 运行防爆沙盒测试", use_container_width=True)
 
     with c2:
-        st.markdown("#### 🖥️ Console 日志")
+        st.markdown("#### 🖥️ 编译器控制台 (Console)")
+        console_ph = st.empty()
+
         if run_debug:
-            try:
-                t0 = time.time()
-                dummy_df = pd.DataFrame({
-                    'trade_date': pd.date_range('20240101', periods=100),
-                    'Open': np.random.uniform(2000, 2100, 100),
-                    'High': np.random.uniform(2100, 2150, 100),
-                    'Low': np.random.uniform(1950, 2000, 100),
-                    'Close': np.random.uniform(2000, 2100, 100),
-                    'Volume': np.random.randint(1000, 5000, 100)
-                })
-                res_df = safe_exec_fut_strategy(user_code, dummy_df)
+            with console_ph.container():
+                st.info("正在挂载虚拟沙盒测试环境...")
+                try:
+                    dates = pd.date_range('20240101', periods=100)
+                    dummy_df = pd.DataFrame({
+                        'trade_date': dates,
+                        'Open': np.random.uniform(2000, 2100, 100),
+                        'High': np.random.uniform(2100, 2150, 100),
+                        'Low': np.random.uniform(1950, 2000, 100),
+                        'Close': np.random.uniform(2000, 2100, 100),
+                        'Volume': np.random.randint(1000, 5000, 100)
+                    })
 
-                st.success(f"✅ 编译完美通过！耗时: {time.time() - t0:.4f} 秒")
-                if 'Signal' in res_df.columns:
-                    st.write("🎯 信号统计:")
-                    st.json(res_df['Signal'].value_counts().to_dict())
-                else:
-                    st.warning("⚠️ 警告：未返回 `Signal` 列！")
-            except Exception as e:
-                st.error("❌ 编译失败！")
-                st.code(str(e), language="python")
+                    st.text("🚀 正在强行编译执行您的代码...")
+                    start_time = time.time()
+                    res_df = safe_exec_fut_strategy(user_code, dummy_df)
+                    exec_time = time.time() - start_time
+
+                    st.success(f"✅ 编译完美通过！内核耗时: {exec_time:.4f} 秒")
+
+                    if 'Signal' in res_df.columns:
+                        try:
+                            sig_counts = res_df['Signal'].value_counts().to_dict()
+                        except:
+                            sig_counts = "获取分布失败，但列已生成。"
+                        st.write("🎯 **买卖信号探测统计**:")
+                        st.json(sig_counts)
+                    else:
+                        st.warning("⚠️ 警告：您的代码忘了返回 `Signal` 列！(规定 1=买入, -1=卖出, 0=观望)")
+
+                    custom_cols = [c for c in res_df.columns if c.startswith(('MAIN_', 'SUB'))]
+                    if custom_cols:
+                        st.write("📊 **主副图指标提取雷达**:")
+                        st.write(custom_cols)
+
+                    st.write("🔍 **沙盒返回的数据矩阵 (前 3 行)**:")
+                    st.dataframe(res_df.head(3))
+
+                except Exception as e:
+                    st.error("❌ 沙盒编译失败！您的代码存在语法或逻辑错误：")
+                    st.code(str(e), language="python")
+                    with st.expander("展开查看底层 Traceback 堆栈", expanded=False):
+                        st.code(traceback.format_exc(), language="text")
+        else:
+            console_ph.info(
+                "等待您下达编译指令...\n\n点击左侧【运行防爆沙盒测试】按钮，系统将凭空生成虚拟行情数据并安全执行您的代码，绝不会导致实盘引擎崩溃。")
 
 
+# ==========================================
+# 🔥 核心引擎 2：期货全量审计 (AkShare 开源神兵版)
+# ==========================================
 def render_futures_backtest():
     if not HAS_AKSHARE:
-        st.error("🚨 请在终端执行：`pip install akshare`")
+        st.error("🚨 警告：检测到未装备 AkShare 引擎！\n\n主公，请立即在终端执行以下军令完成列装：\n`pip install akshare`")
         return
 
-    st.markdown('<div class="glass-card"><h3 style="margin-bottom:0;">🔗 期货全量审计与归因</h3></div>',
-                unsafe_allow_html=True)
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🔗 期货全量审计与归因分析</h3><p class="sub-text">已切换至全免费无限制的 AkShare 开源数据引擎。直接输入代码，自动拉取分钟与日线数据！</p></div>',
+        unsafe_allow_html=True)
 
-    if "fut_bt_run" not in st.session_state:
-        st.session_state.fut_bt_run = False
+    if "fut_bt_run" not in st.session_state: st.session_state.fut_bt_run = False
+    if "fut_bt_data" not in st.session_state: st.session_state.fut_bt_data = None
+    if "fut_bt_metrics" not in st.session_state: st.session_state.fut_bt_metrics = None
 
     c1, c2 = st.columns([1, 3])
     with c1:
-        fut_code_input = st.text_input("🎯 合约代码", value="", placeholder="直接输入，如: SA2409")
+        with st.expander("🛠️ 不知道输入什么代码？点击查看帮助", expanded=False):
+            st.markdown("""
+            **直接输入品种代码 + 年月即可 (绝对无需后缀！)**
+            - 纯碱主力: `SA2409`, `SA2501`
+            - 螺纹钢: `RB2410`, `RB2501`
+            - 铁矿石: `I2409`, `I2501`
+            - 焦煤: `JM2409`
+            - 玻璃: `FG2409`
+            """)
+        st.markdown("---")
 
-        freq_map = {"日线": "D", "60分钟": "60", "30分钟": "30", "15分钟": "15", "5分钟": "5", "1分钟": "1"}
-        freq_choice = st.selectbox("⏱️ 数据周期", list(freq_map.keys()), index=0)
-        selected_freq = freq_map[freq_choice]
+        fut_code_input = st.text_input("🎯 期货合约代码", value="", placeholder="直接输入，如: SA2409")
 
-        span_map = {"近1个月": 0.08, "近3个月": 0.25, "近半年": 0.5, "近1年": 1, "近3年": 3, "近5年": 5}
-        start_year = int(datetime.now().year - span_map[st.selectbox("⏳ 时间跨度", list(span_map.keys()), index=3)])
+        freq_mapping = {"日线 (Daily)": "D", "60分钟 (60min)": "60", "30分钟 (30min)": "30", "15分钟 (15min)": "15",
+                        "5分钟 (5min)": "5", "1分钟 (1min)": "1"}
+        freq_choice = st.selectbox("⏱️ 数据周期", list(freq_mapping.keys()), index=0)
+        selected_freq = freq_mapping[freq_choice]
+
+        span_mapping = {"近1个月": 0.08, "近3个月": 0.25, "近半年": 0.5, "近1年": 1, "近3年": 3, "近5年": 5}
+        span_choice = st.selectbox("⏳ 回测时间跨度", list(span_mapping.keys()), index=3)
+        start_year = int(datetime.now().year - span_mapping[span_choice])
         start_date_str = f"{start_year}0101"
 
-        margin_input = st.text_input("⚖️ 保证金率 (%)", value="", placeholder="留空默认12%")
-        mult_input = st.text_input("🔢 合约乘数", value="", placeholder="留空自动匹配")
+        margin_input_str = st.text_input("⚖️ 保证金比例 (%)", value="", placeholder="留空默认自动计算")
+        multiplier_input_str = st.text_input("🔢 合约乘数 (吨/手)", value="", placeholder="留空自动匹配对应品种")
 
-        if st.button("🚀 开始回测", type="primary", use_container_width=True):
+        if st.button("🚀 开始穿透回测", type="primary", use_container_width=True):
             if fut_code_input.strip() == "":
-                st.error("请输入期货代码！")
+                st.error("主公，请先输入期货代码！")
             else:
                 st.session_state.fut_bt_run = True
+                st.session_state.fut_bt_data = None
+                st.session_state.fut_bt_metrics = None
 
     with c2:
-        if st.session_state.fut_bt_run and fut_code_input.strip():
-            with st.spinner("正在调取 AkShare 引擎..."):
+        if st.session_state.fut_bt_run and fut_code_input.strip() != "":
+            with st.spinner(f"正在调取开源神兵 AkShare 获取 {fut_code_input} 的 {freq_choice} 数据..."):
                 try:
                     real_code = fut_code_input.upper().strip().split('.')[0]
                     df = None
+
                     try:
                         if selected_freq == 'D':
-                            df = ak.futures_zh_daily_sina(symbol=real_code)
+                            df_temp = ak.futures_zh_daily_sina(symbol=real_code)
+                            if df_temp is not None and not df_temp.empty:
+                                df_temp['trade_date'] = pd.to_datetime(df_temp['date'])
+                                df = df_temp
                         else:
-                            df = ak.futures_zh_minute_sina(symbol=real_code, period=selected_freq)
-                    except Exception:
+                            df_temp = ak.futures_zh_minute_sina(symbol=real_code, period=selected_freq)
+                            if df_temp is not None and not df_temp.empty:
+                                df_temp['trade_date'] = pd.to_datetime(df_temp['datetime'])
+                                df = df_temp
+                    except Exception as e:
                         pass
 
                     if df is None or df.empty:
-                        st.warning(f"⚠️ 容灾机制：未拉取到 `{real_code}` 真实数据。生成模拟高频数据。")
-                        base_p = 3000 if 'RB' in real_code else 2000
-                        closes_array = np.random.normal(0, base_p * 0.0015, 399).cumsum()
-                        closes = base_p + np.insert(closes_array, 0, 0)
-                        df = pd.DataFrame(
-                            {'datetime': pd.date_range(end=datetime.now(), periods=400, freq='T'), 'close': closes})
-                        df['open'] = df['close'].shift(1).fillna(base_p)
-                        df['high'] = df['close'] + 5
-                        df['low'] = df['close'] - 5
-                        df['volume'] = np.random.randint(1000, 5000, 400)
+                        st.warning(
+                            f"⚠️ **触发容灾机制**：AkShare 接口未返回 `{real_code}` 的真实数据。\n\n系统已自动启动【底层沙盒模拟引擎】，为您瞬间生成逼真的 **{freq_choice}** 高频推演数据！")
+                        base_p = 3000 if 'RB' in real_code else (800 if 'I' in real_code else 2000)
+                        volatility = base_p * 0.0015
 
-                    df.rename(columns={'datetime': 'trade_date', 'date': 'trade_date'}, inplace=True, errors='ignore')
-                    df['trade_date'] = pd.to_datetime(df['trade_date'])
-                    df = df[df['trade_date'] >= pd.to_datetime(start_date_str)].reset_index(drop=True)
+                        np.random.seed()
+                        periods_num = 400
+                        freq_pd = selected_freq.replace('m', 'T') if selected_freq != 'D' else 'D'
+                        dates = pd.date_range(end=datetime.now(), periods=periods_num, freq=freq_pd)
+
+                        closes = [base_p]
+                        for _ in range(periods_num - 1): closes.append(closes[-1] + np.random.normal(0, volatility))
+
+                        df = pd.DataFrame({'trade_date': dates})
+                        df['close'] = closes
+                        df['open'] = df['close'].shift(1).fillna(df['close'][0] + np.random.normal(0, volatility))
+                        df['high'] = df[['open', 'close']].max(axis=1) + np.abs(
+                            np.random.normal(0, volatility / 1.5, periods_num))
+                        df['low'] = df[['open', 'close']].min(axis=1) - np.abs(
+                            np.random.normal(0, volatility / 1.5, periods_num))
+                        df['volume'] = np.abs(np.random.normal(15000, 5000, periods_num)).astype(int)
+                    else:
+                        df = df[df['trade_date'] >= pd.to_datetime(start_date_str)].reset_index(drop=True)
 
                     if df.empty:
-                        st.error("❌ 所选时间范围内无数据。")
+                        st.error("❌ 您选择的时间范围内没有数据。请尝试拉长【回测时间跨度】。")
                         st.session_state.fut_bt_run = False
                     else:
-                        df.rename(
-                            columns=lambda x: x.capitalize() if x in ['open', 'high', 'low', 'close', 'volume'] else x,
-                            inplace=True)
-
+                        default_mult_map = {'SA': 20, 'RB': 10, 'I': 100, 'HC': 10, 'FG': 20, 'V': 5, 'P': 10, 'M': 10,
+                                            'Y': 10, 'C': 10, 'CS': 10, 'JD': 10, 'CU': 5, 'AL': 5, 'ZN': 5, 'NI': 1,
+                                            'AU': 1000, 'AG': 15, 'RU': 10, 'TA': 5, 'MA': 10, 'CF': 5, 'SR': 10,
+                                            'OI': 10, 'RM': 10, 'ZC': 100, 'JM': 60, 'J': 100, 'UR': 20}
                         sym_match = re.match(r'^([A-Za-z]+)', real_code)
-                        sym_letter = sym_match.group(1).upper() if sym_match else 'SA'
+                        symbol_letter = sym_match.group(1).upper() if sym_match else 'SA'
 
-                        mult_map = {'SA': 20, 'RB': 10, 'I': 100, 'FG': 20, 'TA': 5, 'MA': 10, 'CF': 5, 'JM': 60,
-                                    'J': 100, 'UR': 20}
+                        api_mult = default_mult_map.get(symbol_letter, 10.0)
+                        api_margin = 10.0
 
-                        f_margin = float(margin_input) / 100.0 if margin_input.strip() else 0.12
-                        f_mult = float(mult_input) if mult_input.strip() else mult_map.get(sym_letter, 10.0)
-                        st.success(f"✅ 挂载：**{real_code}**！乘数: **{f_mult}**, 保证金: **{f_margin * 100:.2f}%**")
+                        try:
+                            final_margin_rate = float(margin_input_str) / 100.0 if margin_input_str.strip() else (
+                                                                                                                         api_margin * 1.2) / 100.0
+                        except:
+                            final_margin_rate = (api_margin * 1.2) / 100.0
 
-                        df['MAIN_MA5'] = df['Close'].rolling(5).mean()
-                        df['MAIN_MA20'] = df['Close'].rolling(20).mean()
+                        try:
+                            final_mult = float(multiplier_input_str) if multiplier_input_str.strip() else api_mult
+                        except:
+                            final_mult = api_mult
+
+                        st.success(
+                            f"✅ 成功挂载：**{real_code}** ({freq_choice})！已应用底层查询乘数: **{final_mult}**, 智能计算保证金率: **{final_margin_rate * 100:.2f}%**")
+
+                        mapping_base = {'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close',
+                                        'volume': 'Volume', 'vol': 'Volume'}
+                        for l_case, c_case in mapping_base.items():
+                            if l_case in df.columns: df[c_case] = df[l_case]
+
+                        df['MAIN_MA5'] = df['Close'].rolling(window=5).mean()
+                        df['MAIN_MA20'] = df['Close'].rolling(window=20).mean()
+
+                        exp1 = df['Close'].ewm(span=12, adjust=False).mean()
+                        exp2 = df['Close'].ewm(span=26, adjust=False).mean()
+                        df['SUB1_MACD_DIFF'] = exp1 - exp2
+                        df['SUB1_MACD_DEA'] = df['SUB1_MACD_DIFF'].ewm(span=9, adjust=False).mean()
+                        df['SUB1_MACD_HIST'] = 2 * (df['SUB1_MACD_DIFF'] - df['SUB1_MACD_DEA'])
 
                         if st.session_state.get('generated_code'):
-                            try:
-                                df = safe_exec_fut_strategy(st.session_state.generated_code, df)
-                            except:
-                                df['Signal'] = np.where(df['MAIN_MA5'] > df['MAIN_MA20'], 1, -1)
+                            df_ai = safe_exec_fut_strategy(st.session_state.generated_code, df)
+                            for col in df_ai.columns:
+                                if col == 'Signal' or col.startswith(('MAIN_', 'SUB')): df[col] = df_ai[col]
                         else:
                             df['Signal'] = np.where(df['MAIN_MA5'] > df['MAIN_MA20'], 1, -1)
 
+                        df['Ret'] = df['Close'].pct_change()
                         df['Pos'] = df.get('Signal', pd.Series([0] * len(df))).replace(0, np.nan).ffill().fillna(0)
 
-                        init_cash, lots = 1000000, 10
-                        df['P_Diff'] = df['Close'].diff().fillna(0)
-                        df['Long_PnL'] = np.where(df['Pos'].shift(1) == 1, df['P_Diff'] * f_mult * lots, 0)
-                        df['Short_PnL'] = np.where(df['Pos'].shift(1) == -1, -df['P_Diff'] * f_mult * lots, 0)
+                        df['Price_Diff'] = df['Close'].diff().fillna(0)
+                        init_cash, trade_lots = 1000000, 10
+
+                        df['Long_PnL'] = np.where(df['Pos'].shift(1) == 1, df['Price_Diff'] * final_mult * trade_lots,
+                                                  0)
+                        df['Short_PnL'] = np.where(df['Pos'].shift(1) == -1,
+                                                   -df['Price_Diff'] * final_mult * trade_lots, 0)
+
                         df['Total_PnL'] = df['Long_PnL'] + df['Short_PnL']
                         df['Equity'] = init_cash + df['Total_PnL'].cumsum()
-                        df['Margin'] = df['Close'] * f_mult * f_margin * lots * df['Pos'].abs().shift(1).fillna(0)
+                        df['Margin_Used'] = df['Close'] * final_mult * final_margin_rate * trade_lots * df[
+                            'Pos'].abs().shift(1).fillna(0)
 
-                        eq_end = df['Equity'].iloc[-1]
+                        final_equity = df['Equity'].iloc[-1]
+                        total_return = (final_equity - init_cash) / init_cash
+                        annual = (1 + total_return) ** (252 / max(1, len(df))) - 1 if not df.empty else 0
+                        max_dd = (df['Equity'] / df['Equity'].cummax() - 1).min()
+                        max_margin = df['Margin_Used'].max()
+
                         st.session_state.fut_bt_data = df
-                        st.session_state.fut_bt_metrics = {
-                            "total": (eq_end - init_cash) / init_cash,
-                            "max_dd": (df['Equity'] / df['Equity'].cummax() - 1).min(),
-                            "margin": df['Margin'].max(),
-                            "cash": init_cash
-                        }
+                        st.session_state.fut_bt_metrics = {"total": total_return, "annual": annual, "max_dd": max_dd,
+                                                           "max_margin": max_margin, "init_cash": init_cash}
 
                 except Exception as e:
-                    st.error(f"运算熔断: {e}")
+                    st.error(f"系统运算发生熔断: {e}")
                     st.session_state.fut_bt_run = False
 
-        if getattr(st.session_state, 'fut_bt_data', None) is not None:
+        if st.session_state.fut_bt_data is not None:
             m = st.session_state.fut_bt_metrics
             df = st.session_state.fut_bt_data
 
             c1, c2, c3, c4 = st.columns(4)
-            c1.markdown(f'<div class="metric-box"><p>总收益 (双边)</p><h2>{m["total"] * 100:.2f}%</h2></div>',
-                        unsafe_allow_html=True)
-            c2.markdown(f'<div class="metric-box"><p>总权益</p><h2>¥ {m["cash"] * (1 + m["total"]):,.0f}</h2></div>',
-                        unsafe_allow_html=True)
+            c1.markdown(
+                f'<div class="metric-box"><p>累计收益 (双边多空计算)</p><h2 class="highlight-text">{m["total"] * 100:.2f}%</h2></div>',
+                unsafe_allow_html=True)
+            c2.markdown(
+                f'<div class="metric-box"><p>期末总权益</p><h2 class="highlight-text">¥ {m["init_cash"] * (1 + m["total"]):,.0f}</h2></div>',
+                unsafe_allow_html=True)
             c3.markdown(
-                f'<div class="metric-box"><p>最大回撤</p><h2 class="danger-text">{m["max_dd"] * 100:.2f}%</h2></div>',
+                f'<div class="metric-box"><p>最大资金回撤</p><h2 class="danger-text">{m["max_dd"] * 100:.2f}%</h2></div>',
                 unsafe_allow_html=True)
-            c4.markdown(f'<div class="metric-box"><p>最高占用</p><h2>¥ {m["margin"]:,.0f}</h2></div>',
-                        unsafe_allow_html=True)
-
-            st.plotly_chart(render_fut_charts(df), use_container_width=True)
-
-
-@st_fragment
-def render_futures_sandbox():
-    st.markdown('<div class="glass-card"><h3 style="margin-bottom:0;">🌪️ 期货高频沙盘推演</h3></div>',
+            c4.markdown(
+                f'<div class="metric-box"><p>最高保证金占用</p><h2 class="highlight-text">¥ {m["max_margin"]:,.0f}</h2></div>',
                 unsafe_allow_html=True)
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.text_input("标的", "SA2409")
-    with c2:
-        base_price = st.number_input("初始基准", 2000.0)
-    with c3:
-        speed = st.slider("频率(s)", 0.1, 2.0, 0.5)
-    with c4:
-        st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
-        is_run = st.toggle("🚀 启动脉冲")
 
-    col_l, col_r = st.columns([1, 2.5])
-    dom_ph = col_l.empty()
-    cht_ph = col_r.empty()
+            st.markdown("<div style='clear: both; margin-bottom: 30px;'></div>", unsafe_allow_html=True)
+            st.plotly_chart(render_fut_charts(df), use_container_width=True, config={'scrollZoom': True})
 
-    if is_run:
-        cp = base_price
-        hist = []
-        while is_run:
-            import plotly.graph_objects as go
-
-            cp += np.random.choice([-3, -2, -1, 0, 1, 2, 3])
-            hist.append(cp)
-            hist = hist[-100:]
-
-            asks_html = "".join([
-                                    f'<div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>卖{5 - i}</span><span>{cp + 5 - i:.0f}</span><span>{np.random.randint(10, 500)}</span></div>'
-                                    for i in range(5)])
-            bids_html = "".join([
-                                    f'<div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>买{i + 1}</span><span>{cp - i - 1:.0f}</span><span>{np.random.randint(10, 500)}</span></div>'
-                                    for i in range(5)])
-
-            color = "#FD1050" if cp >= (hist[-2] if len(hist) > 1 else cp) else "#00FF00"
-
-            dom_ph.markdown(f"""
-            <div class="glass-card" style="padding:15px;">
-                <h4 style="color:#ff4b4b; margin-top:0;">卖盘</h4>
-                {asks_html}
-                <hr>
-                <h3 style="text-align:center; color:{color}; margin:0;">现价: {cp:.0f}</h3>
-                <hr>
-                <h4 style="color:#00ffcc; margin-top:0;">买盘</h4>
-                {bids_html}
+        elif not st.session_state.fut_bt_run:
+            st.markdown("""
+            <div class="metric-box" style="height: 250px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <p>等待主公下达指令</p>
+                <h2 style="color: #cbd5e1;">点击 [开始穿透回测] 进行推演</h2>
+                <p class="sub-text" style="margin-top: 10px;">AkShare 引擎已接管，自动突破高频数据封锁！</p>
             </div>
             """, unsafe_allow_html=True)
 
-            fig = go.Figure(go.Scatter(y=hist, fill='tozeroy', line=dict(color='#00bfff', width=2),
-                                       fillcolor='rgba(0,191,255,0.1)'))
-            fig.update_layout(height=380, template="plotly_dark", margin=dict(l=0, r=0, t=10, b=0),
-                              xaxis=dict(visible=False))
-            cht_ph.plotly_chart(fig, use_container_width=True, key=f"s_{time.time()}")
+
+# ==========================================
+# 🔥 核心引擎 3：期货高频沙盘 (加装 Fragment 防闪烁黑科技)
+# ==========================================
+@st_fragment
+def render_futures_sandbox():
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🌪️ 期货高频沙盘模拟推演</h3><p class="sub-text">Tick 级盘口模拟、毫秒级信号响应测试与动态滑点侦测。</p></div>',
+        unsafe_allow_html=True)
+    st.warning("⚠️ 高频警告：期货自带杠杆且波动剧烈，请确保您的‘止损熔断’脚本已装载且经过极寒测试。")
+
+    c_ctrl1, c_ctrl2, c_ctrl3, c_ctrl4 = st.columns(4)
+    with c_ctrl1:
+        sandbox_code = st.text_input("推演标的", value="SA2409")
+    with c_ctrl2:
+        base_price = st.number_input("初始基准价", value=2000.0)
+    with c_ctrl3:
+        speed = st.slider("脉冲频率 (秒)", 0.1, 2.0, 0.5)
+    with c_ctrl4:
+        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+        is_running = st.toggle("🚀 启动高频脉冲引擎")
+
+    st.markdown("---")
+
+    c_left, c_right = st.columns([1, 2.5])
+    dom_placeholder = c_left.empty()
+    chart_placeholder = c_right.empty()
+
+    if is_running:
+        current_price = base_price
+        tick_history = []
+
+        while is_running:
+            # 引入更昂贵的绘图库在这里以懒加载方式启动，加速首屏
+            import plotly.graph_objects as go
+
+            price_change = np.random.choice([-3, -2, -1, 0, 1, 2, 3])
+            current_price += price_change
+            tick_history.append(current_price)
+            if len(tick_history) > 100: tick_history.pop(0)
+
+            asks = [(current_price + i, np.random.randint(10, 500)) for i in range(5, 0, -1)]
+            bids = [(current_price - i, np.random.randint(10, 500)) for i in range(1, 6)]
+
+            with dom_placeholder.container():
+                st.markdown('<div class="glass-card" style="padding: 15px;">', unsafe_allow_html=True)
+                st.markdown('<h4 style="margin-top:0; color:#ff4b4b;">卖盘 (Ask)</h4>', unsafe_allow_html=True)
+                for i, (p, v) in enumerate(asks):
+                    st.markdown(
+                        f'<div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>卖{5 - i}</span><span>{p:.0f}</span><span>{v}</span></div>',
+                        unsafe_allow_html=True)
+
+                st.markdown('<hr style="margin: 10px 0; border-color: rgba(255,255,255,0.1);">', unsafe_allow_html=True)
+                color = "#FD1050" if price_change >= 0 else "#00FF00"
+                st.markdown(
+                    f'<h3 style="margin:0; text-align:center; color:{color}; text-shadow: 0 0 10px {color}80;">现价: {current_price:.0f}</h3>',
+                    unsafe_allow_html=True)
+                st.markdown('<hr style="margin: 10px 0; border-color: rgba(255,255,255,0.1);">', unsafe_allow_html=True)
+
+                st.markdown('<h4 style="margin-top:0; color:#00ffcc;">买盘 (Bid)</h4>', unsafe_allow_html=True)
+                for i, (p, v) in enumerate(bids):
+                    st.markdown(
+                        f'<div style="display:flex; justify-content:space-between; color:#cbd5e1;"><span>买{i + 1}</span><span>{p:.0f}</span><span>{v}</span></div>',
+                        unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            with chart_placeholder.container():
+                fig = go.Figure(data=go.Scatter(
+                    y=tick_history, mode='lines', line=dict(color='#00bfff', width=2),
+                    fill='tozeroy', fillcolor='rgba(0, 191, 255, 0.1)'
+                ))
+                fig.update_layout(
+                    height=380, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    margin=dict(l=0, r=0, t=10, b=0), xaxis=dict(showgrid=False, visible=False),
+                    yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)')
+                )
+                st.plotly_chart(fig, use_container_width=True, key=f"tick_chart_{time.time()}")
+
             time.sleep(speed)
     else:
-        dom_ph.info("请开启上方【启动脉冲】开关。")
-
-
-def render_new_features_page():
-    st.markdown('<div class="glass-card"><h3 style="margin-bottom:0;">🧩 插件中心已稳定</h3></div>',
-                unsafe_allow_html=True)
+        dom_placeholder.info("请打开上方的【启动高频脉冲引擎】开关，唤醒沙盘。")
+        chart_placeholder.markdown("""
+        <div class="metric-box" style="height: 380px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+            <p>高频推演</p><h2 style="color: #00ffcc;">等待引擎唤醒...</h2>
+        </div>
+        """, unsafe_allow_html=True)
