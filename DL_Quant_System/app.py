@@ -17,10 +17,12 @@ try:
     import extensions
 except ImportError:
     extensions = None
+
 try:
     import PyPDF2
 except ImportError:
     PyPDF2 = None
+
 try:
     import docx
 except ImportError:
@@ -31,7 +33,14 @@ SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 
 st.set_page_config(page_title="小吕布量化 Pro - 毕设版", layout="wide", initial_sidebar_state="expanded")
 ts.set_token("ba486af7606bc2f6018f1d592251a49674132225f59d37b3473d676e")
-pro = st.cache_resource(ts.pro_api)()
+
+
+@st.cache_resource
+def get_ts_api():
+    return ts.pro_api()
+
+
+pro = get_ts_api()
 client = OpenAI(api_key="sk-yS2foVgWtvnFMWKRTLnI6l8NFqFrRiB8ojre75g2mK2P8LBk", base_url="https://api.moonshot.cn/v1",
                 timeout=60.0)
 
@@ -39,17 +48,35 @@ client = OpenAI(api_key="sk-yS2foVgWtvnFMWKRTLnI6l8NFqFrRiB8ojre75g2mK2P8LBk", b
 # 1. 状态机与路由初始化
 # ==========================================
 default_states = {
-    "user_id": f"User_{str(uuid.uuid4())[:6]}", "messages": [], "generated_code": "",
-    "strategy_explanation": "暂无策略解析，请先前往 AI 战情室下达军令。", "dl_result": None,
-    "bt_result": None, "sys_logs": [], "is_live_trading": False,
-    "curr_page": "🏠 系统总览 (监控中控)", "prev_page": "🏠 系统总览 (监控中控)", "just_switched": False
+    "user_id": f"User_{str(uuid.uuid4())[:6]}",
+    "messages": [],
+    "generated_code": "",
+    "strategy_explanation": "暂无策略解析，请先前往 AI 战情室下达军令。",
+    "dl_result": None,
+    "bt_result": None,
+    "sys_logs": [],
+    "is_live_trading": False,
+    "curr_page": "🏠 系统总览 (监控中控)",
+    "prev_page": "🏠 系统总览 (监控中控)",
+    "just_switched": False
 }
-for k, v in default_states.items():
-    if k not in st.session_state: st.session_state[k] = v
 
-PAGES = ["🏠 系统总览 (监控中控)", "🤖 AI 策略引擎 (LLM)", "💻 极客量化 IDE (代码编译)", "📈 深度静态全量回测",
-         "⚡ 实时高频交易 (Live)", "🧠 深度学习预测矩阵", "🛡️ 论文审计日志", "🔗 期货全量审计 (归因)", "🌪️ 期货高频沙盘",
-         "🧩 扩展插件中心"]
+for k, v in default_states.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
+
+PAGES = [
+    "🏠 系统总览 (监控中控)",
+    "🤖 AI 策略引擎 (LLM)",
+    "💻 极客量化 IDE (代码编译)",
+    "📈 深度静态全量回测",
+    "⚡ 实时高频交易 (Live)",
+    "🧠 深度学习预测矩阵",
+    "🛡️ 论文审计日志",
+    "🔗 期货全量审计 (归因)",
+    "🌪️ 期货高频沙盘",
+    "🧩 扩展插件中心"
+]
 
 with st.sidebar:
     st.markdown(f"### 🎓 小吕布量化 Pro\n<small>🛡️ 节点 ID: {st.session_state.user_id}</small>\n---",
@@ -57,7 +84,9 @@ with st.sidebar:
     selected_page = st.radio("导航菜单", PAGES, label_visibility="collapsed")
 
 if selected_page != st.session_state.curr_page:
-    st.session_state.prev_page, st.session_state.curr_page, st.session_state.just_switched = st.session_state.curr_page, selected_page, True
+    st.session_state.prev_page = st.session_state.curr_page
+    st.session_state.curr_page = selected_page
+    st.session_state.just_switched = True
 else:
     st.session_state.just_switched = False
 
@@ -75,7 +104,8 @@ if "core_ui_injected" not in st.session_state:
         {scroll_script}
         let isUpdating = false;
         const runGlobalEngine = () => {{
-            if(isUpdating) return; isUpdating = true;
+            if(isUpdating) return; 
+            isUpdating = true;
             requestAnimationFrame(() => {{
                 const app = window.parent.document.querySelector('.stApp');
                 if (app) {{
@@ -91,11 +121,14 @@ if "core_ui_injected" not in st.session_state:
                     const pill = chatWrap.querySelector('.stChatInputContainer') || chatWrap.firstElementChild;
                     if (pill && !window.parent.document.getElementById('fake-btn')) {{
                         pill.style.position = 'relative';
-                        const btn = window.parent.document.createElement('div'); btn.id = 'fake-btn';
+                        const btn = window.parent.document.createElement('div'); 
+                        btn.id = 'fake-btn';
                         btn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
                         btn.style.cssText = 'position: absolute; left: 16px; top: 50%; transform: translateY(-50%); z-index: 9999; color: #8b9bb4; cursor: pointer;';
-                        btn.onclick = () => fileIn.click(); pill.appendChild(btn);
-                        const txt = pill.querySelector('[data-baseweb="textarea"]'); if(txt) txt.style.paddingLeft = '40px';
+                        btn.onclick = () => fileIn.click(); 
+                        pill.appendChild(btn);
+                        const txt = pill.querySelector('[data-baseweb="textarea"]'); 
+                        if(txt) txt.style.paddingLeft = '40px';
                     }}
                 }}
                 isUpdating = false;
@@ -108,7 +141,7 @@ if "core_ui_injected" not in st.session_state:
     st.session_state.core_ui_injected = True
 
 if extensions and "lulu_injected" not in st.session_state:
-    extensions.summon_global_3d_lulu();
+    extensions.summon_global_3d_lulu()
     st.session_state.lulu_injected = True
 
 st.markdown(f"""
@@ -125,7 +158,7 @@ st.markdown(f"""
     [data-testid="stSidebar"] {{ background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; }}
     div[role="radiogroup"] > label {{ background: rgba(15, 20, 30, 0.4) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important;}}
     div[role="radiogroup"] > label:has(input:checked) {{ background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }}
-    .glass-card {{ background: rgba(20, 28, 45, 0.65); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; }}
+    .glass-card {{ background: rgba(20, 28, 45, 0.65); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }}
     .metric-box {{ background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px; }}
     .metric-box p {{ margin: 0; font-size: 0.9rem; color: #cbd5e1; }} .metric-box h2 {{ margin: 8px 0 0 0; font-size: 1.8rem; }}
     [data-testid="stChatInput"] {{ max-width: 850px; margin: 0 auto 10px auto !important; background: transparent !important; border: none !important; }}
@@ -143,11 +176,12 @@ st.markdown(f"""
 
 
 # ==========================================
-# 3. 核心计算引擎 (抽象解耦版)
+# 3. 核心计算引擎 (安全且优化)
 # ==========================================
 def add_default_indicators(df):
     if 'Close' in df.columns:
-        df['MAIN_MA5'], df['MAIN_MA20'] = df['Close'].rolling(5).mean(), df['Close'].rolling(20).mean()
+        df['MAIN_MA5'] = df['Close'].rolling(5).mean()
+        df['MAIN_MA20'] = df['Close'].rolling(20).mean()
         df['SUB1_MACD_DIFF'] = df['Close'].ewm(span=12).mean() - df['Close'].ewm(span=26).mean()
         df['SUB1_MACD_DEA'] = df['SUB1_MACD_DIFF'].ewm(span=9).mean()
         df['SUB1_MACD_HIST'] = 2 * (df['SUB1_MACD_DIFF'] - df['SUB1_MACD_DEA'])
@@ -157,7 +191,8 @@ def add_default_indicators(df):
 @st.cache_data(ttl=300, show_spinner=False)
 def get_tushare_status():
     try:
-        pro.trade_cal(exchange='SSE', start_date='20240101', end_date='20240101'); return "🟢 Online"
+        pro.trade_cal(exchange='SSE', start_date='20240101', end_date='20240101')
+        return "🟢 Online"
     except:
         return "🔴 Offline"
 
@@ -178,45 +213,63 @@ def execute_safely(code, df):
     l_vars = {}
     exec(code.replace("pandas.np", "np"), {"pd": pd, "np": np, "math": math}, l_vars)
     func = next((v for k, v in l_vars.items() if callable(v)), None)
-    if not func: raise ValueError("AI 未生成有效函数！")
+    if not func:
+        raise ValueError("AI 未生成有效函数！")
     df_ai = func(df)
-    if 'Signal' in df_ai: df_ai['Signal'] = np.sign(df_ai['Signal'].fillna(0).round(1)).astype(int)
+    if 'Signal' in df_ai.columns:
+        df_ai['Signal'] = np.sign(df_ai['Signal'].fillna(0).round(1)).astype(int)
     return df_ai
 
 
 def render_smart_charts(df):
-    main_inds, sub_groups = [c for c in df.columns if c.startswith('MAIN_')], {}
+    main_inds = [c for c in df.columns if c.startswith('MAIN_')]
+    sub_groups = {}
     for c in df.columns:
-        if m := SUB_PATTERN.match(c): sub_groups.setdefault(m.group(1), []).append(c)
+        if m := SUB_PATTERN.match(c):
+            sub_groups.setdefault(m.group(1), []).append(c)
 
-    fig = make_subplots(rows=2 + len(sub_groups), cols=1, shared_xaxes=True, vertical_spacing=0.03,
-                        row_heights=[0.5, 0.15] + [0.35 / max(1, len(sub_groups))] * len(sub_groups))
+    fig = make_subplots(
+        rows=2 + len(sub_groups),
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.03,
+        row_heights=[0.5, 0.15] + [0.35 / max(1, len(sub_groups))] * len(sub_groups)
+    )
+
     x_labels = df['trade_date'].dt.strftime('%Y-%m-%d' if df['trade_date'].dt.time.nunique() <= 1 else '%m-%d %H:%M')
 
     fig.add_trace(
         go.Candlestick(x=x_labels, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'], name='K线'),
         row=1, col=1)
+
     colors = ['#FFFF00', '#FF00FF', '#00FFFF', '#FFFFFF']
-    for i, c in enumerate(main_inds): fig.add_trace(
-        go.Scatter(x=x_labels, y=df[c], name=c, line=dict(color=colors[i % 4], width=1.2)), row=1, col=1)
+    for i, c in enumerate(main_inds):
+        fig.add_trace(go.Scatter(x=x_labels, y=df[c], name=c, line=dict(color=colors[i % 4], width=1.2)), row=1, col=1)
 
     if 'Signal' in df.columns:
-        # 🔥 优化：向量化绘制买卖点，代码骤减 🔥
-        for sig, name, c, sym, off in [(1, '买', '#00FFFF', 'triangle-up', 0.95),
-                                       (-1, '卖', '#FF00FF', 'triangle-down', 1.05)]:
+        for sig, name, c_str, sym, off in [(1, '买', '#00FFFF', 'triangle-up', 0.95),
+                                           (-1, '卖', '#FF00FF', 'triangle-down', 1.05)]:
             mask = df['Signal'] == sig
             fig.add_trace(
-                go.Scatter(x=x_labels[mask], y=df.loc[mask, 'Low' if sig == 1 else 'High'] * off, mode='markers',
-                           marker=dict(symbol=sym, size=14, color=c), name=name), row=1, col=1)
+                go.Scatter(
+                    x=x_labels[mask],
+                    y=df.loc[mask, 'Low' if sig == 1 else 'High'] * off,
+                    mode='markers',
+                    marker=dict(symbol=sym, size=14, color=c_str),
+                    name=name
+                ),
+                row=1, col=1
+            )
 
     fig.add_trace(go.Bar(x=x_labels, y=df.get('Volume', np.zeros(len(df))),
                          marker_color=np.where(df['Close'] >= df['Open'], '#FD1050', '#00FF00')), row=2, col=1)
 
     for idx, gid in enumerate(sorted(sub_groups.keys(), key=int)):
         for i, c in enumerate(sub_groups[gid]):
-            trace = go.Bar(x=x_labels, y=df[c], marker_color=np.where(df[c] >= 0, '#FD1050',
-                                                                      '#00FF00')) if 'HIST' in c.upper() else go.Scatter(
-                x=x_labels, y=df[c], line=dict(color=colors[i % 4]))
+            if 'HIST' in c.upper():
+                trace = go.Bar(x=x_labels, y=df[c], marker_color=np.where(df[c] >= 0, '#FD1050', '#00FF00'))
+            else:
+                trace = go.Scatter(x=x_labels, y=df[c], line=dict(color=colors[i % 4]))
             fig.add_trace(trace, row=3 + idx, col=1)
 
     fig.update_layout(height=500 + len(sub_groups) * 150, template="none", paper_bgcolor='rgba(0,0,0,0)',
@@ -225,6 +278,39 @@ def render_smart_charts(df):
                      gridcolor='rgba(128,128,128,0.2)')
     fig.update_yaxes(showgrid=True, gridcolor='rgba(128,128,128,0.2)')
     return fig
+
+
+def format_ts_code(raw):
+    raw = str(raw).strip().upper()
+    if len(raw) == 6 and raw.isdigit():
+        return f"{raw}.SH" if raw.startswith(('6', '9')) else f"{raw}.SZ"
+    return raw
+
+
+def run_backtest_metrics(df_source, strategy_code):
+    df_safe = df_source.copy()
+    if strategy_code:
+        try:
+            df_ai = execute_safely(strategy_code, df_source)
+            for col in df_ai.columns:
+                if col == 'Signal' or col.startswith(('MAIN_', 'SUB')):
+                    df_safe[col] = df_ai[col]
+        except Exception:
+            pass
+
+    df = df_safe
+    df['Ret'] = df['Close'].pct_change()
+    df['Pos'] = df.get('Signal', pd.Series([0] * len(df))).replace(0, np.nan).ffill().fillna(0)
+    df['Strat_Ret'] = df['Pos'].shift(1) * df['Ret']
+    df['Cum_Prod'] = (1 + df['Strat_Ret'].fillna(0)).cumprod()
+
+    total_ret = (df['Cum_Prod'].iloc[-1] - 1) if not df.empty else 0
+    annual = (1 + total_ret) ** (252 / max(1, len(df))) - 1 if not df.empty else 0
+    max_dd = (df['Cum_Prod'] / df['Cum_Prod'].cummax() - 1).min() if not df.empty else 0
+    vol = df['Strat_Ret'].std() * np.sqrt(252) if not df.empty else 0
+    sharpe = annual / vol if vol != 0 else 0
+
+    return {"df": df, "metrics": {"total": total_ret, "annual": annual, "max_dd": max_dd, "sharpe": sharpe}}
 
 
 # ==========================================
@@ -249,25 +335,29 @@ elif selected_page == PAGES[1]:
                 unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     model_sel = c1.selectbox("选择算力通道", ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"])
-    c2.markdown("<div style='height:32px;'></div>", unsafe_allow_html=True);
+    c2.markdown("<div style='height:32px;'></div>", unsafe_allow_html=True)
     enable_cot = c2.toggle("💡 开启深度思考引擎 (CoT)")
 
     chat_box = st.container()
     for m in st.session_state.messages:
-        with chat_box.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
+        with chat_box.chat_message(m["role"]):
+            st.markdown(m["content"], unsafe_allow_html=True)
 
     upl_files = st.file_uploader("Files", accept_multiple_files=True, label_visibility="collapsed")
 
 
-    # 🔥 优化：将繁杂的 if-else 抽离为解析逻辑包 🔥
     def parse_file(f):
         ext = f.name.lower().split('.')[-1]
-        if f.type.startswith('image/'): return f"[图片: {f.name}]\n"
-        if ext == 'csv': return f"【CSV】:\n{pd.read_csv(f).head(50).to_string()}\n"
-        if ext == 'txt': return f"【TXT】:\n{f.getvalue().decode('utf-8', errors='replace')[:5000]}\n"
-        if ext == 'pdf' and PyPDF2: return f"【PDF】:\n{''.join([p.extract_text() for p in PyPDF2.PdfReader(f).pages[:10]])[:5000]}\n"
-        if ext in ['doc',
-                   'docx'] and docx: return f"【Word】:\n{chr(10).join([p.text for p in docx.Document(f).paragraphs])[:5000]}\n"
+        if f.type.startswith('image/'):
+            return f"[图片: {f.name}]\n"
+        if ext == 'csv':
+            return f"【CSV】:\n{pd.read_csv(f).head(50).to_string()}\n"
+        if ext == 'txt':
+            return f"【TXT】:\n{f.getvalue().decode('utf-8', errors='replace')[:5000]}\n"
+        if ext == 'pdf' and PyPDF2:
+            return f"【PDF】:\n{''.join([p.extract_text() for p in PyPDF2.PdfReader(f).pages[:10]])[:5000]}\n"
+        if ext in ['doc', 'docx'] and docx:
+            return f"【Word】:\n{chr(10).join([p.text for p in docx.Document(f).paragraphs])[:5000]}\n"
         return ""
 
 
@@ -279,6 +369,7 @@ elif selected_page == PAGES[1]:
 
         with chat_box.chat_message("user"):
             st.markdown(raw_prompt)
+
         with chat_box.chat_message("assistant"):
             sys_p = "你是一名顶级量化工程师。严格遵循：只用 pandas/numpy/math。主图指标用 MAIN_ 开头，副图用 SUB1_ 等。必须生成 df['Signal']。直接输出包含 def generate_signals(df): 的代码和解析。"
             msgs = [{"role": "system", "content": sys_p}] + st.session_state.messages[:-1] + [
@@ -309,16 +400,25 @@ elif selected_page == PAGES[1]:
                     code_match = re.search(r"`{3}python\s*(.*?)\s*`{3}", full_resp, re.DOTALL)
                     exp = re.sub(r"<think>.*?</think>|`{3}python\s*.*?\s*`{3}", "", full_resp, flags=re.DOTALL).replace(
                         "【策略白话解析】", "").strip()
-                    st.session_state.strategy_explanation = exp if exp else "纯代码驱动，无额外解析。"
 
-                    if not code_match: break
+                    if exp:
+                        st.session_state.strategy_explanation = exp
+                    else:
+                        st.session_state.strategy_explanation = "纯代码驱动，无额外解析。"
+
+                    if not code_match:
+                        break
+
                     code = code_match.group(1).strip()
 
                     # 沙盒预检
-                    dummy = add_default_indicators(pd.DataFrame(
-                        {'trade_date': pd.date_range('2023', periods=50), 'Open': np.random.rand(50) * 10,
-                         'High': np.random.rand(50) * 12, 'Low': np.random.rand(50) * 8,
-                         'Close': np.random.rand(50) * 10}))
+                    dummy = add_default_indicators(pd.DataFrame({
+                        'trade_date': pd.date_range('2023', periods=50),
+                        'Open': np.random.rand(50) * 10,
+                        'High': np.random.rand(50) * 12,
+                        'Low': np.random.rand(50) * 8,
+                        'Close': np.random.rand(50) * 10
+                    }))
                     execute_safely(code, dummy)
 
                     st.session_state.generated_code = code
@@ -326,7 +426,8 @@ elif selected_page == PAGES[1]:
                     break
                 except Exception as e:
                     last_err = str(e)
-                    if att == 2: log_str.append(f'<div class="agent-status-node error">❌ 失败: {last_err}</div>')
+                    if att == 2:
+                        log_str.append(f'<div class="agent-status-node error">❌ 失败: {last_err}</div>')
 
             res_str = full_resp + "\n\n" + "".join(log_str)
             st.markdown("".join(log_str), unsafe_allow_html=True)
@@ -345,13 +446,16 @@ elif selected_page == PAGES[3]:
     c1, c2 = st.columns([1, 3])
     with c1:
         ts_code = format_ts_code(st.text_input("标的", value="000001"))
-        yr = datetime.now().year - {"近1年": 1, "近3年": 3, "近5年": 5, "近10年": 10}[
-            st.selectbox("跨度", ["近1年", "近3年", "近5年", "近10年"], index=1)]
+        yr_mapping = {"近1年": 1, "近3年": 3, "近5年": 5, "近10年": 10}
+        yr = datetime.now().year - yr_mapping[st.selectbox("跨度", list(yr_mapping.keys()), index=1)]
+
         if st.button("🚀 启动回测", type="primary", use_container_width=True):
-            df_raw = fetch_and_clean_data(ts_code, "qfq", f"{yr}0101")
-            st.session_state.bt_result = run_backtest_metrics(df_raw, st.session_state.generated_code)
+            with st.spinner("处理中..."):
+                df_raw = fetch_and_clean_data(ts_code, "qfq", f"{yr}0101")
+                st.session_state.bt_result = run_backtest_metrics(df_raw, st.session_state.generated_code)
     with c2:
-        if res := st.session_state.bt_result:
+        if st.session_state.bt_result:
+            res = st.session_state.bt_result
             m = res['metrics']
             cols = st.columns(4)
             cols[0].markdown(f'<div class="metric-box"><p>累计收益</p><h2>{m["total"] * 100:.2f}%</h2></div>',
@@ -363,7 +467,8 @@ elif selected_page == PAGES[3]:
                 unsafe_allow_html=True)
             cols[3].markdown(f'<div class="metric-box"><p>夏普</p><h2>{m["sharpe"]:.2f}</h2></div>',
                              unsafe_allow_html=True)
-            with st.expander("💡 策略解析"): st.markdown(st.session_state.strategy_explanation)
+            with st.expander("💡 策略解析"):
+                st.markdown(st.session_state.strategy_explanation)
             st.plotly_chart(render_smart_charts(res['df']), use_container_width=True)
 
 elif selected_page == PAGES[4]:
@@ -380,95 +485,126 @@ elif selected_page == PAGES[4]:
         if st.session_state.is_live_trading:
             df = fetch_and_clean_data(format_ts_code(live_code), 'qfq', '20230101').tail(120).reset_index(drop=True)
             for i in range(20, len(df)):
-                if not st.session_state.is_live_trading: break
+                if not st.session_state.is_live_trading:
+                    break
                 sub = df.iloc[:i].copy()
                 if st.session_state.generated_code:
                     try:
                         ai_res = execute_safely(st.session_state.generated_code, sub)
-                        for col in ai_res: if
-                        col == 'Signal' or col.startswith(('MAIN_', 'SUB')): sub[col] = ai_res[col]
+                        for col in ai_res.columns:
+                            if col == 'Signal' or col.startswith(('MAIN_', 'SUB')):
+                                sub[col] = ai_res[col]
                     except:
                         pass
+
                 sig = sub.get('Signal', pd.Series([0])).iloc[-1]
                 with met_ph.container():
                     cx = st.columns(3)
                     cx[0].metric("现价", f"{sub['Close'].iloc[-1]:.2f}")
                     cx[1].metric("信号", "买" if sig == 1 else "卖" if sig == -1 else "观望")
                     cx[2].metric("收益", f"{sub['Close'].pct_change().iloc[-1] * 100:.2f}%")
+
                 cht_ph.plotly_chart(render_smart_charts(sub), use_container_width=True)
                 time.sleep(freq)
 
 elif selected_page == PAGES[5]:
-    import torch, torch.nn as nn
+    import torch
+    import torch.nn as nn
     from sklearn.preprocessing import MinMaxScaler
 
     st.markdown('<div class="glass-card"><h3 style="margin-bottom:0;">🧠 深度时序矩阵</h3></div>',
                 unsafe_allow_html=True)
     c1, c2 = st.columns([1, 2.5])
+
     with c1:
         st_code = st.text_input("标的", "000001")
-        yrs = {"近1年": 1, "近3年": 3, "近5年": 5}[st.selectbox("跨度", ["近1年", "近3年", "近5年"], index=1)]
+        yr_map = {"近1年": 1, "近3年": 3, "近5年": 5}
+        yrs = yr_map[st.selectbox("跨度", list(yr_map.keys()), index=1)]
         models = st.multiselect("模型", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"])
-        slen, eps = st.slider("滑窗", 5, 60, 20), st.slider("Epoch", 10, 50, 30)
+        slen = st.slider("滑窗", 5, 60, 20)
+        eps = st.slider("Epoch", 10, 50, 30)
 
         if st.button("🚀 启动张量", type="primary", use_container_width=True) and models:
-            # 🔥 优化：将三大散装模型重构成【多态工厂聚合类】🔥
+            # 🔥 极简的多态神经网络工厂类 🔥
             class TSModel(nn.Module):
                 def __init__(self, m_type):
-                    super().__init__();
+                    super().__init__()
                     self.m_type = m_type
                     if m_type == "1D-CNN":
-                        self.conv = nn.Conv1d(1, 32, 3, 1); self.fc = nn.Linear(32 * slen, 1)
+                        self.conv = nn.Conv1d(1, 32, 3, 1)
+                        self.fc = nn.Linear(32 * slen, 1)
                     else:
-                        self.rnn = getattr(nn, m_type)(1, 64, 2, batch_first=True); self.fc = nn.Linear(64, 1)
+                        self.rnn = getattr(nn, m_type)(1, 64, 2, batch_first=True)
+                        self.fc = nn.Linear(64, 1)
 
                 def forward(self, x):
-                    if self.m_type == "1D-CNN": return self.fc(
-                        torch.relu(self.conv(x.permute(0, 2, 1))).reshape(x.size(0), -1))
+                    if self.m_type == "1D-CNN":
+                        return self.fc(torch.relu(self.conv(x.permute(0, 2, 1))).reshape(x.size(0), -1))
                     return self.fc(self.rnn(x)[0][:, -1, :])
 
 
             df = fetch_and_clean_data(format_ts_code(st_code), 'qfq', f"{datetime.now().year - yrs}0101")
-            sc = MinMaxScaler();
+            sc = MinMaxScaler()
             s_val = sc.fit_transform(df['Close'].values.reshape(-1, 1))
-            X, y = [s_val[i - slen:i, 0] for i in range(slen, len(s_val))], [s_val[i, 0] for i in
-                                                                             range(slen, len(s_val))]
-            Xt, yt = torch.tensor(np.array(X), dtype=torch.float32).unsqueeze(-1), torch.tensor(np.array(y),
-                                                                                                dtype=torch.float32)
 
-            p_dict, f_dict, lbox, pbar = {}, {}, st.empty(), st.progress(0)
+            X, y = [], []
+            for i in range(slen, len(s_val)):
+                X.append(s_val[i - slen:i, 0])
+                y.append(s_val[i, 0])
+
+            Xt = torch.tensor(np.array(X), dtype=torch.float32).unsqueeze(-1)
+            yt = torch.tensor(np.array(y), dtype=torch.float32)
+
+            p_dict, f_dict = {}, {}
+            lbox, pbar = st.empty(), st.progress(0)
+
             for i, m_name in enumerate(models):
                 lbox.markdown(f"**训练 {m_name}...**")
-                net, opt, crit = TSModel(m_name.replace("1D-", "")), torch.optim.Adam(
-                    TSModel(m_name.replace("1D-", "")).parameters(), 0.01), nn.MSELoss()
+                net = TSModel(m_name.replace("1D-", ""))
+                opt = torch.optim.Adam(net.parameters(), 0.01)
+                crit = nn.MSELoss()
+
                 for e in range(eps):
-                    net.train();
-                    opt.zero_grad();
-                    loss = crit(net(Xt).squeeze(), yt);
-                    loss.backward();
+                    net.train()
+                    opt.zero_grad()
+                    loss = crit(net(Xt).squeeze(), yt)
+                    loss.backward()
                     opt.step()
                     pbar.progress((i * eps + e + 1) / (len(models) * eps))
+
                 net.eval()
                 p_dict[m_name] = sc.inverse_transform(net(Xt[-100:]).detach().numpy()).flatten()
 
-                win, fut = Xt[-1].clone().unsqueeze(0), []
+                win = Xt[-1].clone().unsqueeze(0)
+                fut = []
                 for _ in range(5):
-                    with torch.no_grad(): p = net(win)
-                    fut.append(p.item());
+                    with torch.no_grad():
+                        p = net(win)
+                    fut.append(p.item())
                     win = torch.cat((win[:, 1:, :], p.unsqueeze(-1)), 1)
                 f_dict[m_name] = sc.inverse_transform(np.array(fut).reshape(-1, 1)).flatten()
 
-            st.session_state.dl_result = {"dates": df['trade_date'].iloc[-100:], "act": df['Close'].iloc[-100:],
-                                          "preds": p_dict, "fut": f_dict, "mods": models}
+            st.session_state.dl_result = {
+                "dates": df['trade_date'].iloc[-100:],
+                "act": df['Close'].iloc[-100:],
+                "preds": p_dict,
+                "fut": f_dict,
+                "mods": models
+            }
             lbox.success("✅ 推演就绪")
 
     with c2:
-        if res := st.session_state.dl_result:
+        if st.session_state.dl_result:
+            res = st.session_state.dl_result
             act = res['act'].values
-            f_mean = np.mean(list(res['fut'].values()), axis=0) if len(res['mods']) > 1 else list(res['fut'].values())[
-                0]
-            p_mean = np.mean(list(res['preds'].values()), axis=0) if len(res['mods']) > 1 else \
-            list(res['preds'].values())[0]
+
+            if len(res['mods']) > 1:
+                f_mean = np.mean(list(res['fut'].values()), axis=0)
+                p_mean = np.mean(list(res['preds'].values()), axis=0)
+            else:
+                f_mean = list(res['fut'].values())[0]
+                p_mean = list(res['preds'].values())[0]
+
             sr = np.mean(np.sign(np.diff(act)) == np.sign(np.diff(p_mean))) * 100
 
             c_f = st.columns(4)
@@ -478,10 +614,13 @@ elif selected_page == PAGES[5]:
 
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=res['dates'], y=act, name='真实', line=dict(color='#00ffcc', width=2)))
-            for k, v in res['preds'].items(): fig.add_trace(
-                go.Scatter(x=res['dates'], y=v, name=k, line=dict(dash='dot')))
-            if len(res['mods']) > 1: fig.add_trace(
-                go.Scatter(x=res['dates'], y=p_mean, name='集成', line=dict(color='#ff4b4b', width=3)))
+
+            for k, v in res['preds'].items():
+                fig.add_trace(go.Scatter(x=res['dates'], y=v, name=k, line=dict(dash='dot')))
+
+            if len(res['mods']) > 1:
+                fig.add_trace(go.Scatter(x=res['dates'], y=p_mean, name='集成', line=dict(color='#ff4b4b', width=3)))
+
             fig.update_layout(height=450, template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                               legend=dict(orientation="h", y=1.02))
             st.plotly_chart(fig, use_container_width=True)
@@ -503,4 +642,5 @@ elif selected_page == PAGES[8]:
         st.error("检查 extensions.py")
 
 elif selected_page == PAGES[9]:
-    if extensions: extensions.render_new_features_page()
+    if extensions:
+        extensions.render_new_features_page()
