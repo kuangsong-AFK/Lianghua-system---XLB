@@ -1,6 +1,6 @@
 # ==========================================
 # 文件名：extensions.py (扩展功能先锋营)
-# 功能：极客 IDE、AkShare 期货、高频沙盘、深度张量引擎
+# 功能：极客 IDE、AkShare 期货、高频沙盘
 # ==========================================
 import streamlit as st
 import streamlit.components.v1 as components
@@ -10,6 +10,7 @@ import time
 import traceback
 import math
 import re
+import json
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -36,40 +37,66 @@ SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 
 
 def summon_global_3d_lulu():
-    """终极寄生版：军用级雷达白名单，彻底无视上方骨骼包围盒与隐形空气墙"""
+    """终极寄生版：支持多模型切换、右键自定义菜单屏蔽原生下载"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(current_dir, "lulu.glb")
 
-    if not os.path.exists(file_path): return
+    # ====================================================================
+    # 🔥 预留空间：主公，以后有新模型，只需要加在这个字典里，并把文件放进来！🔥
+    # ====================================================================
+    PET_ROSTER = {
+        "🍊 水豚噜噜": "lulu.glb",
+        "🐧 极客企鹅": "penguin.glb",
+        "🤖 量化机甲 (预留)": "robot.glb",
+        "🐱 招财猫 (预留)": "cat.glb"
+    }
 
-    with st.spinner("正在为雷达加装白名单识别系统..."):
-        with open(file_path, "rb") as f:
-            glb_b64 = base64.b64encode(f.read()).decode("utf-8")
+    pet_b64_data = {}
+    has_any_pet = False
 
-    html_code = f"""
+    with st.spinner("正在为雷达加装白名单与多维宇宙识别系统..."):
+        for pet_name, file_name in PET_ROSTER.items():
+            file_path = os.path.join(current_dir, file_name)
+            if os.path.exists(file_path):
+                with open(file_path, "rb") as f:
+                    pet_b64_data[pet_name] = base64.b64encode(f.read()).decode("utf-8")
+                    has_any_pet = True
+            else:
+                pet_b64_data[pet_name] = ""  # 找不到文件就置空，菜单里点它会有提示
+
+    if not has_any_pet:
+        return
+
+    # 将字典转为 JSON 字符串，准备注入 JS
+    pets_json_str = json.dumps(pet_b64_data)
+
+    # 为了防止 f-string 中的大括号与 JS 冲突，我们使用 replace 的方式注入 HTML
+    html_template = """
     <script>
         const parentWin = window.parent;
         const parentDoc = parentWin.document;
 
-        if (!parentWin.__LULU_INITIALIZED__) {{
+        if (!parentWin.__LULU_INITIALIZED__) {
             parentWin.__LULU_INITIALIZED__ = true;
-            parentWin.__LULU_B64__ = "{glb_b64}";
 
-            const loadScript = (src) => new Promise((res) => {{
+            // 注入模型数据字典
+            const modelsData = __PETS_JSON_DATA__;
+
+            const loadScript = (src) => new Promise((res) => {
                 const s = parentDoc.createElement('script');
                 s.src = src; s.onload = res; parentDoc.head.appendChild(s);
-            }});
+            });
 
-            const initLulu = async () => {{
+            const initLulu = async () => {
                 await loadScript("https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js");
                 await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js");
 
                 const script = parentDoc.createElement('script');
                 script.innerHTML = `
-                    (function() {{
+                    (function() {
                         const THREE = window.THREE;
                         const win = window;
                         const doc = document;
+                        const petData = window.parent.__PETS_JSON_DATA__ || ${JSON.stringify(modelsData)};
 
                         let state = 'IDLE'; 
                         let danceTimer = 0;
@@ -80,20 +107,51 @@ def summon_global_3d_lulu():
                         const petSize = 280; 
                         const overflowLimit = 80; 
 
+                        // -------------------- UI 容器构建 --------------------
                         const petBox = doc.createElement('div');
                         petBox.id = 'lulu-global-pet';
                         petBox.style.cssText = "position: fixed; bottom: 20px; right: 20px; width: " + petSize + "px; height: " + petSize + "px; z-index: 9999999; cursor: grab; user-select: none; pointer-events: none; transition: transform 0.2s; touch-action: none;"; 
                         doc.body.appendChild(petBox);
 
                         const bubble = doc.createElement('div');
-                        bubble.style.cssText = "position: absolute; top: 0px; left: 50%; transform: translateX(-50%); opacity: 0; background: rgba(20, 28, 45, 0.95); border: 1px solid #ff8c00; color: #fff; padding: 8px 15px; border-radius: 12px; font-size: 14px; white-space: nowrap; transition: opacity 0.3s; pointer-events: none;";
+                        bubble.style.cssText = "position: absolute; top: 0px; left: 50%; transform: translateX(-50%); opacity: 0; background: rgba(20, 28, 45, 0.95); border: 1px solid #00ffcc; color: #fff; padding: 8px 15px; border-radius: 12px; font-size: 14px; white-space: nowrap; transition: opacity 0.3s; pointer-events: none; box-shadow: 0 4px 12px rgba(0,255,204,0.3); z-index: 10;";
                         petBox.appendChild(bubble);
 
+                        // -------------------- 自定义右键菜单构建 --------------------
+                        const ctxMenu = doc.createElement('div');
+                        ctxMenu.style.cssText = "position: fixed; display: none; background: rgba(15, 23, 35, 0.95); border: 1px solid rgba(0, 255, 204, 0.5); border-radius: 12px; padding: 6px; z-index: 10000000; color: #fff; font-size: 14px; min-width: 140px; box-shadow: 0 8px 24px rgba(0,0,0,0.8); backdrop-filter: blur(10px);";
+                        doc.body.appendChild(ctxMenu);
+
+                        const menuTitle = doc.createElement('div');
+                        menuTitle.innerHTML = "<b>✨ 召唤伙伴</b>";
+                        menuTitle.style.cssText = "padding: 6px 12px; color: #8b9bb4; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 4px; pointer-events: none;";
+                        ctxMenu.appendChild(menuTitle);
+
+                        Object.keys(petData).forEach(petName => {
+                            const item = doc.createElement('div');
+                            item.innerText = petName;
+                            item.style.cssText = "padding: 8px 12px; cursor: pointer; border-radius: 6px; transition: 0.2s; margin-bottom: 2px;";
+                            item.onmouseover = () => { item.style.background = "rgba(0, 255, 204, 0.2)"; item.style.color = "#00ffcc"; };
+                            item.onmouseout = () => { item.style.background = "transparent"; item.style.color = "#fff"; };
+
+                            item.onclick = (e) => {
+                                e.stopPropagation();
+                                ctxMenu.style.display = 'none';
+                                if(petData[petName] !== "") {
+                                    switchModel(petData[petName], petName);
+                                } else {
+                                    doSpeak(["主公，【" + petName + "】的模型文件还没放入军营哦！"]);
+                                }
+                            };
+                            ctxMenu.appendChild(item);
+                        });
+
+                        // -------------------- 3D 场景初始化 --------------------
                         const scene = new THREE.Scene();
                         const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
                         camera.position.set(0, 0.8, 5.5); 
 
-                        const renderer = new THREE.WebGLRenderer({{ alpha: true, antialias: win.innerWidth > 768 }});
+                        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: win.innerWidth > 768 });
                         renderer.setSize(petSize, petSize);
                         renderer.setPixelRatio(win.devicePixelRatio ? Math.min(win.devicePixelRatio, 2) : 1);
                         renderer.outputEncoding = THREE.sRGBEncoding;
@@ -105,201 +163,235 @@ def summon_global_3d_lulu():
                         dirLight.position.set(5, 10, 5);
                         scene.add(dirLight);
 
-                        let model, mixer;
+                        let currentModelObj = null; 
+                        let mixer = null;
                         let targetRotY = 0; 
                         let targetRotX = 0;
                         let clickableMeshes = [];
 
                         const loader = new THREE.GLTFLoader();
-                        loader.load("data:application/octet-stream;base64," + win.__LULU_B64__, (gltf) => {{
-                            model = gltf.scene;
-                            model.position.set(0, -1.2, 0); 
 
-                            model.traverse((child) => {{
-                                if (child.isMesh) {{
-                                    let isTrash = false;
-                                    if (child.material) {{
-                                        if (child.material.transparent && child.material.opacity < 0.1) isTrash = true;
-                                        if (child.material.opacity === 0) isTrash = true;
-                                    }}
-                                    if (isTrash) {{ child.visible = false; }} 
-                                    else {{ clickableMeshes.push(child); }}
-                                }}
-                            }});
-                            scene.add(model);
-                            if (gltf.animations.length > 0) {{
-                                mixer = new THREE.AnimationMixer(model);
-                                mixer.clipAction(gltf.animations[0]).play();
-                            }}
-                        }});
+                        // 🔥 无缝切换模型的核心函数 🔥
+                        const switchModel = (b64String, name) => {
+                            if(currentModelObj) {
+                                scene.remove(currentModelObj);
+                                clickableMeshes = [];
+                                mixer = null;
+                            }
+                            loader.load("data:application/octet-stream;base64," + b64String, (gltf) => {
+                                currentModelObj = gltf.scene;
+                                currentModelObj.position.set(0, -1.2, 0); 
 
+                                currentModelObj.traverse((child) => {
+                                    if (child.isMesh) {
+                                        let isTrash = false;
+                                        if (child.material) {
+                                            if (child.material.transparent && child.material.opacity < 0.1) isTrash = true;
+                                            if (child.material.opacity === 0) isTrash = true;
+                                        }
+                                        if (isTrash) { child.visible = false; } 
+                                        else { clickableMeshes.push(child); }
+                                    }
+                                });
+                                scene.add(currentModelObj);
+                                if (gltf.animations.length > 0) {
+                                    mixer = new THREE.AnimationMixer(currentModelObj);
+                                    mixer.clipAction(gltf.animations[0]).play();
+                                }
+                                if(name) doSpeak(["变身完成！我是" + name + " 😎"]);
+                            });
+                        };
+
+                        // 首次启动：自动加载字典里第一个有数据的模型
+                        const initialPetKey = Object.keys(petData).find(k => petData[k] !== "");
+                        if(initialPetKey) {
+                            switchModel(petData[initialPetKey], null);
+                        }
+
+                        // -------------------- 交互逻辑与射线检测 --------------------
                         const raycaster = new THREE.Raycaster();
                         const mouseNDC = new THREE.Vector2();
 
-                        const checkHit = (clientX, clientY) => {{
+                        const checkHit = (clientX, clientY) => {
                             if (clickableMeshes.length === 0) return false;
                             const rect = renderer.domElement.getBoundingClientRect();
-                            if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {{ return false; }}
+                            if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) { return false; }
                             mouseNDC.x = ((clientX - rect.left) / petSize) * 2 - 1;
                             mouseNDC.y = -((clientY - rect.top) / petSize) * 2 + 1;
                             raycaster.setFromCamera(mouseNDC, camera);
                             const intersects = raycaster.intersectObjects(clickableMeshes, false);
                             return intersects.length > 0; 
-                        }};
+                        };
 
-                        const updateLookAt = (clientX, clientY) => {{
+                        const updateLookAt = (clientX, clientY) => {
                             lastActivityTime = Date.now();
-                            if (state === 'IDLE' && idleActionState === 'NONE') {{
+                            if (state === 'IDLE' && idleActionState === 'NONE') {
                                 const mouseX = (clientX / win.innerWidth) * 2 - 1;
                                 const mouseY = -(clientY / win.innerHeight) * 2 + 1;
                                 targetRotY = mouseX * 0.8; targetRotX = -mouseY * 0.4;
-                            }}
-                        }};
+                            }
+                        };
 
                         const clock = new THREE.Clock();
-                        function animate() {{
+                        function animate() {
                             win.requestAnimationFrame(animate);
                             const delta = clock.getDelta();
                             const time = clock.getElapsedTime();
                             if (mixer) mixer.update(delta);
                             const now = Date.now();
 
-                            if (state === 'IDLE' && idleActionState === 'NONE') {{
-                                if (now - lastActivityTime > 30000) {{ 
+                            if (state === 'IDLE' && idleActionState === 'NONE') {
+                                if (now - lastActivityTime > 30000) { 
                                     const actions = ['HOP', 'LOOK_AROUND', 'SPEAK'];
                                     const act = actions[Math.floor(Math.random() * actions.length)];
                                     idleActionState = act; idleActionTimer = 2.5; lastActivityTime = now; 
-                                    if (act === 'SPEAK') {{
+                                    if (act === 'SPEAK') {
                                         doSpeak(["主公，您睡着了吗？🦦", "盯盘好累喔，发呆中...", "呼噜噜...💤"]);
                                         idleActionState = 'NONE'; 
-                                    }}
-                                }}
-                            }}
+                                    }
+                                }
+                            }
 
-                            if (model) {{
-                                if (state === 'STRUGGLING') {{
-                                    model.rotation.y = 0; model.rotation.x = 0;
-                                    model.position.x = Math.sin(time * 50) * 0.05;
-                                    model.rotation.z = Math.cos(time * 50) * 0.1;
-                                    model.position.y = -1.2;
-                                }} else if (state === 'DANCING') {{
-                                    model.position.y = -1.2 + Math.abs(Math.sin(time * 10)) * 0.5;
-                                    model.rotation.y += 0.2; model.rotation.x = 0; model.rotation.z = 0; model.position.x = 0;
+                            if (currentModelObj) {
+                                if (state === 'STRUGGLING') {
+                                    currentModelObj.rotation.y = 0; currentModelObj.rotation.x = 0;
+                                    currentModelObj.position.x = Math.sin(time * 50) * 0.05;
+                                    currentModelObj.rotation.z = Math.cos(time * 50) * 0.1;
+                                    currentModelObj.position.y = -1.2;
+                                } else if (state === 'DANCING') {
+                                    currentModelObj.position.y = -1.2 + Math.abs(Math.sin(time * 10)) * 0.5;
+                                    currentModelObj.rotation.y += 0.2; currentModelObj.rotation.x = 0; currentModelObj.rotation.z = 0; currentModelObj.position.x = 0;
                                     danceTimer -= delta;
-                                    if (danceTimer <= 0) {{ state = 'IDLE'; model.position.y = -1.2; }}
-                                }} else if (idleActionState === 'HOP') {{
-                                    model.position.y = -1.2 + Math.abs(Math.sin(time * 15)) * 0.3;
-                                    model.rotation.x = 0; model.rotation.y = 0;
+                                    if (danceTimer <= 0) { state = 'IDLE'; currentModelObj.position.y = -1.2; }
+                                } else if (idleActionState === 'HOP') {
+                                    currentModelObj.position.y = -1.2 + Math.abs(Math.sin(time * 15)) * 0.3;
+                                    currentModelObj.rotation.x = 0; currentModelObj.rotation.y = 0;
                                     idleActionTimer -= delta;
-                                    if (idleActionTimer <= 0) {{ idleActionState = 'NONE'; model.position.y = -1.2; }}
-                                }} else if (idleActionState === 'LOOK_AROUND') {{
-                                    model.rotation.y = Math.sin(time * 3) * 0.6; model.rotation.x = 0;
+                                    if (idleActionTimer <= 0) { idleActionState = 'NONE'; currentModelObj.position.y = -1.2; }
+                                } else if (idleActionState === 'LOOK_AROUND') {
+                                    currentModelObj.rotation.y = Math.sin(time * 3) * 0.6; currentModelObj.rotation.x = 0;
                                     idleActionTimer -= delta;
-                                    if (idleActionTimer <= 0) {{ idleActionState = 'NONE'; model.rotation.y = targetRotY; }}
-                                }} else {{
-                                    model.position.y = -1.2 + Math.sin(time * 2) * 0.02;
-                                    model.position.x = 0; model.rotation.z = 0;
-                                    model.rotation.y += (targetRotY - model.rotation.y) * 0.1;
-                                    model.rotation.x += (targetRotX - model.rotation.x) * 0.1;
-                                }}
-                            }}
+                                    if (idleActionTimer <= 0) { idleActionState = 'NONE'; currentModelObj.rotation.y = targetRotY; }
+                                } else {
+                                    currentModelObj.position.y = -1.2 + Math.sin(time * 2) * 0.02;
+                                    currentModelObj.position.x = 0; currentModelObj.rotation.z = 0;
+                                    currentModelObj.rotation.y += (targetRotY - currentModelObj.rotation.y) * 0.1;
+                                    currentModelObj.rotation.x += (targetRotX - currentModelObj.rotation.x) * 0.1;
+                                }
+                            }
                             renderer.render(scene, camera);
-                        }}
+                        }
 
                         let isDragging = false, initX, initY, startL, startT, isPossibleClick = false, isHolding = false, clickTimeout = null, lastTapTime = 0;
                         const getX = (e) => e.touches ? e.touches[0].clientX : e.clientX;
                         const getY = (e) => e.touches ? e.touches[0].clientY : e.clientY;
 
-                        const doSpeak = (customTexts) => {{
-                            const ts = customTexts || ["主公，我在这呢！🥰", "量化大赚！吃橘子！🍊", "点击我也不会晕的~🦦", "今天赚了多少呀？💸"];
+                        const doSpeak = (customTexts) => {
+                            const ts = customTexts || ["主公，我在这呢！🥰", "量化大赚！吃橘子！🍊", "右键可以给我换衣服哦~", "今天赚了多少呀？💸"];
                             bubble.innerText = ts[Math.floor(Math.random() * ts.length)]; bubble.style.opacity = '1';
-                            setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
-                        }};
+                            setTimeout(() => { bubble.style.opacity = '0'; }, 3000);
+                        };
 
-                        const doDance = () => {{
+                        const doDance = () => {
                             state = 'DANCING'; danceTimer = 3.0; lastActivityTime = Date.now();
                             bubble.innerText = "好耶！开心转圈圈！💃🕺"; bubble.style.opacity = '1';
-                            setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
-                        }};
+                            setTimeout(() => { bubble.style.opacity = '0'; }, 3000);
+                        };
 
-                        const startInteraction = (e) => {{
+                        const startInteraction = (e) => {
+                            if(e.button === 2) return; // 🔥 拦截右键，禁止右键拖拽 🔥
                             isHolding = true; initX = getX(e); initY = getY(e);
                             const r = petBox.getBoundingClientRect(); startL = r.left; startT = r.top;
                             isDragging = false; isPossibleClick = true; 
                             petBox.style.bottom = 'auto'; petBox.style.right = 'auto'; petBox.style.left = startL + 'px'; petBox.style.top = startT + 'px';
-                        }};
+                        };
 
-                        win.addEventListener('mousemove', (e) => {{
-                            if (isHolding) {{
+                        // 🔥 绑定自定义右键菜单事件，彻底屏蔽原生浏览器菜单 🔥
+                        petBox.addEventListener('contextmenu', (e) => {
+                            e.preventDefault(); 
+                            ctxMenu.style.display = 'block';
+                            ctxMenu.style.left = (e.clientX + 10) + 'px';
+                            ctxMenu.style.top = (e.clientY - 10) + 'px';
+                        });
+
+                        // 点击其他空白处关闭菜单
+                        doc.addEventListener('click', (e) => {
+                            if (e.button !== 2) { ctxMenu.style.display = 'none'; }
+                        });
+
+                        win.addEventListener('mousemove', (e) => {
+                            if (isHolding) {
                                 const curX = getX(e); const curY = getY(e);
                                 const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
-                                if (moveDist > 20) {{ 
-                                    if (!isDragging) {{
+                                if (moveDist > 20) { 
+                                    if (!isDragging) {
                                         isDragging = true; isPossibleClick = false; state = 'STRUGGLING'; idleActionState = 'NONE';
                                         petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; 
-                                    }}
+                                    }
                                     let newLeft = startL + curX - initX; let newTop = startT + curY - initY;
                                     newLeft = Math.max(-overflowLimit, Math.min(newLeft, win.innerWidth - petSize + overflowLimit));
                                     newTop = Math.max(-overflowLimit, Math.min(newTop, win.innerHeight - petSize + overflowLimit));
                                     petBox.style.left = newLeft + 'px'; petBox.style.top = newTop + 'px';
                                     if(e.cancelable) e.preventDefault(); 
-                                }}
+                                }
                                 return;
-                            }}
+                            }
                             updateLookAt(e.clientX, e.clientY);
-                            if (checkHit(e.clientX, e.clientY)) {{
-                                if (petBox.style.pointerEvents !== 'auto') {{ petBox.style.pointerEvents = 'auto'; petBox.style.cursor = 'grab'; }}
-                            }} else {{
-                                if (petBox.style.pointerEvents !== 'none') {{ petBox.style.pointerEvents = 'none'; }}
-                            }}
-                        }}, true);
+                            if (checkHit(e.clientX, e.clientY)) {
+                                if (petBox.style.pointerEvents !== 'auto') { petBox.style.pointerEvents = 'auto'; petBox.style.cursor = 'grab'; }
+                            } else {
+                                if (petBox.style.pointerEvents !== 'none') { petBox.style.pointerEvents = 'none'; }
+                            }
+                        }, true);
 
-                        const endInteraction = (e) => {{
+                        const endInteraction = (e) => {
                             if (!isHolding) return;
                             isHolding = false; petBox.style.transition = 'transform 0.2s'; petBox.style.cursor = 'grab'; petBox.style.transform = 'scale(1)'; lastActivityTime = Date.now();
-                            if (isDragging) {{ isDragging = false; if (state !== 'DANCING') state = 'IDLE'; return; }}
-                            if (isPossibleClick) {{
+                            if (isDragging) { isDragging = false; if (state !== 'DANCING') state = 'IDLE'; return; }
+                            if (isPossibleClick) {
                                 const currentTime = new Date().getTime(); const tapLength = currentTime - lastTapTime; clearTimeout(clickTimeout); 
-                                if (tapLength < 350 && tapLength > 0) {{ doDance(); }} else {{ clickTimeout = setTimeout(() => {{ doSpeak(); }}, 300); }}
+                                if (tapLength < 350 && tapLength > 0) { doDance(); } else { clickTimeout = setTimeout(() => { doSpeak(); }, 300); }
                                 lastTapTime = currentTime;
-                            }}
-                        }};
+                            }
+                        };
 
                         petBox.addEventListener('mousedown', startInteraction); doc.addEventListener('mouseup', endInteraction); doc.addEventListener('mouseleave', endInteraction);
 
-                        doc.addEventListener('touchstart', (e) => {{
-                            if (checkHit(e.touches[0].clientX, e.touches[0].clientY)) {{
+                        doc.addEventListener('touchstart', (e) => {
+                            if (checkHit(e.touches[0].clientX, e.touches[0].clientY)) {
                                 petBox.style.pointerEvents = 'auto'; startInteraction(e); e.stopPropagation();
-                            }} else {{ petBox.style.pointerEvents = 'none'; }}
-                        }}, {{ capture: true, passive: false }});
+                            } else { petBox.style.pointerEvents = 'none'; }
+                        }, { capture: true, passive: false });
 
-                        doc.addEventListener('touchmove', (e) => {{
-                            if (isHolding) {{
+                        doc.addEventListener('touchmove', (e) => {
+                            if (isHolding) {
                                 const curX = getX(e); const curY = getY(e); const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
-                                if (moveDist > 20) {{ 
-                                    if (!isDragging) {{
+                                if (moveDist > 20) { 
+                                    if (!isDragging) {
                                         isDragging = true; isPossibleClick = false; state = 'STRUGGLING'; idleActionState = 'NONE';
                                         petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; 
-                                    }}
+                                    }
                                     let newLeft = startL + curX - initX; let newTop = startT + curY - initY;
                                     newLeft = Math.max(-overflowLimit, Math.min(newLeft, win.innerWidth - petSize + overflowLimit));
                                     newTop = Math.max(-overflowLimit, Math.min(newTop, win.innerHeight - petSize + overflowLimit));
                                     petBox.style.left = newLeft + 'px'; petBox.style.top = newTop + 'px';
                                     e.stopPropagation(); if(e.cancelable) e.preventDefault(); 
-                                }}
-                            }} else {{ updateLookAt(e.touches[0].clientX, e.touches[0].clientY); }}
-                        }}, {{ passive: false }});
+                                }
+                            } else { updateLookAt(e.touches[0].clientX, e.touches[0].clientY); }
+                        }, { passive: false });
 
                         doc.addEventListener('touchend', endInteraction); doc.addEventListener('touchcancel', endInteraction);
                         setTimeout(animate, 1500);
-                    }})();
+                    })();
                 `;
                 parentDoc.body.appendChild(script);
-            }};
+            };
             setTimeout(initLulu, 500); 
-        }}
+        }
     </script>
     """
+
+    html_code = html_template.replace("__PETS_JSON_DATA__", pets_json_str)
     components.html(html_code, height=0, width=0)
 
 
@@ -308,16 +400,11 @@ def safe_exec_fut_strategy(code, df):
     l_vars = {}
     exec(safe_code, {"pd": pd, "np": np, "math": math}, l_vars)
     func_to_call = next((v for k, v in l_vars.items() if callable(v)), None)
-    if not func_to_call:
-        raise ValueError("AI 未生成有效函数！")
-
+    if not func_to_call: return df
     df_ai = func_to_call(df)
     sig_col = next((c for c in df_ai.columns if c.lower() == 'signal'), None)
-
-    df_ai['Signal'] = df_ai[sig_col].fillna(0).apply(
-        lambda x: 1 if x > 0.1 else (-1 if x < -0.1 else 0)
-    ).astype(int) if sig_col else 0
-
+    df_ai['Signal'] = df_ai[sig_col].fillna(0).apply(lambda x: 1 if x > 0.1 else (-1 if x < -0.1 else 0)).astype(
+        int) if sig_col else 0
     return df_ai
 
 
@@ -391,6 +478,9 @@ def render_fut_charts(df):
     return fig
 
 
+# ==========================================
+# 🔥 核心引擎 1：极客量化 IDE (代码编译器)
+# ==========================================
 def render_ide_page():
     st.markdown('<div class="glass-card"><h3 style="margin-bottom:0;">💻 极客量化 IDE</h3></div>',
                 unsafe_allow_html=True)
@@ -612,225 +702,6 @@ def render_futures_backtest():
                         unsafe_allow_html=True)
 
             st.plotly_chart(render_fut_charts(df), use_container_width=True)
-
-
-def render_page_dl():
-    with st.spinner("唤醒深度学习底层张量引擎..."):
-        try:
-            import torch
-            import torch.nn as nn
-            from sklearn.preprocessing import MinMaxScaler
-        except ImportError:
-            st.error("🚨 需安装 torch 和 scikit-learn！")
-            st.stop()
-
-    st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>',
-        unsafe_allow_html=True)
-
-    col_l, col_r = st.columns([1, 2.5])
-
-    with col_l:
-        st_code = st.text_input("🎯 推演标的代码", value="000001")
-
-        span_mapping_dl = {"近1年 (极速)": 1, "近3年 (标准)": 3, "近5年 (深度)": 5}
-        span_choice_dl = st.selectbox("⏳ 数据集跨度", list(span_mapping_dl.keys()), index=1)
-        start_year_dl = datetime.now().year - span_mapping_dl[span_choice_dl]
-
-        st.markdown("---")
-        run_mode = st.radio("⚙️ 引擎运行模式", ["🚀 在线动态训练", "📂 导入本地模型"], horizontal=True)
-
-        if "在线动态" in run_mode:
-            model_choices = st.multiselect("🧠 选择预测模型 (支持融合)", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"])
-            slen = st.slider("📏 滑窗长度 (Sequence Length)", 5, 60, 20)
-            eps = st.slider("🔄 Epoch 迭代次数", 10, 50, 30)
-            uploaded_model = None
-            btn_text = "🚀 启动张量训练"
-        else:
-            model_choices = st.multiselect("🧠 指定本地模型架构", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"],
-                                           max_selections=1)
-            slen = st.slider("📏 滑窗长度 (需与本地模型一致)", 5, 60, 20)
-            uploaded_model = st.file_uploader("📥 上传 PyTorch 权重文件 (.pth / .pt)", type=['pth', 'pt'])
-            eps = 0
-            btn_text = "⚡ 挂载模型并推演"
-
-        if st.button(btn_text, type="primary", use_container_width=True):
-            if "导入本地模型" in run_mode and not uploaded_model:
-                st.error("主公，请先上传本地训练好的权重文件！")
-            elif not model_choices:
-                st.error("主公，请至少选择一种模型架构！")
-            else:
-                with st.spinner("神经网络前向传播中..."):
-                    try:
-                        df = fetch_and_clean_data(format_ts_code(st_code), 'qfq', f"{start_year_dl}0101")
-                        if df.empty:
-                            st.error("未能获取到数据，请检查标的代码。")
-                            st.stop()
-
-                        scaler = MinMaxScaler()
-                        scaled = scaler.fit_transform(df['Close'].values.reshape(-1, 1))
-
-                        X, y = [], []
-                        for i in range(slen, len(scaled)):
-                            X.append(scaled[i - slen:i, 0])
-                            y.append(scaled[i, 0])
-
-                        X_t = torch.tensor(np.array(X), dtype=torch.float32).unsqueeze(-1)
-                        y_t = torch.tensor(np.array(y), dtype=torch.float32)
-
-                        class TSModel(nn.Module):
-                            def __init__(self, m_type, seq_len):
-                                super().__init__()
-                                self.m_type = m_type
-                                if m_type == "1D-CNN":
-                                    self.conv = nn.Conv1d(in_channels=1, out_channels=32, kernel_size=3, padding=1)
-                                    self.fc = nn.Linear(32 * seq_len, 1)
-                                else:
-                                    self.rnn = getattr(nn, m_type)(1, 64, 2, batch_first=True)
-                                    self.fc = nn.Linear(64, 1)
-
-                            def forward(self, x):
-                                if self.m_type == "1D-CNN":
-                                    x = x.permute(0, 2, 1)
-                                    x = torch.relu(self.conv(x))
-                                    x = x.reshape(x.size(0), -1)
-                                    return self.fc(x)
-                                else:
-                                    out, _ = self.rnn(x)
-                                    return self.fc(out[:, -1, :])
-
-                        preds_dict = {}
-                        future_preds_dict = {}
-                        lbox = st.empty()
-                        pbar = st.progress(0)
-
-                        last_window_orig = X_t[-1].clone().unsqueeze(0)
-
-                        for m_idx, m_name in enumerate(model_choices):
-                            net = TSModel(m_name, slen)
-
-                            if "导入本地模型" in run_mode:
-                                lbox.markdown(f"**正在解析并挂载本地 {m_name} 模型权重...**")
-                                try:
-                                    net.load_state_dict(torch.load(uploaded_model, map_location=torch.device('cpu')))
-                                    lbox.success(f"**{m_name}** | 权重校验通过，挂载成功！")
-                                    pbar.progress(1.0)
-                                except Exception as load_e:
-                                    st.warning(f"⚠️ 模型架构不匹配，已切入容灾模式进行极速重训练... ({load_e})")
-                                    opt = torch.optim.Adam(net.parameters(), lr=0.01)
-                                    crit = nn.MSELoss()
-                                    for e in range(10):
-                                        net.train()
-                                        opt.zero_grad()
-                                        loss = crit(net(X_t).squeeze(), y_t)
-                                        loss.backward()
-                                        opt.step()
-                            else:
-                                lbox.markdown(f"**正在在线训练 {m_name} 模型...**")
-                                opt = torch.optim.Adam(net.parameters(), lr=0.01)
-                                crit = nn.MSELoss()
-
-                                for e in range(eps):
-                                    net.train()
-                                    opt.zero_grad()
-                                    pred = net(X_t)
-                                    loss = crit(pred.squeeze(), y_t)
-                                    loss.backward()
-                                    opt.step()
-
-                                    pbar.progress((m_idx * eps + e + 1) / (len(model_choices) * eps))
-                                    lbox.markdown(f"**{m_name}** | Epoch {e + 1}/{eps} | Loss: {loss.item():.6f}")
-
-                            net.eval()
-                            test_p = net(X_t[-100:]).detach().numpy()
-                            preds_dict[m_name] = scaler.inverse_transform(test_p).flatten()
-
-                            curr_win = last_window_orig.clone()
-                            m_future = []
-                            for _ in range(5):
-                                with torch.no_grad():
-                                    p_future = net(curr_win)
-                                m_future.append(p_future.item())
-                                curr_win = torch.cat((curr_win[:, 1:, :], p_future.unsqueeze(-1)), dim=1)
-
-                            future_preds_dict[m_name] = scaler.inverse_transform(
-                                np.array(m_future).reshape(-1, 1)).flatten()
-
-                        lbox.success("✅ 模型运算完毕，时空推演已就绪！")
-                        st.session_state.dl_result = {
-                            "dates": df['trade_date'].iloc[-100:],
-                            "actual": df['Close'].iloc[-100:],
-                            "preds": preds_dict,
-                            "future": future_preds_dict,
-                            "models_used": model_choices
-                        }
-                    except Exception as e:
-                        st.error(f"DL 张量异常: {e}")
-
-    with col_r:
-        if st.session_state.dl_result:
-            import plotly.graph_objects as go
-            res = st.session_state.dl_result
-            latest_price = res['actual'].iloc[-1]
-            actual_vals = res['actual'].values
-
-            if len(res['models_used']) > 1:
-                f_preds = np.mean(list(res['future'].values()), axis=0)
-                h_preds = np.mean(list(res['preds'].values()), axis=0)
-                model_desc = f"LSTM/GRU/CNN 均值集成 ({len(res['models_used'])}模型)"
-            else:
-                f_preds = list(res['future'].values())[0]
-                h_preds = list(res['preds'].values())[0]
-                model_desc = res['models_used'][0]
-
-            act_diff = np.diff(actual_vals)
-            pred_diff = np.diff(h_preds)
-            success_rate = np.mean(np.sign(act_diff) == np.sign(pred_diff)) * 100
-            mape = np.mean(np.abs((actual_vals - h_preds) / (actual_vals + 1e-8))) * 100
-
-            day1_pred = f_preds[0]
-            day5_pred = f_preds[4]
-
-            with st.expander("🤖 AI 深度预测白盒解析舱 (点击展开/收起)", expanded=True):
-                st.markdown(
-                    f"**📈 极速解盘预览**：当前实盘价 `<span class='highlight-text'>{latest_price:.2f}</span>` | 驱动核心: {model_desc}",
-                    unsafe_allow_html=True
-                )
-
-                c_f1, c_f2, c_f3, c_f4 = st.columns(4)
-                c_f1.metric("未来 1 天预测 (T+1)", f"{day1_pred:.2f}",
-                            f"{(day1_pred - latest_price) / latest_price * 100:.2f}%")
-                c_f2.metric("未来 5 天预测 (T+5)", f"{day5_pred:.2f}",
-                            f"{(day5_pred - latest_price) / latest_price * 100:.2f}%")
-                c_f3.metric("🎯 历史方向胜率", f"{success_rate:.1f}%", "涨跌准确度")
-                c_f4.metric("⚖️ 平均预测偏差", f"{mape:.2f}%", "绝对偏离度", delta_color="inverse")
-
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹 (Actual)',
-                                     line=dict(color='#00ffcc', width=2)))
-            color_map = {"LSTM": "#ff00ff", "GRU": "#ffff00", "1D-CNN": "#00bfff"}
-
-            for m_name, pred_array in res['preds'].items():
-                fig.add_trace(go.Scatter(x=res['dates'], y=pred_array, name=f'{m_name} 历史拟合',
-                                         line=dict(color=color_map.get(m_name, '#ffffff'), dash='dot', width=1)))
-
-            if len(res['preds']) > 1:
-                ensemble_pred = np.mean(list(res['preds'].values()), axis=0)
-                fig.add_trace(go.Scatter(x=res['dates'], y=ensemble_pred, name='🔥 均值集成 (Ensemble)',
-                                         line=dict(color='#ff4b4b', width=3)))
-
-            fig.update_layout(
-                height=450,
-                template="none",
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                dragmode='pan',
-                hovermode='x',
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-            )
-            fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
-            fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
-            st.plotly_chart(fig, use_container_width=True)
 
 
 @st_fragment
