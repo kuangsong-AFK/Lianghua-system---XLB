@@ -203,6 +203,7 @@ if extensions and "lulu_injected" not in st.session_state:
 # ==========================================
 # 4. 极致静态 CSS + 动态动画
 # ==========================================
+# 🔥 修复：移除了全局的 div[data-testid="stFileUploader"] 隐藏规则，防止误伤深度学习页面的上传框 🔥
 st.markdown("""
 <style>
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
@@ -214,9 +215,6 @@ st.markdown("""
     [data-testid="collapsedControl"], [data-testid="stToolbar"] { pointer-events: auto !important; opacity: 1 !important; visibility: visible !important; display: flex !important; transform: none !important;}
     .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
     [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
-
-    /* 文件上传框全局隐身 */
-    div[data-testid="stFileUploader"] { position: absolute !important; top: -9999px !important; left: -9999px !important; opacity: 0.01 !important; z-index: -9999 !important; height: 1px !important; width: 1px !important; overflow: hidden !important; margin: 0 !important; padding: 0 !important; pointer-events: none !important; }
 
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
     .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
@@ -569,6 +567,11 @@ if selected_page == PAGES[0]:
         )
 
 elif selected_page == PAGES[1]:
+    # 🔥 修复：仅在 AI 战情室页面，动态注入 CSS 隐藏上传框，绝不误伤深度学习页面 🔥
+    st.markdown(
+        '<style>div[data-testid="stFileUploader"] { position: absolute !important; top: -9999px !important; opacity: 0 !important; z-index: -9999 !important; pointer-events: none !important; }</style>',
+        unsafe_allow_html=True)
+
     st.markdown(
         '<div class="glass-card"><h3 style="margin-bottom:0; color:var(--text-color);">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与全域文档解析模块已就绪，体验沉浸式工作流。</p></div>',
         unsafe_allow_html=True
@@ -753,7 +756,7 @@ elif selected_page == PAGES[1]:
                                 st.markdown("".join(agent_logs), unsafe_allow_html=True)
                     except Exception as e:
                         st.error(f"链路断开: {e}")
-                        full_resp += f"\n\n❌ [异常阻断: 通信失败 - {e}]"
+                        full_resp += f"\n\n❌ [异常阻断: 通信失败或超载 - {e}]"
                         break
 
                 if agent_logs:
