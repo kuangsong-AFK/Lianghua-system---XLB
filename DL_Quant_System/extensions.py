@@ -4,6 +4,7 @@
 # ==========================================
 import streamlit as st
 import streamlit.components.v1 as components
+import base64
 import os
 import time
 import traceback
@@ -33,20 +34,36 @@ SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 
 
 def summon_global_3d_lulu():
-    """终极异步降维版：使用 HTTP 静态文件异步传输，绝对路径映射"""
+    """全地形装甲版：智能双重寻址 + Base64 挂载 + 国内 Draco 极速解码"""
+    current_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # ====================================================================
-    # 🔥 绝对路径映射：前面加上 /，确保浏览器直接从服务器根节点抓取！
-    # 只要文件实际存放在 DL_Quant_System/static/ 下，URL 就会永远是 /app/static/
-    # ====================================================================
     PET_ROSTER = {
-        "🍊 水豚噜噜": "/app/static/lulu.glb",
-        "🐧 高雅企鹅": "/app/static/penguin.glb",
-        "🐱 hello Kitty": "/app/static/kitty.glb",
-        "🐷 猪猪侠": "/app/static/pig.glb"
+        "🍊 水豚噜噜": "lulu.glb",
+        "🐧 高雅企鹅": "penguin.glb",
+        "🐱 hello Kitty": "kitty.glb",
+        "🐷 猪猪侠": "pig.glb"
     }
 
-    pets_json_str = json.dumps(PET_ROSTER)
+    pet_b64 = {}
+    with st.spinner("正在为雷达加装多维宇宙识别系统..."):
+        for name, filename in PET_ROSTER.items():
+            # 🔥 智能双重寻址：不管模型是在 static 里面，还是在外面，全都能自动找到！
+            path_static = os.path.join(current_dir, "static", filename)
+            path_root = os.path.join(current_dir, filename)
+
+            if os.path.exists(path_static):
+                with open(path_static, "rb") as f:
+                    pet_b64[name] = base64.b64encode(f.read()).decode("utf-8")
+            elif os.path.exists(path_root):
+                with open(path_root, "rb") as f:
+                    pet_b64[name] = base64.b64encode(f.read()).decode("utf-8")
+            else:
+                pet_b64[name] = ""
+
+    if not any(pet_b64.values()):
+        return
+
+    pets_json_str = json.dumps(pet_b64)
 
     html_code = f"""
     <script id="lulu-pet-data" type="application/json">{pets_json_str}</script>
@@ -57,8 +74,7 @@ def summon_global_3d_lulu():
 
         const dataStr = document.getElementById('lulu-pet-data').textContent;
         pWin.__PETS_JSON_DATA__ = JSON.parse(dataStr);
-
-        pWin.__LULU_V8_INIT = true;
+        pWin.__LULU_V9_INIT = true; // 强制更新标记
 
         const loadScript = (src) => new Promise((res) => {{
             const s = pDoc.createElement('script');
@@ -78,7 +94,7 @@ def summon_global_3d_lulu():
                     const THREE = window.THREE;
                     const doc = document;
                     const win = window;
-                    const petUrls = window.__PETS_JSON_DATA__; 
+                    const petData = window.__PETS_JSON_DATA__; 
 
                     const oldPet = doc.getElementById('lulu-global-pet');
                     if(oldPet) oldPet.remove();
@@ -94,7 +110,7 @@ def summon_global_3d_lulu():
                     const petSize = 280; 
                     const overflowLimit = 80; 
 
-                    // -------------------- UI 容器构建 --------------------
+                    // -------------------- UI 容器 --------------------
                     const petBox = doc.createElement('div');
                     petBox.id = 'lulu-global-pet';
                     petBox.style.cssText = "position: fixed; bottom: 20px; right: 20px; width: " + petSize + "px; height: " + petSize + "px; z-index: 9999999; cursor: grab; user-select: none; pointer-events: none; transition: transform 0.2s; touch-action: none;"; 
@@ -104,7 +120,7 @@ def summon_global_3d_lulu():
                     bubble.style.cssText = "position: absolute; top: 0px; left: 50%; transform: translateX(-50%); opacity: 0; background: rgba(20, 28, 45, 0.95); border: 1px solid #00ffcc; color: #fff; padding: 8px 15px; border-radius: 12px; font-size: 14px; white-space: nowrap; transition: opacity 0.3s; pointer-events: none; box-shadow: 0 4px 12px rgba(0,255,204,0.3); z-index: 10;";
                     petBox.appendChild(bubble);
 
-                    // -------------------- 自定义右键菜单构建 --------------------
+                    // -------------------- 自定义右键菜单 --------------------
                     const ctxMenu = doc.createElement('div');
                     ctxMenu.id = 'lulu-ctx-menu';
                     ctxMenu.style.cssText = "position: fixed; display: none; background: rgba(15, 23, 35, 0.95); border: 1px solid rgba(0, 255, 204, 0.5); border-radius: 12px; padding: 6px; z-index: 10000000; color: #fff; font-size: 14px; min-width: 140px; box-shadow: 0 8px 24px rgba(0,0,0,0.8); backdrop-filter: blur(10px);";
@@ -115,7 +131,7 @@ def summon_global_3d_lulu():
                     menuTitle.style.cssText = "padding: 6px 12px; color: #8b9bb4; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 4px; pointer-events: none;";
                     ctxMenu.appendChild(menuTitle);
 
-                    Object.keys(petUrls).forEach(petName => {{
+                    Object.keys(petData).forEach(petName => {{
                         const item = doc.createElement('div');
                         item.innerText = petName;
                         item.style.cssText = "padding: 8px 12px; cursor: pointer; border-radius: 6px; transition: 0.2s; margin-bottom: 2px;";
@@ -125,22 +141,24 @@ def summon_global_3d_lulu():
                         item.onclick = (e) => {{
                             e.stopPropagation();
                             ctxMenu.style.display = 'none';
-                            switchModel(petUrls[petName], petName);
+                            if(petData[petName] !== "") {{
+                                switchModel(petData[petName], petName);
+                            }} else {{
+                                doSpeak(["主公，【" + petName + "】的模型文件还没放入军营哦！"]);
+                            }}
                         }};
                         ctxMenu.appendChild(item);
                     }});
 
-                    // -------------------- 3D 场景初始化 --------------------
                     const scene = new THREE.Scene();
                     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
                     camera.position.set(0, 0.8, 5.5); 
 
-                    const renderer = new THREE.WebGLRenderer({{ alpha: true, antialias: true }});
+                    const renderer = new THREE.WebGLRenderer({{ alpha: true, antialias: win.innerWidth > 768 }});
                     renderer.setSize(petSize, petSize);
                     renderer.setPixelRatio(win.devicePixelRatio ? Math.min(win.devicePixelRatio, 2) : 1);
                     renderer.outputEncoding = THREE.sRGBEncoding;
 
-                    // 绝对镇压：拦截 contextmenu 事件
                     renderer.domElement.oncontextmenu = function(e) {{
                         e.preventDefault();
                         e.stopPropagation();
@@ -164,26 +182,21 @@ def summon_global_3d_lulu():
                     let targetRotX = 0;
                     let clickableMeshes = [];
 
+                    // 🔥 彻底替换为国内极速 CDN 加速节点，解压报错一去不返！ 🔥
                     const loader = new THREE.GLTFLoader();
                     const dracoLoader = new THREE.DRACOLoader();
-                    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.4.1/');
+                    dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/draco/gltf/');
                     loader.setDRACOLoader(dracoLoader);
 
-                    // 基于绝对 URL 的极速异步加载
-                    const switchModel = (modelUrl, name) => {{
+                    const switchModel = (b64String, name) => {{
                         const oldModelRef = currentModelObj;
-
-                        bubble.innerText = "⏳ 正在从异次元异步下载模型...";
-                        bubble.style.opacity = '1';
+                        bubble.innerText = "⏳ 异次元数据解压中..."; bubble.style.opacity = '1';
 
                         loader.load(
-                            modelUrl, 
+                            "data:application/octet-stream;base64," + b64String, 
                             (gltf) => {{
-                                if(oldModelRef) {{
-                                    scene.remove(oldModelRef);
-                                }}
-                                clickableMeshes = [];
-                                mixer = null;
+                                if(oldModelRef) {{ scene.remove(oldModelRef); }}
+                                clickableMeshes = []; mixer = null;
 
                                 currentModelObj = gltf.scene;
                                 currentModelObj.position.set(0, -1.2, 0); 
@@ -195,8 +208,7 @@ def summon_global_3d_lulu():
                                             if (child.material.transparent && child.material.opacity < 0.1) isTrash = true;
                                             if (child.material.opacity === 0) isTrash = true;
                                         }}
-                                        if (isTrash) {{ child.visible = false; }} 
-                                        else {{ clickableMeshes.push(child); }}
+                                        if (isTrash) {{ child.visible = false; }} else {{ clickableMeshes.push(child); }}
                                     }}
                                 }});
                                 scene.add(currentModelObj);
@@ -204,7 +216,6 @@ def summon_global_3d_lulu():
                                     mixer = new THREE.AnimationMixer(currentModelObj);
                                     mixer.clipAction(gltf.animations[0]).play();
                                 }}
-
                                 setTimeout(() => {{ bubble.style.opacity = '0'; }}, 500);
                                 if(name) {{
                                     setTimeout(() => {{
@@ -216,17 +227,15 @@ def summon_global_3d_lulu():
                             }},
                             undefined,
                             (error) => {{
-                                console.error("加载失败，请检查 static 目录下是否有该文件：", error);
-                                bubble.innerText = "❌ 传输失败，请确保该模型存放在 static 目录下！";
+                                console.error("模型解析失败：", error);
+                                bubble.innerText = "❌ 解析失败！请尝试更换未损坏的模型。";
                                 setTimeout(() => {{ bubble.style.opacity = '0'; }}, 4000);
                             }}
                         );
                     }};
 
-                    const initialPetKey = Object.keys(petUrls)[0];
-                    if(initialPetKey) {{
-                        switchModel(petUrls[initialPetKey], null);
-                    }}
+                    const initialPetKey = Object.keys(petData).find(k => petData[k] !== "");
+                    if(initialPetKey) {{ switchModel(petData[initialPetKey], null); }}
 
                     const raycaster = new THREE.Raycaster();
                     const mouseNDC = new THREE.Vector2();
@@ -238,16 +247,14 @@ def summon_global_3d_lulu():
                         mouseNDC.x = ((clientX - rect.left) / petSize) * 2 - 1;
                         mouseNDC.y = -((clientY - rect.top) / petSize) * 2 + 1;
                         raycaster.setFromCamera(mouseNDC, camera);
-                        const intersects = raycaster.intersectObjects(clickableMeshes, false);
-                        return intersects.length > 0; 
+                        return raycaster.intersectObjects(clickableMeshes, false).length > 0; 
                     }};
 
                     const updateLookAt = (clientX, clientY) => {{
                         lastActivityTime = Date.now();
                         if (state === 'IDLE' && idleActionState === 'NONE') {{
-                            const mouseX = (clientX / win.innerWidth) * 2 - 1;
-                            const mouseY = -(clientY / win.innerHeight) * 2 + 1;
-                            targetRotY = mouseX * 0.8; targetRotX = -mouseY * 0.4;
+                            targetRotY = (clientX / win.innerWidth) * 2 - 1;
+                            targetRotX = -(clientY / win.innerHeight) * 2 + 1;
                         }}
                     }};
 
@@ -257,13 +264,12 @@ def summon_global_3d_lulu():
                         const delta = clock.getDelta();
                         const time = clock.getElapsedTime();
                         if (mixer) mixer.update(delta);
-                        const now = Date.now();
 
                         if (state === 'IDLE' && idleActionState === 'NONE') {{
-                            if (now - lastActivityTime > 30000) {{ 
+                            if (Date.now() - lastActivityTime > 30000) {{ 
                                 const actions = ['HOP', 'LOOK_AROUND', 'SPEAK'];
                                 const act = actions[Math.floor(Math.random() * actions.length)];
-                                idleActionState = act; idleActionTimer = 2.5; lastActivityTime = now; 
+                                idleActionState = act; idleActionTimer = 2.5; lastActivityTime = Date.now(); 
                                 if (act === 'SPEAK') {{
                                     bubble.innerText = "主公，右键可以给我换衣服哦~";
                                     bubble.style.opacity = '1';
@@ -307,12 +313,6 @@ def summon_global_3d_lulu():
                     const getX = (e) => e.touches ? e.touches[0].clientX : e.clientX;
                     const getY = (e) => e.touches ? e.touches[0].clientY : e.clientY;
 
-                    const doDance = () => {{
-                        state = 'DANCING'; danceTimer = 3.0; lastActivityTime = Date.now();
-                        bubble.innerText = "好耶！开心转圈圈！💃🕺"; bubble.style.opacity = '1';
-                        setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
-                    }};
-
                     const startInteraction = (e) => {{
                         if(e.button === 2) return; 
                         isHolding = true; initX = getX(e); initY = getY(e);
@@ -321,19 +321,13 @@ def summon_global_3d_lulu():
                         petBox.style.bottom = 'auto'; petBox.style.right = 'auto'; petBox.style.left = startL + 'px'; petBox.style.top = startT + 'px';
                     }};
 
-                    doc.addEventListener('click', (e) => {{
-                        if (e.button !== 2) {{ ctxMenu.style.display = 'none'; }}
-                    }});
+                    doc.addEventListener('click', (e) => {{ if (e.button !== 2) {{ ctxMenu.style.display = 'none'; }} }});
 
                     win.addEventListener('mousemove', (e) => {{
                         if (isHolding) {{
                             const curX = getX(e); const curY = getY(e);
-                            const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
-                            if (moveDist > 20) {{ 
-                                if (!isDragging) {{
-                                    isDragging = true; isPossibleClick = false; state = 'STRUGGLING'; idleActionState = 'NONE';
-                                    petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; 
-                                }}
+                            if (Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2)) > 20) {{ 
+                                if (!isDragging) {{ isDragging = true; isPossibleClick = false; state = 'STRUGGLING'; idleActionState = 'NONE'; petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; }}
                                 let newLeft = startL + curX - initX; let newTop = startT + curY - initY;
                                 newLeft = Math.max(-overflowLimit, Math.min(newLeft, win.innerWidth - petSize + overflowLimit));
                                 newTop = Math.max(-overflowLimit, Math.min(newTop, win.innerHeight - petSize + overflowLimit));
@@ -343,11 +337,8 @@ def summon_global_3d_lulu():
                             return;
                         }}
                         updateLookAt(e.clientX, e.clientY);
-                        if (checkHit(e.clientX, e.clientY)) {{
-                            if (petBox.style.pointerEvents !== 'auto') {{ petBox.style.pointerEvents = 'auto'; petBox.style.cursor = 'grab'; }}
-                        }} else {{
-                            if (petBox.style.pointerEvents !== 'none') {{ petBox.style.pointerEvents = 'none'; }}
-                        }}
+                        if (checkHit(e.clientX, e.clientY)) {{ petBox.style.pointerEvents = 'auto'; petBox.style.cursor = 'grab'; }} 
+                        else {{ petBox.style.pointerEvents = 'none'; }}
                     }}, true);
 
                     const endInteraction = (e) => {{
@@ -356,13 +347,8 @@ def summon_global_3d_lulu():
                         if (isDragging) {{ isDragging = false; if (state !== 'DANCING') state = 'IDLE'; return; }}
                         if (isPossibleClick) {{
                             const currentTime = new Date().getTime(); const tapLength = currentTime - lastTapTime; clearTimeout(clickTimeout); 
-                            if (tapLength < 350 && tapLength > 0) {{ doDance(); }} else {{ 
-                                clickTimeout = setTimeout(() => {{
-                                    bubble.innerText = "右键可以给我换衣服哦~";
-                                    bubble.style.opacity = '1';
-                                    setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
-                                }}, 300); 
-                            }}
+                            if (tapLength < 350 && tapLength > 0) {{ state = 'DANCING'; danceTimer = 3.0; lastActivityTime = Date.now(); bubble.innerText = "好耶！转圈圈！💃"; bubble.style.opacity = '1'; setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000); }} 
+                            else {{ clickTimeout = setTimeout(() => {{ bubble.innerText = "右键给我换衣服哦~"; bubble.style.opacity = '1'; setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000); }}, 300); }}
                             lastTapTime = currentTime;
                         }}
                     }};
@@ -370,19 +356,15 @@ def summon_global_3d_lulu():
                     petBox.addEventListener('mousedown', startInteraction); doc.addEventListener('mouseup', endInteraction); doc.addEventListener('mouseleave', endInteraction);
 
                     doc.addEventListener('touchstart', (e) => {{
-                        if (checkHit(e.touches[0].clientX, e.touches[0].clientY)) {{
-                            petBox.style.pointerEvents = 'auto'; startInteraction(e); e.stopPropagation();
-                        }} else {{ petBox.style.pointerEvents = 'none'; }}
+                        if (checkHit(e.touches[0].clientX, e.touches[0].clientY)) {{ petBox.style.pointerEvents = 'auto'; startInteraction(e); e.stopPropagation(); }} 
+                        else {{ petBox.style.pointerEvents = 'none'; }}
                     }}, {{ capture: true, passive: false }});
 
                     doc.addEventListener('touchmove', (e) => {{
                         if (isHolding) {{
-                            const curX = getX(e); const curY = getY(e); const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
-                            if (moveDist > 20) {{ 
-                                if (!isDragging) {{
-                                    isDragging = true; isPossibleClick = false; state = 'STRUGGLING'; idleActionState = 'NONE';
-                                    petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; 
-                                }}
+                            const curX = getX(e); const curY = getY(e);
+                            if (Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2)) > 20) {{ 
+                                if (!isDragging) {{ isDragging = true; isPossibleClick = false; state = 'STRUGGLING'; idleActionState = 'NONE'; petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; }}
                                 let newLeft = startL + curX - initX; let newTop = startT + curY - initY;
                                 newLeft = Math.max(-overflowLimit, Math.min(newLeft, win.innerWidth - petSize + overflowLimit));
                                 newTop = Math.max(-overflowLimit, Math.min(newTop, win.innerHeight - petSize + overflowLimit));
@@ -401,9 +383,12 @@ def summon_global_3d_lulu():
         setTimeout(initLulu, 500); 
     </script>
     """
-
     components.html(html_code, height=0, width=0)
 
+
+# =======================================================
+# 下面保留 IDE, 回测, 沙盘等功能 (保持不变)
+# =======================================================
 
 def safe_exec_fut_strategy(code, df):
     safe_code = code.replace("pandas.np", "np")
@@ -937,268 +922,8 @@ def render_futures_sandbox():
         """, unsafe_allow_html=True)
 
 
-def render_page_dl():
-    with st.spinner("唤醒深度学习底层张量引擎..."):
-        try:
-            import torch
-            import torch.nn as nn
-            from sklearn.preprocessing import MinMaxScaler
-        except ImportError:
-            st.error("🚨 需安装 torch 和 scikit-learn！")
-            st.stop()
-
+def render_new_features_page():
     st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>',
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3></div>',
         unsafe_allow_html=True)
-    col_l, col_r = st.columns([1, 2.5])
-    with col_l:
-        st_code = st.text_input("🎯 训练模型标的", value="000001")
-        span_mapping_dl = {"近1年 (极速)": 1, "近3年 (标准)": 3, "近5年 (深度)": 5}
-        span_choice_dl = st.selectbox("⏳ 训练集时间跨度", list(span_mapping_dl.keys()), index=1)
-        start_year_dl = datetime.now().year - span_mapping_dl[span_choice_dl]
-
-        st.markdown("---")
-        run_mode = st.radio("⚙️ 引擎运行模式", ["🚀 在线动态训练", "📂 导入本地模型"], horizontal=True)
-
-        if "在线动态" in run_mode:
-            model_choices = st.multiselect("🧠 选择预测模型 (支持多选融合)", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"])
-            slen = st.slider("📏 滑窗长度", 5, 60, 20)
-            eps = st.slider("🔄 Epoch 迭代", 10, 50, 30)
-            uploaded_model = None
-            btn_text = "🚀 启动张量训练"
-        else:
-            model_choices = st.multiselect("🧠 指定本地模型架构", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"],
-                                           max_selections=1)
-            slen = st.slider("📏 滑窗长度 (需与本地模型一致)", 5, 60, 20)
-            uploaded_model = st.file_uploader("📥 上传 PyTorch 权重文件 (.pth / .pt)", type=['pth', 'pt'])
-            eps = 0
-            btn_text = "⚡ 挂载模型并推演"
-
-        if st.button(btn_text, type="primary", use_container_width=True):
-            if "导入本地模型" in run_mode and not uploaded_model:
-                st.error("主公，请先上传本地训练好的权重文件！")
-            elif not model_choices:
-                st.error("主公，请至少选择一种预测模型！")
-            else:
-                with st.spinner("神经网络前向传播中..."):
-                    try:
-                        df = fetch_and_clean_data(format_ts_code(st_code), 'qfq', f"{start_year_dl}0101")
-                        scaler = MinMaxScaler()
-                        scaled = scaler.fit_transform(df['Close'].values.reshape(-1, 1))
-                        X, y = [], []
-                        for i in range(slen, len(scaled)):
-                            X.append(scaled[i - slen:i, 0])
-                            y.append(scaled[i, 0])
-                        X_t = torch.tensor(np.array(X), dtype=torch.float32).unsqueeze(-1)
-                        y_t = torch.tensor(np.array(y), dtype=torch.float32)
-
-                        class LSTM_Model(nn.Module):
-                            def __init__(self):
-                                super().__init__()
-                                self.lstm = nn.LSTM(1, 64, 2, batch_first=True)
-                                self.fc = nn.Linear(64, 1)
-
-                            def forward(self, x):
-                                out, _ = self.lstm(x)
-                                return self.fc(out[:, -1, :])
-
-                        class GRU_Model(nn.Module):
-                            def __init__(self):
-                                super().__init__()
-                                self.gru = nn.GRU(1, 64, 2, batch_first=True)
-                                self.fc = nn.Linear(64, 1)
-
-                            def forward(self, x):
-                                out, _ = self.gru(x)
-                                return self.fc(out[:, -1, :])
-
-                        class CNN_1D_Model(nn.Module):
-                            def __init__(self, seq_len):
-                                super().__init__()
-                                self.conv = nn.Conv1d(in_channels=1, out_channels=32, kernel_size=3, padding=1)
-                                self.fc = nn.Linear(32 * seq_len, 1)
-
-                            def forward(self, x):
-                                x = x.permute(0, 2, 1)
-                                x = torch.relu(self.conv(x))
-                                x = x.reshape(x.size(0), -1)
-                                return self.fc(x)
-
-                        preds_dict = {}
-                        future_preds_dict = {}
-                        lbox = st.empty()
-                        pbar = st.progress(0)
-                        last_window_orig = X_t[-1].clone().unsqueeze(0)
-
-                        for m_idx, m_name in enumerate(model_choices):
-                            if m_name == "LSTM":
-                                model = LSTM_Model()
-                            elif m_name == "GRU":
-                                model = GRU_Model()
-                            elif m_name == "1D-CNN":
-                                model = CNN_1D_Model(slen)
-
-                            if "导入本地模型" in run_mode:
-                                lbox.markdown(f"**正在解析并挂载本地 {m_name} 模型权重...**")
-                                try:
-                                    model.load_state_dict(torch.load(uploaded_model, map_location=torch.device('cpu')))
-                                    lbox.success(f"**{m_name}** | 权重校验通过，挂载成功！")
-                                    pbar.progress(1.0)
-                                except Exception as load_e:
-                                    st.warning(f"⚠️ 模型架构不匹配，已切入容灾模式进行极速重训练... ({load_e})")
-                                    opt = torch.optim.Adam(model.parameters(), lr=0.01)
-                                    crit = nn.MSELoss()
-                                    for e in range(10):
-                                        model.train()
-                                        opt.zero_grad()
-                                        loss = crit(model(X_t).squeeze(), y_t)
-                                        loss.backward()
-                                        opt.step()
-                            else:
-                                lbox.markdown(f"**正在在线训练 {m_name} 模型...**")
-                                opt = torch.optim.Adam(model.parameters(), lr=0.01)
-                                crit = nn.MSELoss()
-                                for e in range(eps):
-                                    model.train()
-                                    opt.zero_grad()
-                                    pred = model(X_t)
-                                    loss = crit(pred.squeeze(), y_t)
-                                    loss.backward()
-                                    opt.step()
-                                    pbar.progress((m_idx * eps + e + 1) / (len(model_choices) * eps))
-                                    lbox.markdown(f"**{m_name}** | Epoch {e + 1}/{eps} | Loss: {loss.item():.6f}")
-
-                            model.eval()
-                            test_p = model(X_t[-100:]).detach().numpy()
-                            preds_dict[m_name] = scaler.inverse_transform(test_p).flatten()
-                            curr_win = last_window_orig.clone()
-                            m_future = []
-                            for _ in range(5):
-                                with torch.no_grad():
-                                    p_future = model(curr_win)
-                                m_future.append(p_future.item())
-                                curr_win = torch.cat((curr_win[:, 1:, :], p_future.unsqueeze(-1)), dim=1)
-                            future_preds_dict[m_name] = scaler.inverse_transform(
-                                np.array(m_future).reshape(-1, 1)).flatten()
-
-                        lbox.success("✅ 矩阵模型装载完毕，时空推演已就绪！")
-                        st.session_state.dl_result = {
-                            "dates": df['trade_date'].iloc[-100:], "actual": df['Close'].iloc[-100:],
-                            "preds": preds_dict, "future": future_preds_dict, "models_used": model_choices
-                        }
-                    except Exception as e:
-                        st.error(f"DL 张量异常: {e}")
-
-    with col_r:
-        if st.session_state.dl_result:
-            res = st.session_state.dl_result
-            latest_price = res['actual'].iloc[-1]
-            actual_vals = res['actual'].values
-
-            if len(res['models_used']) > 1:
-                f_preds = np.mean(list(res['future'].values()), axis=0)
-                h_preds = np.mean(list(res['preds'].values()), axis=0)
-                model_desc = f"LSTM/GRU/CNN 均值集成 ({len(res['models_used'])}模型)"
-            else:
-                f_preds = list(res['future'].values())[0]
-                h_preds = list(res['preds'].values())[0]
-                model_desc = res['models_used'][0]
-
-            act_diff = np.diff(actual_vals)
-            pred_diff = np.diff(h_preds)
-            success_rate = np.mean(np.sign(act_diff) == np.sign(pred_diff)) * 100
-            mape = np.mean(np.abs((actual_vals - h_preds) / (actual_vals + 1e-8))) * 100
-
-            day1_pred = f_preds[0]
-            day5_pred = f_preds[4]
-
-            with st.expander("🤖 AI 深度预测白盒解析舱 (点击展开/收起)", expanded=True):
-                st.markdown(
-                    f"**📈 极速解盘预览**：当前实盘价 `<span class='highlight-text'>{latest_price:.2f}</span>` | 驱动核心: {model_desc}",
-                    unsafe_allow_html=True)
-                c_f1, c_f2, c_f3, c_f4 = st.columns(4)
-                c_f1.metric("未来 1 天预测 (T+1)", f"{day1_pred:.2f}",
-                            f"{(day1_pred - latest_price) / latest_price * 100:.2f}%")
-                c_f2.metric("未来 5 天预测 (T+5)", f"{day5_pred:.2f}",
-                            f"{(day5_pred - latest_price) / latest_price * 100:.2f}%")
-                c_f3.metric("🎯 历史方向胜率", f"{success_rate:.1f}%", "涨跌准确度")
-                c_f4.metric("⚖️ 平均预测偏差", f"{mape:.2f}%", "绝对偏离度", delta_color="inverse")
-
-                if st.button("✨ 召唤 Kimi 结合胜率生成人话解盘", use_container_width=True):
-                    ai_ph = st.empty()
-                    prompt = f"""你是一个顶级的量化分析师，专门为小白用户提供白话解盘，且必须客观提示风险。
-已知某标的当前收盘价为 {latest_price:.2f}元。
-基于【{model_desc}】深度学习架构的自回归推演，得出：未来1天预测价为 {day1_pred:.2f}元，未来5天预测价为 {day5_pred:.2f}元。
-【模型信誉档案】：该模型在过去100天的历史拟合中，涨跌方向预测胜率为 {success_rate:.1f}%，平均绝对价格偏差度为 {mape:.2f}%。
-请你用大白话（限200字以内，绝对不能包含代码），向小白用户解释这个预测走势。给出您的终极操作建议。"""
-                    try:
-                        stream = client.chat.completions.create(model="moonshot-v1-8k",
-                                                                messages=[{"role": "user", "content": prompt}],
-                                                                stream=True, temperature=0.5)
-                        full_txt = ""
-                        for chunk in stream:
-                            if chunk.choices[0].delta.content:
-                                full_txt += chunk.choices[0].delta.content
-                                ai_ph.info(full_txt + "▌")
-                        ai_ph.info(full_txt)
-                    except Exception as e:
-                        ai_ph.error(f"Kimi 连线中断: {e}")
-
-            import plotly.graph_objects as go
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹 (Actual)',
-                                     line=dict(color='#00ffcc', width=2)))
-            color_map = {"LSTM": "#ff00ff", "GRU": "#ffff00", "1D-CNN": "#00bfff"}
-
-            for m_name, pred_array in res['preds'].items():
-                fig.add_trace(go.Scatter(x=res['dates'], y=pred_array, name=f'{m_name} 历史拟合',
-                                         line=dict(color=color_map.get(m_name, '#ffffff'), dash='dot', width=1)))
-
-            if len(res['preds']) > 1:
-                ensemble_pred = np.mean(list(res['preds'].values()), axis=0)
-                fig.add_trace(go.Scatter(x=res['dates'], y=ensemble_pred, name='🔥 均值集成 (Ensemble)',
-                                         line=dict(color='#ff4b4b', width=3)))
-
-            fig.update_layout(height=450, template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                              dragmode='pan', hovermode='x',
-                              legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-            fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
-            fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
-            st.plotly_chart(fig, use_container_width=True)
-
-elif selected_page == PAGES[6]:
-st.markdown(
-    '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>',
-    unsafe_allow_html=True)
-c1, c2 = st.columns([1, 1.2])
-with c1:
-    if os.path.exists("user_logs/global_master_log.csv"):
-        st.download_button("📁 导出审计日志",
-                           data=pd.read_csv("user_logs/global_master_log.csv").to_csv(index=False).encode('utf-8'),
-                           file_name='Audit_Logs.csv', type="primary")
-with c2:
-    st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
-
-elif selected_page == PAGES[7]:
-if extensions:
-    extensions.render_futures_backtest()
-else:
-    st.error("🧩 扩展模块加载失败，请检查 `extensions.py` 文件是否存在。")
-
-elif selected_page == PAGES[8]:
-if extensions:
-    extensions.render_futures_sandbox()
-else:
-    st.error("🧩 扩展模块加载失败，请检查 `extensions.py` 文件是否存在。")
-
-elif selected_page == PAGES[9]:
-if extensions:
-    extensions.render_new_features_page()
-else:
-    st.error("🧩 扩展模块加载失败，请检查 `extensions.py` 文件是否存在。")
-
-else:
-if custom_plugins and hasattr(custom_plugins, 'route_and_render'):
-    custom_plugins.route_and_render(selected_page)
-else:
-    st.error("🚧 该板块属于外部插件模块。请在同一目录下创建 `custom_plugins.py` 文件并实现接入接口！")
+    st.info("💡 核心交互、3D 桌宠及内置 IDE 已全部稳定运行！")
