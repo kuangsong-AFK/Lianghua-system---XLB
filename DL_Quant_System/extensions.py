@@ -34,7 +34,7 @@ SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 
 
 def summon_global_3d_lulu():
-    """全地形装甲版：智能双重寻址 + Base64 挂载 + 国内 Draco 极速解码"""
+    """全地形装甲版：智能双重寻址 + 极致鼠标跟踪 (绝对凝视)"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     PET_ROSTER = {
@@ -47,7 +47,6 @@ def summon_global_3d_lulu():
     pet_b64 = {}
     with st.spinner("正在为雷达加装多维宇宙识别系统..."):
         for name, filename in PET_ROSTER.items():
-            # 🔥 智能双重寻址：不管模型是在 static 里面，还是在外面，全都能自动找到！
             path_static = os.path.join(current_dir, "static", filename)
             path_root = os.path.join(current_dir, filename)
 
@@ -74,7 +73,7 @@ def summon_global_3d_lulu():
 
         const dataStr = document.getElementById('lulu-pet-data').textContent;
         pWin.__PETS_JSON_DATA__ = JSON.parse(dataStr);
-        pWin.__LULU_V9_INIT = true; // 强制更新标记
+        pWin.__LULU_V10_INIT = true; 
 
         const loadScript = (src) => new Promise((res) => {{
             const s = pDoc.createElement('script');
@@ -182,7 +181,6 @@ def summon_global_3d_lulu():
                     let targetRotX = 0;
                     let clickableMeshes = [];
 
-                    // 🔥 彻底替换为国内极速 CDN 加速节点，解压报错一去不返！ 🔥
                     const loader = new THREE.GLTFLoader();
                     const dracoLoader = new THREE.DRACOLoader();
                     dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/draco/gltf/');
@@ -227,9 +225,8 @@ def summon_global_3d_lulu():
                             }},
                             undefined,
                             (error) => {{
-                                console.error("模型解析失败：", error);
-                                bubble.innerText = "❌ 解析失败！请尝试更换未损坏的模型。";
-                                setTimeout(() => {{ bubble.style.opacity = '0'; }}, 4000);
+                                console.error("模型解析失败，可能压缩损坏：", error);
+                                doSpeak(["主公，【" + name + "】的压缩模型好像损坏了，无法变身！😭"]);
                             }}
                         );
                     }};
@@ -250,11 +247,22 @@ def summon_global_3d_lulu():
                         return raycaster.intersectObjects(clickableMeshes, false).length > 0; 
                     }};
 
+                    // 🔥 核心改变：采用精确的相对角度映射法，眼神绝对凝视鼠标！ 🔥
                     const updateLookAt = (clientX, clientY) => {{
                         lastActivityTime = Date.now();
                         if (state === 'IDLE' && idleActionState === 'NONE') {{
-                            targetRotY = (clientX / win.innerWidth) * 2 - 1;
-                            targetRotX = -(clientY / win.innerHeight) * 2 + 1;
+                            // 计算模型中心点在屏幕上的实际位置
+                            const rect = renderer.domElement.getBoundingClientRect();
+                            const petCenterX = rect.left + rect.width / 2;
+                            const petCenterY = rect.top + rect.height / 2;
+
+                            // 计算鼠标相对于模型中心点的偏差距离
+                            const dx = clientX - petCenterX;
+                            const dy = clientY - petCenterY;
+
+                            // 映射距离为精确的旋转角度 (限制最大扭头幅度：左右约85度，上下约45度)
+                            targetRotY = Math.max(-1.5, Math.min(1.5, (dx / win.innerWidth) * 2.5));
+                            targetRotX = Math.max(-0.8, Math.min(0.8, (dy / win.innerHeight) * 2.0));
                         }}
                     }};
 
@@ -264,12 +272,14 @@ def summon_global_3d_lulu():
                         const delta = clock.getDelta();
                         const time = clock.getElapsedTime();
                         if (mixer) mixer.update(delta);
+                        const now = Date.now();
 
                         if (state === 'IDLE' && idleActionState === 'NONE') {{
-                            if (Date.now() - lastActivityTime > 30000) {{ 
-                                const actions = ['HOP', 'LOOK_AROUND', 'SPEAK'];
+                            if (now - lastActivityTime > 30000) {{ 
+                                // 🔥 彻底移除了 LOOK_AROUND 的随机摇头逻辑，确保其只盯鼠标 🔥
+                                const actions = ['HOP', 'SPEAK'];
                                 const act = actions[Math.floor(Math.random() * actions.length)];
-                                idleActionState = act; idleActionTimer = 2.5; lastActivityTime = Date.now(); 
+                                idleActionState = act; idleActionTimer = 2.5; lastActivityTime = now; 
                                 if (act === 'SPEAK') {{
                                     bubble.innerText = "主公，右键可以给我换衣服哦~";
                                     bubble.style.opacity = '1';
@@ -295,15 +305,12 @@ def summon_global_3d_lulu():
                                 currentModelObj.rotation.x = 0; currentModelObj.rotation.y = 0;
                                 idleActionTimer -= delta;
                                 if (idleActionTimer <= 0) {{ idleActionState = 'NONE'; currentModelObj.position.y = -1.2; }}
-                            }} else if (idleActionState === 'LOOK_AROUND') {{
-                                currentModelObj.rotation.y = Math.sin(time * 3) * 0.6; currentModelObj.rotation.x = 0;
-                                idleActionTimer -= delta;
-                                if (idleActionTimer <= 0) {{ idleActionState = 'NONE'; currentModelObj.rotation.y = targetRotY; }}
                             }} else {{
+                                // 平滑过滤：纯粹的跟随鼠标旋转，并保留呼吸微动
                                 currentModelObj.position.y = -1.2 + Math.sin(time * 2) * 0.02;
                                 currentModelObj.position.x = 0; currentModelObj.rotation.z = 0;
-                                currentModelObj.rotation.y += (targetRotY - currentModelObj.rotation.y) * 0.1;
-                                currentModelObj.rotation.x += (targetRotX - currentModelObj.rotation.x) * 0.1;
+                                currentModelObj.rotation.y += (targetRotY - currentModelObj.rotation.y) * 0.15;
+                                currentModelObj.rotation.x += (targetRotX - currentModelObj.rotation.x) * 0.15;
                             }}
                         }}
                         renderer.render(scene, camera);
@@ -312,6 +319,18 @@ def summon_global_3d_lulu():
                     let isDragging = false, initX, initY, startL, startT, isPossibleClick = false, isHolding = false, clickTimeout = null, lastTapTime = 0;
                     const getX = (e) => e.touches ? e.touches[0].clientX : e.clientX;
                     const getY = (e) => e.touches ? e.touches[0].clientY : e.clientY;
+
+                    const doSpeak = (customTexts) => {{
+                        const ts = customTexts || ["主公，我在这呢！🥰", "量化大赚！吃橘子！🍊", "右键可以给我换衣服哦~", "今天赚了多少呀？💸"];
+                        bubble.innerText = ts[Math.floor(Math.random() * ts.length)]; bubble.style.opacity = '1';
+                        setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
+                    }};
+
+                    const doDance = () => {{
+                        state = 'DANCING'; danceTimer = 3.0; lastActivityTime = Date.now();
+                        bubble.innerText = "好耶！开心转圈圈！💃🕺"; bubble.style.opacity = '1';
+                        setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
+                    }};
 
                     const startInteraction = (e) => {{
                         if(e.button === 2) return; 
@@ -326,8 +345,12 @@ def summon_global_3d_lulu():
                     win.addEventListener('mousemove', (e) => {{
                         if (isHolding) {{
                             const curX = getX(e); const curY = getY(e);
-                            if (Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2)) > 20) {{ 
-                                if (!isDragging) {{ isDragging = true; isPossibleClick = false; state = 'STRUGGLING'; idleActionState = 'NONE'; petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; }}
+                            const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
+                            if (moveDist > 20) {{ 
+                                if (!isDragging) {{
+                                    isDragging = true; isPossibleClick = false; state = 'STRUGGLING'; idleActionState = 'NONE';
+                                    petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; 
+                                }}
                                 let newLeft = startL + curX - initX; let newTop = startT + curY - initY;
                                 newLeft = Math.max(-overflowLimit, Math.min(newLeft, win.innerWidth - petSize + overflowLimit));
                                 newTop = Math.max(-overflowLimit, Math.min(newTop, win.innerHeight - petSize + overflowLimit));
@@ -337,8 +360,11 @@ def summon_global_3d_lulu():
                             return;
                         }}
                         updateLookAt(e.clientX, e.clientY);
-                        if (checkHit(e.clientX, e.clientY)) {{ petBox.style.pointerEvents = 'auto'; petBox.style.cursor = 'grab'; }} 
-                        else {{ petBox.style.pointerEvents = 'none'; }}
+                        if (checkHit(e.clientX, e.clientY)) {{
+                            if (petBox.style.pointerEvents !== 'auto') {{ petBox.style.pointerEvents = 'auto'; petBox.style.cursor = 'grab'; }}
+                        }} else {{
+                            if (petBox.style.pointerEvents !== 'none') {{ petBox.style.pointerEvents = 'none'; }}
+                        }}
                     }}, true);
 
                     const endInteraction = (e) => {{
@@ -347,8 +373,13 @@ def summon_global_3d_lulu():
                         if (isDragging) {{ isDragging = false; if (state !== 'DANCING') state = 'IDLE'; return; }}
                         if (isPossibleClick) {{
                             const currentTime = new Date().getTime(); const tapLength = currentTime - lastTapTime; clearTimeout(clickTimeout); 
-                            if (tapLength < 350 && tapLength > 0) {{ state = 'DANCING'; danceTimer = 3.0; lastActivityTime = Date.now(); bubble.innerText = "好耶！转圈圈！💃"; bubble.style.opacity = '1'; setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000); }} 
-                            else {{ clickTimeout = setTimeout(() => {{ bubble.innerText = "右键给我换衣服哦~"; bubble.style.opacity = '1'; setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000); }}, 300); }}
+                            if (tapLength < 350 && tapLength > 0) {{ doDance(); }} else {{ 
+                                clickTimeout = setTimeout(() => {{
+                                    bubble.innerText = "右键可以给我换衣服哦~";
+                                    bubble.style.opacity = '1';
+                                    setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
+                                }}, 300); 
+                            }}
                             lastTapTime = currentTime;
                         }}
                     }};
@@ -356,15 +387,19 @@ def summon_global_3d_lulu():
                     petBox.addEventListener('mousedown', startInteraction); doc.addEventListener('mouseup', endInteraction); doc.addEventListener('mouseleave', endInteraction);
 
                     doc.addEventListener('touchstart', (e) => {{
-                        if (checkHit(e.touches[0].clientX, e.touches[0].clientY)) {{ petBox.style.pointerEvents = 'auto'; startInteraction(e); e.stopPropagation(); }} 
-                        else {{ petBox.style.pointerEvents = 'none'; }}
+                        if (checkHit(e.touches[0].clientX, e.touches[0].clientY)) {{
+                            petBox.style.pointerEvents = 'auto'; startInteraction(e); e.stopPropagation();
+                        }} else {{ petBox.style.pointerEvents = 'none'; }}
                     }}, {{ capture: true, passive: false }});
 
                     doc.addEventListener('touchmove', (e) => {{
                         if (isHolding) {{
-                            const curX = getX(e); const curY = getY(e);
-                            if (Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2)) > 20) {{ 
-                                if (!isDragging) {{ isDragging = true; isPossibleClick = false; state = 'STRUGGLING'; idleActionState = 'NONE'; petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; }}
+                            const curX = getX(e); const curY = getY(e); const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
+                            if (moveDist > 20) {{ 
+                                if (!isDragging) {{
+                                    isDragging = true; isPossibleClick = false; state = 'STRUGGLING'; idleActionState = 'NONE';
+                                    petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; 
+                                }}
                                 let newLeft = startL + curX - initX; let newTop = startT + curY - initY;
                                 newLeft = Math.max(-overflowLimit, Math.min(newLeft, win.innerWidth - petSize + overflowLimit));
                                 newTop = Math.max(-overflowLimit, Math.min(newTop, win.innerHeight - petSize + overflowLimit));
@@ -387,20 +422,31 @@ def summon_global_3d_lulu():
 
 
 # =======================================================
-# 下面保留 IDE, 回测, 沙盘等功能 (保持不变)
+# 保留 IDE, 回测, 沙盘等功能，并加装“防爆拦截器”
 # =======================================================
 
 def safe_exec_fut_strategy(code, df):
-    safe_code = code.replace("pandas.np", "np")
-    l_vars = {}
-    exec(safe_code, {"pd": pd, "np": np, "math": math}, l_vars)
-    func_to_call = next((v for k, v in l_vars.items() if callable(v)), None)
-    if not func_to_call: return df
-    df_ai = func_to_call(df)
-    sig_col = next((c for c in df_ai.columns if c.lower() == 'signal'), None)
-    df_ai['Signal'] = df_ai[sig_col].fillna(0).apply(lambda x: 1 if x > 0.1 else (-1 if x < -0.1 else 0)).astype(
-        int) if sig_col else 0
-    return df_ai
+    """带终极防爆装甲的期货执行沙盒"""
+    try:
+        safe_code = code.replace("pandas.np", "np")
+        l_vars = {}
+        exec(safe_code, {"pd": pd, "np": np, "math": math}, l_vars)
+        func_to_call = next((v for k, v in l_vars.items() if callable(v)), None)
+        if not func_to_call: return df
+
+        df_ai = func_to_call(df)
+        if df_ai is None or not hasattr(df_ai, 'columns'):
+            return df
+
+        sig_col = next((c for c in df_ai.columns if c.lower() == 'signal'), None)
+        if sig_col:
+            df_ai['Signal'] = df_ai[sig_col].fillna(0).apply(
+                lambda x: 1 if x > 0.1 else (-1 if x < -0.1 else 0)).astype(int)
+        else:
+            df_ai['Signal'] = 0
+        return df_ai
+    except Exception:
+        return df
 
 
 def render_fut_charts(df):

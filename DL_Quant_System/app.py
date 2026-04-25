@@ -107,7 +107,6 @@ PAGES = [
     "🧩 扩展插件中心"
 ]
 
-# 🔥 预留接口 2：自动读取新文件里的页面，追加到导航栏 🔥
 if custom_plugins and hasattr(custom_plugins, 'EXTRA_PAGES'):
     PAGES.extend(custom_plugins.EXTRA_PAGES)
 
@@ -140,7 +139,6 @@ anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr
 # ==========================================
 scroll_script = "window.parent.scrollTo({top: 0, behavior: 'instant'});" if st.session_state.just_switched else ""
 
-# 🔥 提速核武 1：内存锁拦截重复注入 + 加入防抖逻辑，解放 CPU 🔥
 if "core_ui_injected" not in st.session_state:
     components.html(f"""
     <script>
@@ -190,13 +188,11 @@ if "core_ui_injected" not in st.session_state:
             }});
         }};
 
-        // 🔥 防抖机制：限制 UI 频繁刷新 🔥
         const debouncedRun = () => {{
             if(debounceTimer) clearTimeout(debounceTimer);
             debounceTimer = setTimeout(runGlobalEngine, 300); 
         }};
 
-        // 清理旧的 Observer，防止热重载产生重影
         if(window.parent.__UI_OBSERVER) {{
             window.parent.__UI_OBSERVER.disconnect();
         }}
@@ -208,7 +204,6 @@ if "core_ui_injected" not in st.session_state:
     """, height=0, width=0)
     st.session_state.core_ui_injected = True
 
-# 🔥 提速核武 2：3D 噜噜通过 extensions 调用 🔥
 if extensions:
     extensions.summon_global_3d_lulu()
 
@@ -216,7 +211,6 @@ if extensions:
 # 4. 极致静态 CSS + 动态动画
 # ==========================================
 if selected_page == PAGES[1]:
-    # 仅在 AI 战情室页面隐藏上传框，绝不误伤深度学习页面
     st.markdown(
         '<style>div[data-testid="stFileUploader"] { position: absolute !important; top: -9999px !important; opacity: 0 !important; z-index: -9999 !important; pointer-events: none !important; }</style>',
         unsafe_allow_html=True)
@@ -336,14 +330,18 @@ def fetch_and_clean_data(ts_code, adj, start_date):
         return pd.DataFrame()
 
 
+# 🔥 终极防护 1：为回测模块和编译模块加上 try-except 防空网，并拦截 NoneType 崩溃 🔥
 @st.cache_data(show_spinner=False)
 def run_backtest_metrics(df_source, strategy_code):
     df_safe = df_source.copy()
     if strategy_code:
         df_ai = execute_safely(strategy_code, df_source)
-        for col in df_ai.columns:
-            if col == 'Signal' or col.startswith(('MAIN_', 'SUB')):
-                df_safe[col] = df_ai[col]
+
+        # 🔥 关键拦截：如果代码报错返回了 None，坚决不读取 .columns！ 🔥
+        if df_ai is not None and hasattr(df_ai, 'columns'):
+            for col in df_ai.columns:
+                if col == 'Signal' or col.startswith(('MAIN_', 'SUB')):
+                    df_safe[col] = df_ai[col]
 
     df = df_safe
     df['Ret'] = df['Close'].pct_change()
@@ -369,11 +367,11 @@ def execute_safely(code, df):
 
         func_to_call = next((v for k, v in l_vars.items() if callable(v)), None)
         if not func_to_call:
-            return df  # 没有找到有效函数，直接安全退回原数据
+            return df  # 找不到函数，直接退回原本数据
 
-        df_ai = func_to_call(df)
+        df_ai = func_to_call(df.copy())
 
-        # 🔥 核心防爆盾：防止用户忘记写 return df，拦截 NoneType 崩溃 🔥
+        # 核心防爆盾：防止 AI 生成的代码忘记写 return df
         if df_ai is None or not hasattr(df_ai, 'columns'):
             return df
 
@@ -387,8 +385,8 @@ def execute_safely(code, df):
             df_ai['Signal'] = 0
 
         return df_ai
-    except Exception as e:
-        # 发生任何严重代码错误，全部静默拦截并退回原位，保证系统绝对不崩！
+    except Exception:
+        # 任意代码抛错全部静默拦截，保证主系统不崩溃！
         return df
 
 
@@ -591,7 +589,7 @@ if selected_page == PAGES[0]:
         """, unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ URL 异步无闪加载技术<br>✅ 前端引擎防抖极速化<br>✅ 局部 Fragment 零闪烁技术</div>',
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ URL 异步无闪加载技术<br>✅ 前端引擎防抖极速化<br>✅ 局部 Fragment 零闪烁技术<br>✅ <b>代码沙盒全域防爆盾</b></div>',
             unsafe_allow_html=True
         )
 
@@ -878,9 +876,10 @@ elif selected_page == PAGES[4]:
                 try:
                     if st.session_state.generated_code:
                         sub_ai = execute_safely(st.session_state.generated_code, sub)
-                        for col in sub_ai.columns:
-                            if col == 'Signal' or col.startswith(('MAIN_', 'SUB')):
-                                sub[col] = sub_ai[col]
+                        if sub_ai is not None and hasattr(sub_ai, 'columns'):
+                            for col in sub_ai.columns:
+                                if col == 'Signal' or col.startswith(('MAIN_', 'SUB')):
+                                    sub[col] = sub_ai[col]
 
                     sig_val = sub['Signal'].iloc[-1] if 'Signal' in sub.columns else 0
 
@@ -1129,6 +1128,8 @@ elif selected_page == PAGES[5]:
                         ai_ph.info(full_txt)
                     except Exception as e:
                         ai_ph.error(f"Kimi 连线中断: {e}")
+
+            import plotly.graph_objects as go
 
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹 (Actual)',
