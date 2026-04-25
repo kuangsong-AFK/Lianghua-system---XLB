@@ -330,14 +330,11 @@ def fetch_and_clean_data(ts_code, adj, start_date):
         return pd.DataFrame()
 
 
-# 🔥 终极防护 1：为回测模块和编译模块加上 try-except 防空网，并拦截 NoneType 崩溃 🔥
 @st.cache_data(show_spinner=False)
 def run_backtest_metrics(df_source, strategy_code):
     df_safe = df_source.copy()
     if strategy_code:
         df_ai = execute_safely(strategy_code, df_source)
-
-        # 🔥 关键拦截：如果代码报错返回了 None，坚决不读取 .columns！ 🔥
         if df_ai is not None and hasattr(df_ai, 'columns'):
             for col in df_ai.columns:
                 if col == 'Signal' or col.startswith(('MAIN_', 'SUB')):
@@ -367,11 +364,10 @@ def execute_safely(code, df):
 
         func_to_call = next((v for k, v in l_vars.items() if callable(v)), None)
         if not func_to_call:
-            return df  # 找不到函数，直接退回原本数据
+            return df
 
         df_ai = func_to_call(df.copy())
 
-        # 核心防爆盾：防止 AI 生成的代码忘记写 return df
         if df_ai is None or not hasattr(df_ai, 'columns'):
             return df
 
@@ -386,7 +382,6 @@ def execute_safely(code, df):
 
         return df_ai
     except Exception:
-        # 任意代码抛错全部静默拦截，保证主系统不崩溃！
         return df
 
 
@@ -414,31 +409,15 @@ def render_smart_charts(df):
 
     fig.add_trace(
         go.Candlestick(
-            x=x_labels,
-            open=df['Open'],
-            high=df['High'],
-            low=df['Low'],
-            close=df['Close'],
-            increasing_line_color='#FD1050',
-            decreasing_line_color='#00FF00',
-            name='K线'
-        ),
-        row=1,
-        col=1
+            x=x_labels, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
+            increasing_line_color='#FD1050', decreasing_line_color='#00FF00', name='K线'
+        ), row=1, col=1
     )
 
     colors = ['#FFFF00', '#FF00FF', '#00FFFF', '#FFFFFF']
     for i, col in enumerate(main_inds):
-        fig.add_trace(
-            go.Scatter(
-                x=x_labels,
-                y=df[col],
-                name=col,
-                line=dict(width=1.2, color=colors[i % 4])
-            ),
-            row=1,
-            col=1
-        )
+        fig.add_trace(go.Scatter(x=x_labels, y=df[col], name=col, line=dict(width=1.2, color=colors[i % 4])), row=1,
+                      col=1)
 
     if 'Signal' in df.columns:
         buys = df[df['Signal'] == 1]
@@ -451,96 +430,37 @@ def render_smart_charts(df):
             buy_x = buys['trade_date'].dt.strftime('%m-%d %H:%M')
             sell_x = sells['trade_date'].dt.strftime('%m-%d %H:%M')
 
-        fig.add_trace(
-            go.Scatter(
-                x=buy_x,
-                y=buys['Low'] * 0.998,
-                mode='markers',
-                marker=dict(symbol='triangle-up', size=14, color='#00FFFF'),
-                name='买'
-            ),
-            row=1,
-            col=1
-        )
-        fig.add_trace(
-            go.Scatter(
-                x=sell_x,
-                y=sells['High'] * 1.002,
-                mode='markers',
-                marker=dict(symbol='triangle-down', size=14, color='#FF00FF'),
-                name='卖'
-            ),
-            row=1,
-            col=1
-        )
+        fig.add_trace(go.Scatter(x=buy_x, y=buys['Low'] * 0.998, mode='markers',
+                                 marker=dict(symbol='triangle-up', size=14, color='#00FFFF'), name='买'), row=1, col=1)
+        fig.add_trace(go.Scatter(x=sell_x, y=sells['High'] * 1.002, mode='markers',
+                                 marker=dict(symbol='triangle-down', size=14, color='#FF00FF'), name='卖'), row=1,
+                      col=1)
 
-    fig.add_trace(
-        go.Bar(
-            x=x_labels,
-            y=df.get('Volume', np.zeros(len(df))),
-            marker_color=np.where(df['Close'] >= df['Open'], '#FD1050', '#00FF00'),
-            name='成交量'
-        ),
-        row=2,
-        col=1
-    )
+    fig.add_trace(go.Bar(x=x_labels, y=df.get('Volume', np.zeros(len(df))),
+                         marker_color=np.where(df['Close'] >= df['Open'], '#FD1050', '#00FF00'), name='成交量'), row=2,
+                  col=1)
 
     row_idx = 3
     for gid in sorted(sub_groups.keys(), key=int):
         for i, col in enumerate(sub_groups[gid]):
             if 'HIST' in col.upper():
                 fig.add_trace(
-                    go.Bar(
-                        x=x_labels,
-                        y=df[col],
-                        marker_color=np.where(df[col] >= 0, '#FD1050', '#00FF00'),
-                        name=col
-                    ),
-                    row=row_idx,
-                    col=1
-                )
+                    go.Bar(x=x_labels, y=df[col], marker_color=np.where(df[col] >= 0, '#FD1050', '#00FF00'), name=col),
+                    row=row_idx, col=1)
             else:
-                fig.add_trace(
-                    go.Scatter(
-                        x=x_labels,
-                        y=df[col],
-                        line=dict(width=1.2, color=colors[i % 4]),
-                        name=col
-                    ),
-                    row=row_idx,
-                    col=1
-                )
+                fig.add_trace(go.Scatter(x=x_labels, y=df[col], line=dict(width=1.2, color=colors[i % 4]), name=col),
+                              row=row_idx, col=1)
         row_idx += 1
 
     fig.update_layout(
-        height=500 + len(sub_groups) * 150,
-        template="none",
-        paper_bgcolor='rgba(0,0,0,0)',
+        height=500 + len(sub_groups) * 150, template="none", paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
-        xaxis_rangeslider_visible=False,
-        dragmode='pan',
-        hovermode='x',
-        showlegend=False,
+        xaxis_rangeslider_visible=False, dragmode='pan', hovermode='x', showlegend=False,
         margin=dict(l=10, r=10, t=10, b=10)
     )
-
-    fig.update_xaxes(
-        type='category',
-        categoryorder='array',
-        categoryarray=x_labels,
-        nticks=8,
-        showgrid=True,
-        gridwidth=1,
-        gridcolor='rgba(128,128,128,0.2)',
-        tickangle=0
-    )
-
-    fig.update_yaxes(
-        showgrid=True,
-        gridwidth=1,
-        gridcolor='rgba(128,128,128,0.2)'
-    )
-
+    fig.update_xaxes(type='category', categoryorder='array', categoryarray=x_labels, nticks=8, showgrid=True,
+                     gridcolor='rgba(128,128,128,0.2)', tickangle=0)
+    fig.update_yaxes(showgrid=True, gridcolor='rgba(128,128,128,0.2)')
     return fig
 
 
@@ -589,7 +509,7 @@ if selected_page == PAGES[0]:
         """, unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ URL 异步无闪加载技术<br>✅ 前端引擎防抖极速化<br>✅ 局部 Fragment 零闪烁技术<br>✅ <b>代码沙盒全域防爆盾</b></div>',
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ URL 异步无闪加载技术<br>✅ 前端引擎防抖极速化<br>✅ 局部 Fragment 零闪烁技术<br>✅ <b>代码沙盒全域防爆盾</b><br>✅ <b>LLM 空数据拦截网</b></div>',
             unsafe_allow_html=True
         )
 
@@ -704,15 +624,20 @@ elif selected_page == PAGES[1]:
                         agent_logs.append(
                             f'<div class="agent-status-node retry">🔄 <b>尝试 {attempt}:</b> 沙盒拦截异常 (<code>{last_error}</code>) -> Agent 发起重构</div>'
                         )
+                        # 🔥 核心防爆盾：当报错准备重试时，确保满载 content 字符，杜绝空文本触发大模型 400 错误 🔥
+                        safe_resp = full_resp if full_resp and full_resp.strip() else "(API 前一次流响应为空，因引发沙盒报错被退回)"
                         messages_to_send.extend([
-                            {"role": "assistant", "content": full_resp},
+                            {"role": "assistant", "content": safe_resp},
                             {"role": "user", "content": f"代码报错：`{last_error}`，请严格遵循模板修复。"}
                         ])
 
                     try:
+                        # 🔥 终极清洗网：将 messages 里所有空的废话清理干净，绝对不能传给 Moonshot 🔥
+                        valid_messages = [m for m in messages_to_send if m.get("content") and str(m["content"]).strip()]
+
                         stream = client.chat.completions.create(
                             model=selected_model,
-                            messages=messages_to_send,
+                            messages=valid_messages,
                             stream=True,
                             temperature=0.3 if enable_deep_think else 0.7
                         )
@@ -777,6 +702,10 @@ elif selected_page == PAGES[1]:
                         st.error(f"链路断开: {e}")
                         full_resp += f"\n\n❌ [异常阻断: 通信失败或超载 - {e}]"
                         break
+
+                # 确保最后保存到会话里的一定不是空值
+                if not full_resp or not full_resp.strip():
+                    full_resp = "❌ 大模型网络中断或未返回任何数据，请重试。"
 
                 if agent_logs:
                     full_resp += "\n\n" + "".join(agent_logs)
