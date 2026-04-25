@@ -15,15 +15,17 @@ import uuid
 import math
 from PIL import Image
 
-# 🔥 核心微创：安全导入扩展先锋营 🔥
+# 🔥 核心防御：捕获扩展包异常，绝不让主系统白屏崩溃 🔥
+extensions_err = None
 try:
     import extensions
-except BaseException as e:
+except Exception as e:
     extensions = None
+    extensions_err = str(e)
 
 try:
     import custom_plugins
-except BaseException:
+except Exception:
     custom_plugins = None
 
 # ==========================================
@@ -44,11 +46,7 @@ SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 # ==========================================
 # 1. 核心兵符与状态初始化
 # ==========================================
-st.set_page_config(
-    page_title="小吕布量化 Pro",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(page_title="小吕布量化 Pro", layout="wide", initial_sidebar_state="expanded")
 
 KIMI_API_KEY = "sk-yS2foVgWtvnFMWKRTLnI6l8NFqFrRiB8ojre75g2mK2P8LBk"
 TUSHARE_TOKEN = "ba486af7606bc2f6018f1d592251a49674132225f59d37b3473d676e"
@@ -97,7 +95,7 @@ curr_idx = PAGES.index(st.session_state.curr_page)
 anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr_idx < prev_idx else "fogFadeIn")
 
 # ==========================================
-# 3. 极速 JS 引擎：抛弃耗性能的 Observer，改为心跳轮询
+# 3. 霸道心跳轮询 JS：0.5秒强制同步主题，不卡顿
 # ==========================================
 scroll_script = "window.parent.scrollTo({top: 0, behavior: 'instant'});" if st.session_state.just_switched else ""
 
@@ -105,27 +103,25 @@ if "core_ui_injected" not in st.session_state:
     components.html(f"""
     <script>
         {scroll_script}
-
-        // 🔥 彻底废弃 MutationObserver，改用极低功耗的心跳轮询 (每 500ms 检查一次)，释放 CPU！ 🔥
-        if (!window.parent.__UI_HEARTBEAT_LULU) {{
-            window.parent.__UI_HEARTBEAT_LULU = setInterval(() => {{
+        if (!window.parent.__THEME_HEARTBEAT) {{
+            window.parent.__THEME_HEARTBEAT = setInterval(() => {{
                 const doc = window.parent.document;
                 const app = doc.querySelector('.stApp');
 
-                // 1. 精准探测主题模式 (读取底色计算亮度)
+                // 强制探查底层 body 颜色判定深浅模式
                 if (app && doc.body) {{
                     const bgColor = window.getComputedStyle(doc.body).backgroundColor;
                     const rgb = bgColor.match(/\\d+/g);
                     if (rgb && rgb.length >= 3) {{
                         const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
-                        const themeAttr = brightness > 128 ? 'light' : 'dark';
-                        if (app.getAttribute('data-custom-theme') !== themeAttr) {{
-                            app.setAttribute('data-custom-theme', themeAttr);
+                        const targetTheme = brightness > 128 ? 'light' : 'dark';
+                        if (app.getAttribute('data-custom-theme') !== targetTheme) {{
+                            app.setAttribute('data-custom-theme', targetTheme);
                         }}
                     }}
                 }}
 
-                // 2. 维持聊天框的文件上传按钮
+                // 聊天框附件按钮挂载
                 const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
                 const fileInput = doc.querySelector('div[data-testid="stFileUploader"] input[type="file"]');
                 if (chatInputOuter && fileInput) {{
@@ -134,18 +130,15 @@ if "core_ui_injected" not in st.session_state:
                         innerPill.style.setProperty('position', 'relative', 'important');
                         const fakeBtn = doc.createElement('div');
                         fakeBtn.id = 'fake-attach-btn';
-                        fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
+                        fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
                         fakeBtn.style.cssText = 'position: absolute !important; left: 16px !important; top: 50% !important; transform: translateY(-50%) !important; z-index: 9999 !important; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;';
                         fakeBtn.onclick = () => fileInput.click();
-                        fakeBtn.onmouseover = () => {{ fakeBtn.style.opacity = '0.6'; }};
-                        fakeBtn.onmouseout = () => {{ fakeBtn.style.opacity = '1'; }};
                         innerPill.appendChild(fakeBtn);
-
                         const textAreaWrap = innerPill.querySelector('[data-baseweb="textarea"]');
                         if(textAreaWrap) textAreaWrap.style.setProperty('padding-left', '40px', 'important');
                     }}
                 }}
-            }}, 500); // 500毫秒轮询，人眼无法察觉延迟，但彻底解放性能
+            }}, 500); // 500毫秒心跳轮询
         }}
     </script>
     """, height=0, width=0)
@@ -154,18 +147,16 @@ if "core_ui_injected" not in st.session_state:
 if extensions: extensions.summon_global_3d_lulu()
 
 # ==========================================
-# 4. 纯净流光 CSS (彻底解除文字颜色锁定)
+# 4. 极致静态 CSS (双主题无缝流转，精准文字变色)
 # ==========================================
 if selected_page == PAGES[1]:
     st.markdown(
         '<style>div[data-testid="stFileUploader"] { position: absolute !important; top: -9999px !important; opacity: 0 !important; z-index: -9999 !important; pointer-events: none !important; }</style>',
         unsafe_allow_html=True)
 
-st.markdown(f"""
-<style>
-    .block-container {{ animation: {anim_name} 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; background: transparent !important; padding-top: 4.5rem !important; padding-bottom: 120px !important; }}
-</style>
-""", unsafe_allow_html=True)
+st.markdown(
+    f"<style>.block-container {{ animation: {anim_name} 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; background: transparent !important; padding-top: 4.5rem !important; padding-bottom: 120px !important; }}</style>",
+    unsafe_allow_html=True)
 
 st.markdown("""
 <style>
@@ -179,47 +170,54 @@ st.markdown("""
     .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
     [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
 
-    /* 🔥 默认：深色主题渐变背景 🔥 */
+    /* ========================================= */
+    /* 🌙 深色模式配置 (默认)                    */
+    /* ========================================= */
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
+    .stApp p, .stApp h1, .stApp h2, .stApp h3, .stApp span, .stApp label, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; transition: color 0.3s; }
+    .highlight-text { color: #00ffcc !important; }
+    .danger-text { color: #ff4b4b !important; }
 
-    /* 🔥 核心修复：删除霸道的文字颜色覆盖，全面继承 Streamlit 的 var(--text-color) 🔥 */
-    h1, h2, h3, h4, p, span, label, [data-testid="stMetricValue"] > div { color: var(--text-color) !important; transition: color 0.3s; }
-
-    .highlight-text { color: #3b82f6 !important; font-weight: bold; }
-    .danger-text { color: #ef4444 !important; font-weight: bold; }
-
-    /* 组件玻璃态适配（跟随主题动态调整透明底色） */
-    .glass-card { background: rgba(30, 41, 59, 0.4) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.3); transition: all 0.3s; }
-    .metric-box { background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px; transition: all 0.3s; }
-    .metric-box h2 { margin: 8px 0 0 0 !important; font-size: 1.8rem; line-height: 1.2; }
-    [data-testid="stExpander"] { background: rgba(30, 41, 59, 0.5) !important; border: 1px solid rgba(255, 255, 255, 0.05) !important; border-radius: 16px !important; backdrop-filter: blur(10px); margin-bottom: 20px !important; transition: all 0.3s; }
-
-    /* 侧边栏与输入框适配 */
-    [data-testid="stSidebar"] { background: rgba(15, 23, 42, 0.6) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.05) !important; }
+    [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; }
     [data-testid="stSidebar"] > div:first-child { background: transparent !important; }
-    div[role="radiogroup"] > label { background: rgba(30, 41, 59, 0.3) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important; transition: all 0.2s;}
-    div[role="radiogroup"] > label:has(input:checked) { background: rgba(59, 130, 246, 0.15) !important; border-left: 4px solid #3b82f6 !important; }
-    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.5) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; border-radius: 36px !important; }
-    [data-testid="stChatInput"] textarea { color: var(--text-color) !important; font-size: 16px !important; }
+    div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; border-radius: 12px !important; margin-bottom: 10px !important;}
+    div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
+
+    .glass-card { background: rgba(20, 28, 45, 0.65) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); transition: all 0.3s; }
+    .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px; }
+    .metric-box h2 { margin: 8px 0 0 0 !important; font-size: 1.8rem; line-height: 1.2; }
+    [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); margin-bottom: 20px !important; }
+
+    [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
+    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; padding: 5px 15px !important; display: flex !important; align-items: center !important; }
+    [data-testid="stChatInput"] [data-baseweb="textarea"], [data-testid="stChatInput"] [data-baseweb="textarea"] > div { background-color: transparent !important; border: none !important; box-shadow: none !important; outline: none !important; }
+    [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }
     textarea { font-family: 'Consolas', 'Courier New', monospace !important; }
 
-    /* ========================================================= */
-    /* 🌞 浅色（白天）模式：一旦探测到 Light 主题，瞬间自动翻转样式！ */
-    /* ========================================================= */
-    .stApp[data-custom-theme='light'] { background-image: linear-gradient(132deg, #fdfbfb, #e0c3fc, #8ec5fc, #e2ebf0, #fdfbfb) !important; animation: fluidFlow 12s ease infinite !important; }
-    .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.6) !important; border: 1px solid rgba(0, 0, 0, 0.05) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.03) !important; }
-    .stApp[data-custom-theme='light'] .metric-box { background: rgba(2, 132, 199, 0.03) !important; border: 1px solid rgba(2, 132, 199, 0.15) !important; }
-    .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.7) !important; border: 1px solid rgba(0, 0, 0, 0.05) !important; }
-    .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.6) !important; border-right: 1px solid rgba(0,0,0,0.05) !important; }
-    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.6) !important; }
-    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: rgba(59, 130, 246, 0.1) !important; }
-    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.7) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; }
+    .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; background: rgba(128,128,128,0.1); }
+    .agent-status-node.success { border-left-color: #10b981; color: #10b981;}
+    .agent-status-node.error { border-left-color: #ef4444; color: #ef4444;}
+    .agent-status-node.retry { border-left-color: #f59e0b; color: #f59e0b;}
 
-    /* 辅助节点标签 */
-    .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; background: rgba(128,128,128,0.05); }
-    .agent-status-node.success { border-left-color: #10b981; }
-    .agent-status-node.error { border-left-color: #ef4444; }
-    .agent-status-node.retry { border-left-color: #f59e0b; }
+    /* ========================================= */
+    /* 🌞 浅色模式配置 (通过 data-custom-theme 激活) */
+    /* ========================================= */
+    .stApp[data-custom-theme='light'] { background-image: linear-gradient(132deg, #fdfbfb, #e0c3fc, #8ec5fc, #e2ebf0, #fdfbfb) !important; animation: fluidFlow 12s ease infinite !important; }
+    .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] span, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div { color: #1e293b !important; }
+
+    .stApp[data-custom-theme='light'] .highlight-text { color: #0ea5e9 !important; }
+    .stApp[data-custom-theme='light'] .danger-text { color: #e11d48 !important; }
+
+    .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.7) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.05) !important; }
+    .stApp[data-custom-theme='light'] .metric-box { background: rgba(14, 165, 233, 0.08) !important; border: 1px solid rgba(14, 165, 233, 0.2) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.8) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.85) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
+
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.8) !important; }
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(14, 165, 233, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #0ea5e9 !important; }
+
+    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.85) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.05) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea { color: #1e293b !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -242,8 +240,8 @@ def add_default_indicators(df):
 @st.cache_data(ttl=300, show_spinner=False)
 def get_tushare_status():
     try:
-        t0 = time.time()
-        pro.trade_cal(exchange='SSE', start_date='20240101', end_date='20240101')
+        t0 = time.time();
+        pro.trade_cal(exchange='SSE', start_date='20240101', end_date='20240101');
         return f"🟢 Online ({int((time.time() - t0) * 1000)}ms)"
     except:
         return "🔴 Offline"
@@ -321,11 +319,11 @@ def render_smart_charts(df):
     fig.add_trace(go.Candlestick(x=x_labels, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
                                  increasing_line_color='#ef4444', decreasing_line_color='#10b981', name='K线'), row=1,
                   col=1)
-    colors = ['#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899']
+    colors = ['#0ea5e9', '#f59e0b', '#8b5cf6', '#ec4899']
     for i, col in enumerate(main_inds): fig.add_trace(
         go.Scatter(x=x_labels, y=df[col], name=col, line=dict(width=1.2, color=colors[i % 4])), row=1, col=1)
     if 'Signal' in df.columns:
-        buys = df[df['Signal'] == 1]
+        buys = df[df['Signal'] == 1];
         sells = df[df['Signal'] == -1]
         buy_x = buys['trade_date'].dt.strftime('%Y-%m-%d' if df['trade_date'].dt.time.nunique() <= 1 else '%m-%d %H:%M')
         sell_x = sells['trade_date'].dt.strftime(
@@ -350,7 +348,6 @@ def render_smart_charts(df):
                               row=row_idx, col=1)
         row_idx += 1
 
-    # 让图表背景也变为全透明，融入咱们的毛玻璃卡片
     fig.update_layout(height=500 + len(sub_groups) * 150, template="none", paper_bgcolor='rgba(0,0,0,0)',
                       plot_bgcolor='rgba(0,0,0,0)', xaxis_rangeslider_visible=False, dragmode='pan', hovermode='x',
                       showlegend=False, margin=dict(l=10, r=10, t=10, b=10))
@@ -369,9 +366,15 @@ def format_ts_code(raw):
 # ==========================================
 # 6. 各页面业务逻辑
 # ==========================================
+
+# 🔥 白屏终结者：如果 extensions.py 报错，直接在首页显眼位置弹出红框，而不是白屏！ 🔥
 if selected_page == PAGES[0]:
+    if extensions_err:
+        st.error(
+            f"🚨 **代码加载防御系统启动** 🚨\n\n检测到 `extensions.py` 文件未能成功加载或存在错误：\n\n`{extensions_err}`\n\n请检查您的 GitHub 仓库是否已成功推送最新代码，或者代码是否存在语法问题！")
+
     st.markdown(
-        '<div class="glass-card"><h1 style="margin-bottom:0;">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
+        '<div class="glass-card"><h1 style="margin-bottom:0;">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview Dashboard</p></div>',
         unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
     with c1:
@@ -381,7 +384,7 @@ if selected_page == PAGES[0]:
     with c3:
         st.metric("大模型底层通信", "🟢 Moonshot-v1 正常")
     with c4:
-        st.metric("AI 神经网络", "🟢 融合学习待命")
+        st.metric("扩展引擎状态", "🔴 未连接" if extensions_err else "🟢 已挂载")
 
     st.markdown("---")
     c_arch, c_point = st.columns([2, 1])
@@ -401,7 +404,7 @@ if selected_page == PAGES[0]:
         """, unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4>📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ <b>完美适配明暗双主题无缝翻转</b><br>✅ 取消冗余监听器，<b>极致提速</b><br>✅ <b>全栈代码防爆盾</b>护航<br>✅ 静态资源极速加载</div>',
+            '<div class="glass-card"><h4>📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ <b>完美适配明暗双主题无缝翻转</b><br>✅ 取消冗余监听器，<b>极致提速</b><br>✅ 全栈代码防爆盾护航<br>✅ <b>终极防白屏拦截网</b></div>',
             unsafe_allow_html=True
         )
 
@@ -484,7 +487,7 @@ elif selected_page == PAGES[1]:
                     if attempt > 0:
                         agent_logs.append(
                             f'<div class="agent-status-node retry">🔄 <b>尝试 {attempt}:</b> 沙盒拦截异常 (<code>{last_error}</code>) -> Agent 发起重构</div>')
-                        safe_resp = full_resp if full_resp and full_resp.strip() else "(API 前一次流响应为空，因引发沙盒报错被退回)"
+                        safe_resp = full_resp if full_resp and full_resp.strip() else "(API 前一次流响应为空)"
                         messages_to_send.extend([{"role": "assistant", "content": safe_resp}, {"role": "user",
                                                                                                "content": f"代码报错：`{last_error}`，请严格遵循模板修复。"}])
                     try:
@@ -535,8 +538,12 @@ elif selected_page == PAGES[1]:
                 st.session_state.messages.append({"role": "assistant", "content": full_resp})
         st.rerun()
 
+# 🔥 防白屏终极机制：如果 extension 加载失败，绝不展示白屏，而是直接报错！ 🔥
 elif selected_page == PAGES[2]:
-    if extensions: extensions.render_ide_page()
+    if extensions:
+        extensions.render_ide_page()
+    else:
+        st.error("🚨 扩展模块加载失败：请检查 GitHub 仓库中是否缺少 `extensions.py` 文件，或者该文件内部是否存在语法错误！")
 
 elif selected_page == PAGES[3]:
     st.markdown('<div class="glass-card"><h3 style="margin-bottom:0;">📊 历史回测全量审计与归因分析</h3></div>',
@@ -831,14 +838,24 @@ elif selected_page == PAGES[6]:
     with c2:
         st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
 
+# 🔥 核心防白屏：以后只要 extensions 加载失败，直接显眼包报错，绝不死机！ 🔥
 elif selected_page == PAGES[7]:
-    if extensions: extensions.render_futures_backtest()
+    if extensions:
+        extensions.render_futures_backtest()
+    else:
+        st.error("🚨 扩展模块加载失败：请检查 GitHub 仓库中是否缺少 `extensions.py` 文件，或者该文件内部是否存在语法错误！")
 
 elif selected_page == PAGES[8]:
-    if extensions: extensions.render_futures_sandbox()
+    if extensions:
+        extensions.render_futures_sandbox()
+    else:
+        st.error("🚨 扩展模块加载失败：请检查 GitHub 仓库中是否缺少 `extensions.py` 文件，或者该文件内部是否存在语法错误！")
 
 elif selected_page == PAGES[9]:
-    if extensions: extensions.render_new_features_page()
+    if extensions:
+        extensions.render_new_features_page()
+    else:
+        st.error("🚨 扩展模块加载失败：请检查 GitHub 仓库中是否缺少 `extensions.py` 文件，或者该文件内部是否存在语法错误！")
 
 else:
     if custom_plugins and hasattr(custom_plugins, 'route_and_render'): custom_plugins.route_and_render(selected_page)
