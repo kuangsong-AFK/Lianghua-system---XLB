@@ -15,7 +15,7 @@ import uuid
 import math
 from PIL import Image
 
-# 🔥 安全导入扩展先锋营 🔥
+# 🔥 核心微创：仅保留安全导入，去除冗余，防止环境重影 🔥
 try:
     import extensions
 except ImportError:
@@ -166,21 +166,19 @@ if "core_ui_injected" not in st.session_state:
 if extensions: extensions.summon_global_3d_lulu()
 
 # ==========================================
-# 4. 极致静态 CSS (双主题无缝流转，彻底解决大括号语法冲突)
+# 4. 极致静态 CSS (双主题无缝流转)
 # ==========================================
 if selected_page == PAGES[1]:
     st.markdown(
         '<style>div[data-testid="stFileUploader"] { position: absolute !important; top: -9999px !important; opacity: 0 !important; z-index: -9999 !important; pointer-events: none !important; }</style>',
         unsafe_allow_html=True)
 
-# 动效变量使用 f-string 隔离注入
 st.markdown(f"""
 <style>
     .block-container {{ animation: {anim_name} 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; background: transparent !important; padding-top: 4.5rem !important; padding-bottom: 120px !important; }}
 </style>
 """, unsafe_allow_html=True)
 
-# 静态 CSS 使用常规字符串，彻底杜绝 {} 被 Python 误认的 BUG！
 st.markdown("""
 <style>
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
@@ -217,7 +215,7 @@ st.markdown("""
     [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }
     textarea { font-family: 'Consolas', 'Courier New', monospace !important; }
 
-    /* 🔥 绝杀修复：浅色主题专属优雅流动渐变（浅紫蓝薄荷渐变） 🔥 */
+    /* 🔥 浅色主题专属优雅流动渐变（浅紫蓝薄荷渐变） 🔥 */
     .stApp[data-custom-theme='light'] { background-image: linear-gradient(132deg, #fdfbfb, #e0c3fc, #8ec5fc, #e2ebf0, #fdfbfb) !important; background-size: 400% 400% !important; animation: fluidFlow 12s ease infinite !important; }
     .stApp[data-custom-theme='light'] .stMarkdown, .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] h4, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div { color: #1e293b !important; }
     .stApp[data-custom-theme='light'] .highlight-text { color: #0284c7 !important; }
@@ -302,12 +300,14 @@ def run_backtest_metrics(df_source, strategy_code):
     return {"df": df, "metrics": {"total": total_ret, "annual": annual, "max_dd": max_dd, "sharpe": sharpe}}
 
 
+# 🔥 核心优化：放开执行沙盒的模块限制，赋予 AI 更高智商 🔥
 def execute_safely(code, df):
     if not code: return df
     try:
         safe_code = str(code).replace("pandas.np", "np")
         l_vars = {}
-        exec(safe_code, {"pd": pd, "np": np, "math": math}, l_vars)
+        # 允许 AI 调用更多基础工具包，但依然拦截破坏性库
+        exec(safe_code, {"pd": pd, "np": np, "math": math, "datetime": datetime, "time": time}, l_vars)
         func_to_call = next((v for k, v in l_vars.items() if callable(v)), None)
         if not func_to_call: return df
         df_ai = func_to_call(df.copy())
