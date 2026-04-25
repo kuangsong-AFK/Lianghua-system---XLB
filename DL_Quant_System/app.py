@@ -1,27 +1,34 @@
 import os
 import sys
-import uuid
-import math
-import time
-import re
-from datetime import datetime
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
+from openai import OpenAI
+import re
+import time
+import tushare as ts
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from datetime import datetime
+import uuid
+import math
+from PIL import Image
 
-# 🔥 核心提速 1：安全导入机制（保持不变）
-extensions_err = None
+# 🔥 核心微创：安全导入扩展先锋营 🔥
 try:
     import extensions
-except Exception as e:
+except BaseException as e:
     extensions = None
-    extensions_err = str(e)
 
 try:
     import custom_plugins
-except Exception:
+except BaseException:
     custom_plugins = None
+
+# ==========================================
+# 0. 环境优雅降级
+# ==========================================
 try:
     import PyPDF2
 except ImportError:
@@ -35,58 +42,33 @@ pd.np = np
 SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 
 # ==========================================
-# 1. 核心兵符初始化
+# 1. 核心兵符与状态初始化
 # ==========================================
-st.set_page_config(page_title="小吕布量化 Pro", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="小吕布量化 Pro",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
 KIMI_API_KEY = "sk-yS2foVgWtvnFMWKRTLnI6l8NFqFrRiB8ojre75g2mK2P8LBk"
 TUSHARE_TOKEN = "ba486af7606bc2f6018f1d592251a49674132225f59d37b3473d676e"
+ts.set_token(TUSHARE_TOKEN)
 
 
-# 🔥 核心提速 2：懒加载 Tushare 与 OpenAI，只有用到时才唤醒，极大加快初次打开速度 🔥
-@st.cache_resource(show_spinner=False)
-def get_ts_pro():
-    import tushare as ts
-    ts.set_token(TUSHARE_TOKEN)
-    return ts.pro_api()
+@st.cache_resource
+def get_ts_pro(): return ts.pro_api()
 
 
-@st.cache_resource(show_spinner=False)
-def get_ai_client():
-    from openai import OpenAI
-    return OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=60.0)
-
+pro = get_ts_pro()
+client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=60.0)
 
 for key, val in {"user_id": f"User_{str(uuid.uuid4())[:6]}", "messages": [], "generated_code": "",
-                 "strategy_explanation": "暂无策略解析。", "dl_result": None, "bt_result": None, "sys_logs": [],
-                 "is_live_trading": False}.items():
+                 "strategy_explanation": "暂无策略解析，请先前往 AI 战情室下达军令。", "dl_result": None,
+                 "bt_result": None, "sys_logs": [], "is_live_trading": False}.items():
     if key not in st.session_state: st.session_state[key] = val
 
 # ==========================================
-# 2. 静态 CSS 护甲 (保留您的高级流光主题)
-# ==========================================
-st.markdown("""
-<style>
-    @keyframes fluidFlow { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-    .stApp { background: linear-gradient(132deg, #040914, #0b193d, #06112a, #11224d) !important; background-size: 400% 400% !important; animation: fluidFlow 20s ease infinite !important; }
-    h1, h2, h3, h4, p, span, label, div { color: #f1f5f9 !important; }
-    .highlight-text { color: #00ffcc !important; }
-    .danger-text { color: #ff4b4b !important; }
-    .glass-card { background: rgba(15, 23, 42, 0.6) !important; backdrop-filter: blur(16px) !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; border-radius: 16px; padding: 25px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
-    .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px; }
-    .metric-box h2 { margin: 8px 0 0 0 !important; font-size: 1.8rem; line-height: 1.2; }
-    [data-testid="stSidebar"] { background: rgba(10, 15, 30, 0.8) !important; border-right: 1px solid rgba(255,255,255,0.05) !important; }
-    div[role="radiogroup"] > label { background: rgba(30, 41, 59, 0.4) !important; border-radius: 10px !important; margin-bottom: 8px !important;}
-    div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.2), rgba(10, 15, 25, 0.9)) !important; border-left: 4px solid #00ffcc !important; }
-    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.8) !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; border-radius: 36px !important; }
-    .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.2); }
-    .agent-status-node.success { border-left-color: #10b981; color: #34d399 !important;}
-    .agent-status-node.error { border-left-color: #ef4444; color: #f87171 !important;}
-</style>
-""", unsafe_allow_html=True)
-
-# ==========================================
-# 3. 页面路由分配
+# 2. 空间流形导航逻辑
 # ==========================================
 PAGES = ["🏠 系统总览 (监控中控)", "🤖 AI 策略引擎 (LLM)", "💻 极客量化 IDE (代码编译)", "📈 深度静态全量回测",
          "⚡ 实时高频交易 (Live)", "🧠 深度学习预测矩阵", "🛡️ 论文审计日志", "🔗 期货全量审计 (归因)", "🌪️ 期货高频沙盘",
@@ -94,18 +76,156 @@ PAGES = ["🏠 系统总览 (监控中控)", "🤖 AI 策略引擎 (LLM)", "💻
 if custom_plugins and hasattr(custom_plugins, 'EXTRA_PAGES'): PAGES.extend(custom_plugins.EXTRA_PAGES)
 
 if "curr_page" not in st.session_state: st.session_state.curr_page = PAGES[0]
+if "prev_page" not in st.session_state: st.session_state.prev_page = PAGES[0]
+if "just_switched" not in st.session_state: st.session_state.just_switched = False
 
 with st.sidebar:
     st.markdown("### 🎓 小吕布量化 Pro")
-    if extensions and hasattr(extensions, 'summon_sidebar_3d_lulu'):
-        extensions.summon_sidebar_3d_lulu()
+    st.caption(f"🛡️ 节点 ID: {st.session_state.user_id}")
     st.markdown("---")
     selected_page = st.radio("导航菜单", PAGES, label_visibility="collapsed")
+
+if selected_page != st.session_state.curr_page:
+    st.session_state.prev_page = st.session_state.curr_page
     st.session_state.curr_page = selected_page
+    st.session_state.just_switched = True
+else:
+    st.session_state.just_switched = False
+
+prev_idx = PAGES.index(st.session_state.prev_page)
+curr_idx = PAGES.index(st.session_state.curr_page)
+anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr_idx < prev_idx else "fogFadeIn")
+
+# ==========================================
+# 3. 极速 JS 引擎：抛弃耗性能的 Observer，改为心跳轮询
+# ==========================================
+scroll_script = "window.parent.scrollTo({top: 0, behavior: 'instant'});" if st.session_state.just_switched else ""
+
+if "core_ui_injected" not in st.session_state:
+    components.html(f"""
+    <script>
+        {scroll_script}
+
+        // 🔥 彻底废弃 MutationObserver，改用极低功耗的心跳轮询 (每 500ms 检查一次)，释放 CPU！ 🔥
+        if (!window.parent.__UI_HEARTBEAT_LULU) {{
+            window.parent.__UI_HEARTBEAT_LULU = setInterval(() => {{
+                const doc = window.parent.document;
+                const app = doc.querySelector('.stApp');
+
+                // 1. 精准探测主题模式 (读取底色计算亮度)
+                if (app && doc.body) {{
+                    const bgColor = window.getComputedStyle(doc.body).backgroundColor;
+                    const rgb = bgColor.match(/\\d+/g);
+                    if (rgb && rgb.length >= 3) {{
+                        const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
+                        const themeAttr = brightness > 128 ? 'light' : 'dark';
+                        if (app.getAttribute('data-custom-theme') !== themeAttr) {{
+                            app.setAttribute('data-custom-theme', themeAttr);
+                        }}
+                    }}
+                }}
+
+                // 2. 维持聊天框的文件上传按钮
+                const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
+                const fileInput = doc.querySelector('div[data-testid="stFileUploader"] input[type="file"]');
+                if (chatInputOuter && fileInput) {{
+                    const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.firstElementChild; 
+                    if (innerPill && !doc.getElementById('fake-attach-btn')) {{
+                        innerPill.style.setProperty('position', 'relative', 'important');
+                        const fakeBtn = doc.createElement('div');
+                        fakeBtn.id = 'fake-attach-btn';
+                        fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
+                        fakeBtn.style.cssText = 'position: absolute !important; left: 16px !important; top: 50% !important; transform: translateY(-50%) !important; z-index: 9999 !important; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;';
+                        fakeBtn.onclick = () => fileInput.click();
+                        fakeBtn.onmouseover = () => {{ fakeBtn.style.opacity = '0.6'; }};
+                        fakeBtn.onmouseout = () => {{ fakeBtn.style.opacity = '1'; }};
+                        innerPill.appendChild(fakeBtn);
+
+                        const textAreaWrap = innerPill.querySelector('[data-baseweb="textarea"]');
+                        if(textAreaWrap) textAreaWrap.style.setProperty('padding-left', '40px', 'important');
+                    }}
+                }}
+            }}, 500); // 500毫秒轮询，人眼无法察觉延迟，但彻底解放性能
+        }}
+    </script>
+    """, height=0, width=0)
+    st.session_state.core_ui_injected = True
+
+if extensions: extensions.summon_global_3d_lulu()
+
+# ==========================================
+# 4. 纯净流光 CSS (彻底解除文字颜色锁定)
+# ==========================================
+if selected_page == PAGES[1]:
+    st.markdown(
+        '<style>div[data-testid="stFileUploader"] { position: absolute !important; top: -9999px !important; opacity: 0 !important; z-index: -9999 !important; pointer-events: none !important; }</style>',
+        unsafe_allow_html=True)
+
+st.markdown(f"""
+<style>
+    .block-container {{ animation: {anim_name} 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; background: transparent !important; padding-top: 4.5rem !important; padding-bottom: 120px !important; }}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+    @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
+    @keyframes waveBlurUpIn { 0% { opacity: 0; margin-top: 60px; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); } }
+    @keyframes waveBlurDownIn { 0% { opacity: 0; margin-top: -60px; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); } }
+    @keyframes fogFadeIn { 0% { opacity: 0; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; filter: blur(0px); transform: scale(1); } }
+
+    header[data-testid="stHeader"] { position: fixed !important; top: 0px !important; background: transparent !important; pointer-events: none !important; }
+    [data-testid="collapsedControl"], [data-testid="stToolbar"] { pointer-events: auto !important; display: flex !important; }
+    .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
+    [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
+
+    /* 🔥 默认：深色主题渐变背景 🔥 */
+    .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
+
+    /* 🔥 核心修复：删除霸道的文字颜色覆盖，全面继承 Streamlit 的 var(--text-color) 🔥 */
+    h1, h2, h3, h4, p, span, label, [data-testid="stMetricValue"] > div { color: var(--text-color) !important; transition: color 0.3s; }
+
+    .highlight-text { color: #3b82f6 !important; font-weight: bold; }
+    .danger-text { color: #ef4444 !important; font-weight: bold; }
+
+    /* 组件玻璃态适配（跟随主题动态调整透明底色） */
+    .glass-card { background: rgba(30, 41, 59, 0.4) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.3); transition: all 0.3s; }
+    .metric-box { background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px; transition: all 0.3s; }
+    .metric-box h2 { margin: 8px 0 0 0 !important; font-size: 1.8rem; line-height: 1.2; }
+    [data-testid="stExpander"] { background: rgba(30, 41, 59, 0.5) !important; border: 1px solid rgba(255, 255, 255, 0.05) !important; border-radius: 16px !important; backdrop-filter: blur(10px); margin-bottom: 20px !important; transition: all 0.3s; }
+
+    /* 侧边栏与输入框适配 */
+    [data-testid="stSidebar"] { background: rgba(15, 23, 42, 0.6) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.05) !important; }
+    [data-testid="stSidebar"] > div:first-child { background: transparent !important; }
+    div[role="radiogroup"] > label { background: rgba(30, 41, 59, 0.3) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important; transition: all 0.2s;}
+    div[role="radiogroup"] > label:has(input:checked) { background: rgba(59, 130, 246, 0.15) !important; border-left: 4px solid #3b82f6 !important; }
+    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.5) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; border-radius: 36px !important; }
+    [data-testid="stChatInput"] textarea { color: var(--text-color) !important; font-size: 16px !important; }
+    textarea { font-family: 'Consolas', 'Courier New', monospace !important; }
+
+    /* ========================================================= */
+    /* 🌞 浅色（白天）模式：一旦探测到 Light 主题，瞬间自动翻转样式！ */
+    /* ========================================================= */
+    .stApp[data-custom-theme='light'] { background-image: linear-gradient(132deg, #fdfbfb, #e0c3fc, #8ec5fc, #e2ebf0, #fdfbfb) !important; animation: fluidFlow 12s ease infinite !important; }
+    .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.6) !important; border: 1px solid rgba(0, 0, 0, 0.05) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.03) !important; }
+    .stApp[data-custom-theme='light'] .metric-box { background: rgba(2, 132, 199, 0.03) !important; border: 1px solid rgba(2, 132, 199, 0.15) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.7) !important; border: 1px solid rgba(0, 0, 0, 0.05) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.6) !important; border-right: 1px solid rgba(0,0,0,0.05) !important; }
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.6) !important; }
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: rgba(59, 130, 246, 0.1) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.7) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; }
+
+    /* 辅助节点标签 */
+    .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; background: rgba(128,128,128,0.05); }
+    .agent-status-node.success { border-left-color: #10b981; }
+    .agent-status-node.error { border-left-color: #ef4444; }
+    .agent-status-node.retry { border-left-color: #f59e0b; }
+</style>
+""", unsafe_allow_html=True)
 
 
 # ==========================================
-# 4. 后台策略核心算法
+# 5. 高速缓存装甲：分离复杂计算
 # ==========================================
 def add_default_indicators(df):
     if 'Close' in df.columns:
@@ -122,15 +242,16 @@ def add_default_indicators(df):
 @st.cache_data(ttl=300, show_spinner=False)
 def get_tushare_status():
     try:
-        get_ts_pro().trade_cal(exchange='SSE', start_date='20240101', end_date='20240101');
-        return "🟢 Online"
+        t0 = time.time()
+        pro.trade_cal(exchange='SSE', start_date='20240101', end_date='20240101')
+        return f"🟢 Online ({int((time.time() - t0) * 1000)}ms)"
     except:
         return "🔴 Offline"
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_and_clean_data(ts_code, adj, start_date):
-    df = get_ts_pro().pro_bar(ts_code=ts_code, adj=adj, start_date=start_date)
+    df = ts.pro_bar(ts_code=ts_code, adj=adj, start_date=start_date)
     if df is not None and not df.empty:
         df = df.sort_values('trade_date').reset_index(drop=True)
         df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
@@ -141,27 +262,6 @@ def fetch_and_clean_data(ts_code, adj, start_date):
         if 'Volume' not in df.columns and 'vol' in df.columns: df['Volume'] = df['vol']
         return add_default_indicators(df)
     return pd.DataFrame()
-
-
-def execute_safely(code, df):
-    if not code: return df
-    try:
-        safe_code = str(code).replace("pandas.np", "np")
-        l_vars = {}
-        exec(safe_code, {"pd": pd, "np": np, "math": math}, l_vars)
-        func_to_call = next((v for k, v in l_vars.items() if callable(v)), None)
-        if not func_to_call: return df
-        df_ai = func_to_call(df.copy())
-        if df_ai is None or not hasattr(df_ai, 'columns'): return df
-        sig_col = next((c for c in df_ai.columns if c.lower() == 'signal'), None)
-        if sig_col:
-            df_ai['Signal'] = df_ai[sig_col].fillna(0).apply(
-                lambda x: 1 if x > 0.1 else (-1 if x < -0.1 else 0)).astype(int)
-        else:
-            df_ai['Signal'] = 0
-        return df_ai
-    except Exception:
-        return df
 
 
 @st.cache_data(show_spinner=False)
@@ -185,11 +285,28 @@ def run_backtest_metrics(df_source, strategy_code):
     return {"df": df, "metrics": {"total": total_ret, "annual": annual, "max_dd": max_dd, "sharpe": sharpe}}
 
 
-def render_smart_charts(df):
-    # 🔥 核心提速 3：将庞大的 plotly 图表库做函数级懒加载，瞬间提升网页启动速度 🔥
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
+def execute_safely(code, df):
+    if not code: return df
+    try:
+        safe_code = str(code).replace("pandas.np", "np")
+        l_vars = {}
+        exec(safe_code, {"pd": pd, "np": np, "math": math, "datetime": datetime, "time": time}, l_vars)
+        func_to_call = next((v for k, v in l_vars.items() if callable(v)), None)
+        if not func_to_call: return df
+        df_ai = func_to_call(df.copy())
+        if df_ai is None or not hasattr(df_ai, 'columns'): return df
+        sig_col = next((c for c in df_ai.columns if c.lower() == 'signal'), None)
+        if sig_col:
+            df_ai['Signal'] = df_ai[sig_col].fillna(0).apply(
+                lambda x: 1 if x > 0.1 else (-1 if x < -0.1 else 0)).astype(int)
+        else:
+            df_ai['Signal'] = 0
+        return df_ai
+    except Exception:
+        return df
 
+
+def render_smart_charts(df):
     main_inds = [c for c in df.columns if c.startswith('MAIN_')]
     sub_groups = {}
     for c in df.columns:
@@ -204,11 +321,11 @@ def render_smart_charts(df):
     fig.add_trace(go.Candlestick(x=x_labels, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
                                  increasing_line_color='#ef4444', decreasing_line_color='#10b981', name='K线'), row=1,
                   col=1)
-    colors = ['#0ea5e9', '#f59e0b', '#8b5cf6', '#ec4899']
+    colors = ['#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899']
     for i, col in enumerate(main_inds): fig.add_trace(
         go.Scatter(x=x_labels, y=df[col], name=col, line=dict(width=1.2, color=colors[i % 4])), row=1, col=1)
     if 'Signal' in df.columns:
-        buys = df[df['Signal'] == 1];
+        buys = df[df['Signal'] == 1]
         sells = df[df['Signal'] == -1]
         buy_x = buys['trade_date'].dt.strftime('%Y-%m-%d' if df['trade_date'].dt.time.nunique() <= 1 else '%m-%d %H:%M')
         sell_x = sells['trade_date'].dt.strftime(
@@ -233,12 +350,13 @@ def render_smart_charts(df):
                               row=row_idx, col=1)
         row_idx += 1
 
-    fig.update_layout(height=500 + len(sub_groups) * 150, template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)',
+    # 让图表背景也变为全透明，融入咱们的毛玻璃卡片
+    fig.update_layout(height=500 + len(sub_groups) * 150, template="none", paper_bgcolor='rgba(0,0,0,0)',
                       plot_bgcolor='rgba(0,0,0,0)', xaxis_rangeslider_visible=False, dragmode='pan', hovermode='x',
                       showlegend=False, margin=dict(l=10, r=10, t=10, b=10))
     fig.update_xaxes(type='category', categoryorder='array', categoryarray=x_labels, nticks=8, showgrid=True,
-                     gridwidth=1, gridcolor='rgba(255,255,255,0.05)')
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.05)')
+                     gridwidth=1, gridcolor='rgba(128,128,128,0.1)', tickangle=0)
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.1)')
     return fig
 
 
@@ -249,15 +367,11 @@ def format_ts_code(raw):
 
 
 # ==========================================
-# 5. 业务渲染逻辑
+# 6. 各页面业务逻辑
 # ==========================================
 if selected_page == PAGES[0]:
-    if extensions_err:
-        st.error(
-            f"🚨 **代码加载防御系统启动** 🚨\n\n检测到 `extensions.py` 文件存在错误：\n\n`{extensions_err}`\n\n部分扩展功能已降级，主系统不受影响。")
-
     st.markdown(
-        '<div class="glass-card"><h1 style="margin-bottom:0;">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview Dashboard</p></div>',
+        '<div class="glass-card"><h1 style="margin-bottom:0;">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
         unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
     with c1:
@@ -267,28 +381,33 @@ if selected_page == PAGES[0]:
     with c3:
         st.metric("大模型底层通信", "🟢 Moonshot-v1 正常")
     with c4:
-        st.metric("扩展引擎状态", "🔴 存在错误" if extensions_err else "🟢 已安全挂载")
+        st.metric("AI 神经网络", "🟢 融合学习待命")
 
     st.markdown("---")
-    st.markdown("""
-    <div class="glass-card">
-        <h3 style="margin-bottom: 15px;">🌟 平台简介 (Platform Intro)</h3>
-        <p style="line-height: 1.8; font-size: 1.05rem;">
-            欢迎来到 <b>小吕布量化 Pro</b>，这是一个专为现代极客打造的智能投研终端。<br>
-            • <b>📝 全模态投研</b>：上传 PDF/CSV，大模型自动提取精髓。<br>
-            • <b>🤖 零代码写策略</b>：自然语言对话生成交易代码。<br>
-            • <b>📈 穿越牛熊回测</b>：长达 10 年的全局历史回测。<br>
-            • <b>🧠 时序张量预测</b>：利用 LSTM/GRU 融合矩阵预测未来价格。<br>
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    c_arch, c_point = st.columns([2, 1])
+    with c_arch:
+        st.markdown("""
+        <div class="glass-card">
+            <h3 style="margin-bottom: 15px;">🌟 平台简介 (Platform Intro)</h3>
+            <p style="line-height: 1.8; font-size: 1.05rem;">
+                欢迎来到 <b>小吕布量化 Pro</b>，这是一个专为现代极客打造的智能投研终端。<br><br>
+                在这里，传统手写代码的繁琐已被彻底颠覆。您可以：<br>
+                • <b>📝 全模态投研</b>：一键无缝上传 PDF/Word 研报或 CSV 矩阵，让大模型直接提取精髓。<br>
+                • <b>🤖 零代码写策略</b>：通过自然语言对话，Agent 将自动为您生成并修复交易代码。<br>
+                • <b>📈 穿越牛熊回测</b>：长达 10 年的全局历史回测，并附带 AI 胜率归因与白话解析。<br>
+                • <b>🧠 时序张量预测</b>：利用 LSTM/GRU 融合矩阵，自回归推演未来 5 天的价格轨迹。<br>
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    with c_point:
+        st.markdown(
+            '<div class="glass-card"><h4>📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ <b>完美适配明暗双主题无缝翻转</b><br>✅ 取消冗余监听器，<b>极致提速</b><br>✅ <b>全栈代码防爆盾</b>护航<br>✅ 静态资源极速加载</div>',
+            unsafe_allow_html=True
+        )
 
 elif selected_page == PAGES[1]:
-    from PIL import Image
-
-    st.markdown('<style>div[data-testid="stFileUploader"] { margin-top: -20px; }</style>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0;">🤖 LLM 策略战情室</h3><p class="sub-text">极速云端直连版本，去除了多余前端监控，享受最纯粹的 AI 算力。</p></div>',
+        '<div class="glass-card"><h3 style="margin-bottom:0;">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与全域文档解析模块已就绪，体验沉浸式工作流。</p></div>',
         unsafe_allow_html=True)
 
     ctrl_col1, ctrl_col2 = st.columns([1, 1])
@@ -304,24 +423,48 @@ elif selected_page == PAGES[1]:
         for m in st.session_state.messages:
             with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
 
-    uploaded_files = st.file_uploader("📎 附件上传 (自动提取数据)", accept_multiple_files=True,
-                                      type=['pdf', 'doc', 'docx', 'csv', 'txt'])
+    uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
+                                      type=['pdf', 'doc', 'docx', 'csv', 'txt', 'png', 'jpg', 'jpeg'],
+                                      label_visibility="collapsed")
     file_context_text = ""
     if 'uploaded_files' in locals() and uploaded_files:
-        for file in uploaded_files:
-            fname_lower = file.name.lower()
-            if fname_lower.endswith('.csv'):
-                df_upload = pd.read_csv(file)
-                file_context_text += f"【CSV 数据源 {file.name}】:\n{df_upload.head(10).to_string()}\n"
-            elif fname_lower.endswith('.txt'):
-                file_context_text += f"【TXT 研报 {file.name}】:\n{file.getvalue().decode('utf-8', errors='replace')[:1000]}\n"
-            elif fname_lower.endswith('.pdf') and PyPDF2:
-                pdf_reader = PyPDF2.PdfReader(file)
-                text = "".join([page.extract_text() for page in pdf_reader.pages[:5] if page.extract_text()])
-                file_context_text += f"【PDF {file.name}】:\n{text[:1000]}\n"
+        cols = st.columns(3)
+        for idx, file in enumerate(uploaded_files):
+            with cols[idx % 3]:
+                fname_lower = file.name.lower()
+                if file.type.startswith('image/'):
+                    st.image(Image.open(file), use_container_width=True)
+                    file_context_text += f"[用户上传了一张图片: {file.name}。]\n"
+                elif fname_lower.endswith('.csv'):
+                    df_upload = pd.read_csv(file)
+                    st.dataframe(df_upload.head(2))
+                    file_context_text += f"【CSV 数据源 {file.name} (前100行特征)】:\n{df_upload.head(100).to_string()}\n"
+                elif fname_lower.endswith('.txt'):
+                    content = file.getvalue().decode('utf-8', errors='replace')
+                    st.success(f"📝 {file.name} 挂载成功")
+                    file_context_text += f"【TXT 研报核心片段 {file.name}】:\n{content[:5000]}\n"
+                elif fname_lower.endswith('.pdf'):
+                    if PyPDF2:
+                        try:
+                            pdf_reader = PyPDF2.PdfReader(file)
+                            text = "".join(
+                                [page.extract_text() for page in pdf_reader.pages[:10] if page.extract_text()])
+                            st.success(f"📄 PDF {file.name} 解析成功")
+                            file_context_text += f"【PDF 核心片段 {file.name}】:\n{text[:5000]}\n"
+                        except Exception as e:
+                            st.error(f"PDF 读取异常: {e}")
+                elif fname_lower.endswith(('.doc', '.docx')):
+                    if docx:
+                        try:
+                            doc_obj = docx.Document(file)
+                            text = "\n".join([para.text for para in doc_obj.paragraphs])
+                            st.success(f"📘 Word {file.name} 解析成功")
+                            file_context_text += f"【Word 核心片段 {file.name}】:\n{text[:5000]}\n"
+                        except Exception as e:
+                            st.error(f"Word 读取异常: {e}")
 
     if raw_prompt := st.chat_input("向小吕布量化架构师发送军令..."):
-        full_prompt_for_ai = f"参考附件：\n{file_context_text}\n指令：{raw_prompt}" if file_context_text else raw_prompt
+        full_prompt_for_ai = f"以下是您需要重点参考的附件原始数据：\n{file_context_text}\n\n我的指令：{raw_prompt}" if file_context_text else raw_prompt
         st.session_state.messages.append({"role": "user", "content": raw_prompt})
         with chat_container:
             with st.chat_message("user"):
@@ -329,7 +472,7 @@ elif selected_page == PAGES[1]:
             with st.chat_message("assistant"):
                 st.toast(f"🚀 连线底层算力集群: {selected_model}", icon="⚡")
                 ticks = "`" * 3
-                sys_p = f"你是一名顶级量化工程师。严格限制使用 pandas, numpy, math。必须生成 df['Signal'] (1买, -1卖, 0平)。代码骨架：{ticks}python\ndef generate_signals(df):\n    return df\n{ticks}"
+                sys_p = f"""你是一名顶级量化工程师。拒绝闲聊。如果用户只是让你解读文字，直接输出解答。如果是编写策略，你必须严格遵守以下【小吕布量化系统 SDK 开发军规】：1. 只能使用 pandas, numpy 和 math。禁止 import talib！2. 数据源有效列名严格为：['Open', 'High', 'Low', 'Close', 'Volume']。3. 画图命名协议：主图列名以 `MAIN_` 开头，副图以 `SUB1_` 或 `SUB2_` 开头。4. 交易信号协议：必须生成一列 `df['Signal']`。1=买入，-1=卖出，0=持有。5. 代码骨架：{ticks}python\ndef generate_signals(df):\n    return df\n{ticks}\n请直接输出代码及策略白话解析。"""
                 messages_to_send = [{"role": "system", "content": sys_p}] + st.session_state.messages[:-1] + [
                     {"role": "user", "content": full_prompt_for_ai}]
                 max_retries = 2;
@@ -337,30 +480,33 @@ elif selected_page == PAGES[1]:
                 last_error = "";
                 full_resp = "";
                 msg_box = st.empty()
-                ai_client = get_ai_client()  # 使用单例提速
                 for attempt in range(max_retries + 1):
                     if attempt > 0:
                         agent_logs.append(
-                            f'<div class="agent-status-node retry">🔄 尝试 {attempt}: 沙盒拦截异常 ({last_error}) -> Agent 发起重构</div>')
-                        safe_resp = full_resp if full_resp and full_resp.strip() else "(API 响应空)"
-                        messages_to_send.extend([{"role": "assistant", "content": safe_resp},
-                                                 {"role": "user", "content": f"代码报错：`{last_error}`，请修复。"}])
+                            f'<div class="agent-status-node retry">🔄 <b>尝试 {attempt}:</b> 沙盒拦截异常 (<code>{last_error}</code>) -> Agent 发起重构</div>')
+                        safe_resp = full_resp if full_resp and full_resp.strip() else "(API 前一次流响应为空，因引发沙盒报错被退回)"
+                        messages_to_send.extend([{"role": "assistant", "content": safe_resp}, {"role": "user",
+                                                                                               "content": f"代码报错：`{last_error}`，请严格遵循模板修复。"}])
                     try:
-                        valid_msgs = [m for m in messages_to_send if m.get("content") and str(m["content"]).strip()]
-                        stream = ai_client.chat.completions.create(model=selected_model, messages=valid_msgs,
-                                                                   stream=True, temperature=0.3)
+                        valid_messages = [m for m in messages_to_send if m.get("content") and str(m["content"]).strip()]
+                        stream = client.chat.completions.create(model=selected_model, messages=valid_messages,
+                                                                stream=True,
+                                                                temperature=0.3 if enable_deep_think else 0.7)
                         full_resp = ""
                         for chunk in stream:
                             if chunk.choices[0].delta.content:
                                 full_resp += chunk.choices[0].delta.content
-                                msg_box.markdown(full_resp + "▌", unsafe_allow_html=True)
-                        msg_box.markdown(full_resp, unsafe_allow_html=True)
+                                msg_box.markdown(full_resp.replace("<think>", "🧠 深度思考中...\n\n").replace("</think>",
+                                                                                                             "\n\n---\n") + "▌",
+                                                 unsafe_allow_html=True)
+                        msg_box.markdown(
+                            full_resp.replace("<think>", "🧠 深度思考过程：\n").replace("</think>", "\n---\n"),
+                            unsafe_allow_html=True)
                         code_match = re.search(r"`{3}python\s*(.*?)\s*`{3}", full_resp, re.DOTALL)
-
                         resp_clean = re.sub(r"<think>.*?</think>", "", full_resp, flags=re.DOTALL)
-                        explanation = re.sub(r"`{3}python\s*.*?\s*`{3}", "", resp_clean, flags=re.DOTALL).strip()
-                        st.session_state.strategy_explanation = explanation if explanation else "硬核代码，无分析。"
-
+                        explanation = re.sub(r"`{3}python\s*.*?\s*`{3}", "", resp_clean,
+                                             flags=re.DOTALL).strip().replace("【策略白话解析】", "").strip()
+                        st.session_state.strategy_explanation = explanation if explanation else "该策略完全由硬核代码驱动，未返回额外人话分析。"
                         if not code_match: break
                         extracted_code = code_match.group(1).strip()
                         try:
@@ -371,20 +517,20 @@ elif selected_page == PAGES[1]:
                             _ = execute_safely(extracted_code, add_default_indicators(dummy_df))
                             st.session_state.generated_code = extracted_code
                             agent_logs.append(
-                                f'<div class="agent-status-node success">✅ 尝试 {attempt + 1}: 预检通过，策略装载</div>')
-                            st.markdown("".join(agent_logs), unsafe_allow_html=True);
+                                f'<div class="agent-status-node success">✅ <b>尝试 {attempt + 1}:</b> 代码通过沙盒预检 -> 策略已安全装载</div>')
+                            st.markdown("".join(agent_logs), unsafe_allow_html=True)
                             break
                         except Exception as e:
                             last_error = str(e)
                             if attempt == max_retries:
                                 agent_logs.append(
-                                    f'<div class="agent-status-node error">❌ 失败报错: {last_error}</div>')
+                                    f'<div class="agent-status-node error">❌ <b>最终结果:</b> 失败，最终报错: <code>{last_error}</code></div>')
                                 st.markdown("".join(agent_logs), unsafe_allow_html=True)
                     except Exception as e:
-                        st.error(f"链路断开: {e}");
-                        full_resp += f"\n\n❌ [异常: {e}]";
+                        st.error(f"链路断开: {e}")
+                        full_resp += f"\n\n❌ [异常阻断: 通信失败或超载 - {e}]"
                         break
-                if not full_resp.strip(): full_resp = "❌ 大模型中断。"
+                if not full_resp or not full_resp.strip(): full_resp = "❌ 大模型网络中断或未返回任何数据，请重试。"
                 if agent_logs: full_resp += "\n\n" + "".join(agent_logs)
                 st.session_state.messages.append({"role": "assistant", "content": full_resp})
         st.rerun()
@@ -404,8 +550,11 @@ elif selected_page == PAGES[3]:
         adj_p = st.selectbox("⚖️ 复权模式", ["qfq", "hfq", "None"]).split(" ")[0]
         if st.button("🚀 启动全量归因回测", use_container_width=True, type="primary"):
             with st.spinner("数据挂载中..."):
-                df_raw = fetch_and_clean_data(ts_code, adj_p if adj_p != "None" else None, f"{start_year}0101")
-                st.session_state.bt_result = run_backtest_metrics(df_raw, st.session_state.generated_code)
+                try:
+                    df_raw = fetch_and_clean_data(ts_code, adj_p if adj_p != "None" else None, f"{start_year}0101")
+                    st.session_state.bt_result = run_backtest_metrics(df_raw, st.session_state.generated_code)
+                except Exception as e:
+                    st.error(f"异常: {e}")
     with col_r:
         if st.session_state.bt_result:
             m = st.session_state.bt_result['metrics']
@@ -423,7 +572,8 @@ elif selected_page == PAGES[3]:
             c4.markdown(
                 f'<div class="metric-box"><p>夏普比率</p><h2 class="highlight-text">{m["sharpe"]:.2f}</h2></div>',
                 unsafe_allow_html=True)
-            if st.session_state.generated_code:
+            st.markdown("<div style='clear: both; margin-bottom: 30px;'></div>", unsafe_allow_html=True)
+            if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
                 with st.expander("💡 展开：AI 策略白话解析", expanded=False): st.markdown(
                     st.session_state.strategy_explanation)
             st.plotly_chart(render_smart_charts(df), use_container_width=True, config={'scrollZoom': True})
@@ -435,9 +585,13 @@ elif selected_page == PAGES[4]:
     with c_ctrl:
         live_code = st.text_input("🎯 动态推送标的", value="000001")
         freq = st.slider("⏱️ 刷新间隔 (秒)", 0.1, 2.0, 0.5)
-        st.button("▶️ 开启推演", on_click=lambda: st.session_state.update({"is_live_trading": True}), type="primary")
+        st.button("▶️ 开启高频推演", on_click=lambda: st.session_state.update({"is_live_trading": True}),
+                  type="primary")
         st.button("⏹️ 强行停止", on_click=lambda: st.session_state.update({"is_live_trading": False}))
     with c_chart:
+        if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
+            with st.expander("💡 当前军令：策略白话解析", expanded=False): st.markdown(
+                st.session_state.strategy_explanation)
         met_ph = st.empty();
         cht_ph = st.empty()
         if st.session_state.is_live_trading:
@@ -445,26 +599,237 @@ elif selected_page == PAGES[4]:
             for i in range(20, len(stream)):
                 if not st.session_state.is_live_trading: break
                 sub = stream.iloc[:i].copy()
-                if st.session_state.generated_code:
-                    sub_ai = execute_safely(st.session_state.generated_code, sub)
-                    if sub_ai is not None and hasattr(sub_ai, 'columns'):
-                        for col in sub_ai.columns:
-                            if col == 'Signal' or col.startswith(('MAIN_', 'SUB')): sub[col] = sub_ai[col]
-                sig_val = sub['Signal'].iloc[-1] if 'Signal' in sub.columns else 0
-                with met_ph.container():
-                    c = st.columns(3)
-                    c[0].metric("Tick现价", f"{sub['Close'].iloc[-1]:.2f}")
-                    c[1].metric("高频信号", "🟢 买" if sig_val == 1 else "🔴 卖" if sig_val == -1 else "⚪ 观望")
-                cht_ph.plotly_chart(render_smart_charts(sub), use_container_width=True)
+                try:
+                    if st.session_state.generated_code:
+                        sub_ai = execute_safely(st.session_state.generated_code, sub)
+                        if sub_ai is not None and hasattr(sub_ai, 'columns'):
+                            for col in sub_ai.columns:
+                                if col == 'Signal' or col.startswith(('MAIN_', 'SUB')): sub[col] = sub_ai[col]
+                    sig_val = sub['Signal'].iloc[-1] if 'Signal' in sub.columns else 0
+                    with met_ph.container():
+                        c = st.columns(3)
+                        c[0].metric("Tick 现价", f"{sub['Close'].iloc[-1]:.2f}")
+                        c[1].metric("高频信号", "🟢 买" if sig_val == 1 else "🔴 卖" if sig_val == -1 else "⚪ 观望")
+                        c[2].metric("并发收益", f"{(sub['Close'].pct_change().iloc[-1] * 100):.2f}%")
+                    cht_ph.plotly_chart(render_smart_charts(sub), use_container_width=True)
+                except Exception as e:
+                    st.error(f"高频熔断: {e}");
+                    st.session_state.is_live_trading = False;
+                    break
                 time.sleep(freq)
 
 elif selected_page == PAGES[5]:
-    st.info("🧠 深度学习矩阵在云端属于算力敏感型，请转至本地部署开启。")
+    with st.spinner("唤醒深度学习底层张量引擎..."):
+        try:
+            import torch
+            import torch.nn as nn
+            from sklearn.preprocessing import MinMaxScaler
+        except ImportError:
+            st.error("🚨 需安装 torch 和 scikit-learn！")
+            st.stop()
+    st.markdown(
+        '<div class="glass-card"><h3 style="margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>',
+        unsafe_allow_html=True)
+    col_l, col_r = st.columns([1, 2.5])
+    with col_l:
+        st_code = st.text_input("🎯 训练模型标的", value="000001")
+        span_mapping_dl = {"近1年 (极速)": 1, "近3年 (标准)": 3, "近5年 (深度)": 5}
+        span_choice_dl = st.selectbox("⏳ 训练集时间跨度", list(span_mapping_dl.keys()), index=1)
+        start_year_dl = datetime.now().year - span_mapping_dl[span_choice_dl]
+        st.markdown("---")
+        run_mode = st.radio("⚙️ 引擎运行模式", ["🚀 在线动态训练", "📂 导入本地模型"], horizontal=True)
+        if "在线动态" in run_mode:
+            model_choices = st.multiselect("🧠 选择预测模型 (支持多选融合)", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"])
+            slen = st.slider("📏 滑窗长度", 5, 60, 20)
+            eps = st.slider("🔄 Epoch 迭代", 10, 50, 30)
+            uploaded_model = None;
+            btn_text = "🚀 启动张量训练"
+        else:
+            model_choices = st.multiselect("🧠 指定本地模型架构", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"],
+                                           max_selections=1)
+            slen = st.slider("📏 滑窗长度 (需与本地模型一致)", 5, 60, 20)
+            uploaded_model = st.file_uploader("📥 上传 PyTorch 权重文件 (.pth / .pt)", type=['pth', 'pt'])
+            eps = 0;
+            btn_text = "⚡ 挂载模型并推演"
+
+        if st.button(btn_text, type="primary", use_container_width=True):
+            if "导入本地模型" in run_mode and not uploaded_model:
+                st.error("主公，请先上传本地训练好的权重文件！")
+            elif not model_choices:
+                st.error("主公，请至少选择一种预测模型！")
+            else:
+                with st.spinner("神经网络前向传播中..."):
+                    try:
+                        df = fetch_and_clean_data(format_ts_code(st_code), 'qfq', f"{start_year_dl}0101")
+                        scaler = MinMaxScaler()
+                        scaled = scaler.fit_transform(df['Close'].values.reshape(-1, 1))
+                        X, y = [], []
+                        for i in range(slen, len(scaled)): X.append(scaled[i - slen:i, 0]); y.append(scaled[i, 0])
+                        X_t = torch.tensor(np.array(X), dtype=torch.float32).unsqueeze(-1)
+                        y_t = torch.tensor(np.array(y), dtype=torch.float32)
+
+
+                        class LSTM_Model(nn.Module):
+                            def __init__(self):
+                                super().__init__();
+                                self.lstm = nn.LSTM(1, 64, 2, batch_first=True);
+                                self.fc = nn.Linear(64, 1)
+
+                            def forward(self, x): out, _ = self.lstm(x); return self.fc(out[:, -1, :])
+
+
+                        class GRU_Model(nn.Module):
+                            def __init__(self):
+                                super().__init__();
+                                self.gru = nn.GRU(1, 64, 2, batch_first=True);
+                                self.fc = nn.Linear(64, 1)
+
+                            def forward(self, x): out, _ = self.gru(x); return self.fc(out[:, -1, :])
+
+
+                        class CNN_1D_Model(nn.Module):
+                            def __init__(self, seq_len):
+                                super().__init__();
+                                self.conv = nn.Conv1d(in_channels=1, out_channels=32, kernel_size=3, padding=1);
+                                self.fc = nn.Linear(32 * seq_len, 1)
+
+                            def forward(self, x): x = x.permute(0, 2, 1); x = torch.relu(self.conv(x)); x = x.reshape(
+                                x.size(0), -1); return self.fc(x)
+
+
+                        preds_dict, future_preds_dict = {}, {}
+                        lbox = st.empty();
+                        pbar = st.progress(0);
+                        last_window_orig = X_t[-1].clone().unsqueeze(0)
+
+                        for m_idx, m_name in enumerate(model_choices):
+                            if m_name == "LSTM":
+                                model = LSTM_Model()
+                            elif m_name == "GRU":
+                                model = GRU_Model()
+                            elif m_name == "1D-CNN":
+                                model = CNN_1D_Model(slen)
+
+                            if "导入本地模型" in run_mode:
+                                lbox.markdown(f"**正在解析并挂载本地 {m_name} 模型权重...**")
+                                try:
+                                    model.load_state_dict(torch.load(uploaded_model, map_location=torch.device('cpu')))
+                                    lbox.success(f"**{m_name}** | 权重校验通过，挂载成功！");
+                                    pbar.progress(1.0)
+                                except Exception as load_e:
+                                    st.warning(f"⚠️ 模型架构不匹配，极速重训练... ({load_e})")
+                                    opt = torch.optim.Adam(model.parameters(), lr=0.01);
+                                    crit = nn.MSELoss()
+                                    for e in range(10): model.train(); opt.zero_grad(); loss = crit(
+                                        model(X_t).squeeze(), y_t); loss.backward(); opt.step()
+                            else:
+                                lbox.markdown(f"**正在在线训练 {m_name} 模型...**")
+                                opt = torch.optim.Adam(model.parameters(), lr=0.01);
+                                crit = nn.MSELoss()
+                                for e in range(eps):
+                                    model.train();
+                                    opt.zero_grad();
+                                    pred = model(X_t);
+                                    loss = crit(pred.squeeze(), y_t);
+                                    loss.backward();
+                                    opt.step()
+                                    pbar.progress((m_idx * eps + e + 1) / (len(model_choices) * eps))
+                                    lbox.markdown(f"**{m_name}** | Epoch {e + 1}/{eps} | Loss: {loss.item():.6f}")
+
+                            model.eval()
+                            test_p = model(X_t[-100:]).detach().numpy()
+                            preds_dict[m_name] = scaler.inverse_transform(test_p).flatten()
+                            curr_win = last_window_orig.clone()
+                            m_future = []
+                            for _ in range(5):
+                                with torch.no_grad(): p_future = model(curr_win)
+                                m_future.append(p_future.item())
+                                curr_win = torch.cat((curr_win[:, 1:, :], p_future.unsqueeze(-1)), dim=1)
+                            future_preds_dict[m_name] = scaler.inverse_transform(
+                                np.array(m_future).reshape(-1, 1)).flatten()
+
+                        lbox.success("✅ 矩阵模型装载完毕，时空推演已就绪！")
+                        st.session_state.dl_result = {"dates": df['trade_date'].iloc[-100:],
+                                                      "actual": df['Close'].iloc[-100:], "preds": preds_dict,
+                                                      "future": future_preds_dict, "models_used": model_choices}
+                    except Exception as e:
+                        st.error(f"DL 张量异常: {e}")
+
+    with col_r:
+        if st.session_state.dl_result:
+            res = st.session_state.dl_result
+            latest_price = res['actual'].iloc[-1];
+            actual_vals = res['actual'].values
+            if len(res['models_used']) > 1:
+                f_preds = np.mean(list(res['future'].values()), axis=0);
+                h_preds = np.mean(list(res['preds'].values()), axis=0)
+                model_desc = f"LSTM/GRU/CNN 均值集成 ({len(res['models_used'])}模型)"
+            else:
+                f_preds = list(res['future'].values())[0];
+                h_preds = list(res['preds'].values())[0]
+                model_desc = res['models_used'][0]
+
+            act_diff = np.diff(actual_vals);
+            pred_diff = np.diff(h_preds)
+            success_rate = np.mean(np.sign(act_diff) == np.sign(pred_diff)) * 100
+            mape = np.mean(np.abs((actual_vals - h_preds) / (actual_vals + 1e-8))) * 100
+            day1_pred = f_preds[0];
+            day5_pred = f_preds[4]
+
+            with st.expander("🤖 AI 深度预测白盒解析舱 (点击展开/收起)", expanded=True):
+                st.markdown(
+                    f"**📈 极速解盘预览**：当前实盘价 `<span class='highlight-text'>{latest_price:.2f}</span>` | 驱动核心: {model_desc}",
+                    unsafe_allow_html=True)
+                c_f1, c_f2, c_f3, c_f4 = st.columns(4)
+                c_f1.metric("未来 1 天预测 (T+1)", f"{day1_pred:.2f}",
+                            f"{(day1_pred - latest_price) / latest_price * 100:.2f}%")
+                c_f2.metric("未来 5 天预测 (T+5)", f"{day5_pred:.2f}",
+                            f"{(day5_pred - latest_price) / latest_price * 100:.2f}%")
+                c_f3.metric("🎯 历史方向胜率", f"{success_rate:.1f}%", "涨跌准确度")
+                c_f4.metric("⚖️ 平均预测偏差", f"{mape:.2f}%", "绝对偏离度", delta_color="inverse")
+
+                if st.button("✨ 召唤 Kimi 结合胜率生成人话解盘", use_container_width=True):
+                    ai_ph = st.empty()
+                    prompt = f"你是一个顶级的量化分析师，为小白解盘。当前收盘价 {latest_price:.2f}元。基于【{model_desc}】推演，未来1天预测价为 {day1_pred:.2f}元，未来5天为 {day5_pred:.2f}元。模型胜率为 {success_rate:.1f}%，偏差为 {mape:.2f}%。请用大白话（限200字以内，不要代码），向小白解释并给出建议。"
+                    try:
+                        stream = client.chat.completions.create(model="moonshot-v1-8k",
+                                                                messages=[{"role": "user", "content": prompt}],
+                                                                stream=True, temperature=0.5)
+                        full_txt = ""
+                        for chunk in stream:
+                            if chunk.choices[0].delta.content: full_txt += chunk.choices[0].delta.content; ai_ph.info(
+                                full_txt + "▌")
+                        ai_ph.info(full_txt)
+                    except Exception as e:
+                        ai_ph.error(f"Kimi 连线中断: {e}")
+
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹 (Actual)',
+                                     line=dict(color='#10b981', width=2)))
+            color_map = {"LSTM": "#3b82f6", "GRU": "#f59e0b", "1D-CNN": "#8b5cf6"}
+            for m_name, pred_array in res['preds'].items(): fig.add_trace(
+                go.Scatter(x=res['dates'], y=pred_array, name=f'{m_name} 历史拟合',
+                           line=dict(color=color_map.get(m_name, '#94a3b8'), dash='dot', width=1.5)))
+            if len(res['preds']) > 1: fig.add_trace(
+                go.Scatter(x=res['dates'], y=np.mean(list(res['preds'].values()), axis=0), name='🔥 均值集成 (Ensemble)',
+                           line=dict(color='#ef4444', width=3)))
+            fig.update_layout(height=450, template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                              dragmode='pan', hovermode='x',
+                              legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+            fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)');
+            fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
+            st.plotly_chart(fig, use_container_width=True)
 
 elif selected_page == PAGES[6]:
     st.markdown('<div class="glass-card"><h3 style="margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>',
                 unsafe_allow_html=True)
-    st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
+    c1, c2 = st.columns([1, 1.2])
+    with c1:
+        if os.path.exists("user_logs/global_master_log.csv"): st.download_button("📁 导出审计日志", data=pd.read_csv(
+            "user_logs/global_master_log.csv").to_csv(index=False).encode('utf-8'), file_name='Audit_Logs.csv',
+                                                                                 type="primary")
+    with c2:
+        st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
 
 elif selected_page == PAGES[7]:
     if extensions: extensions.render_futures_backtest()
