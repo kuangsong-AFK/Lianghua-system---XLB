@@ -107,6 +107,7 @@ PAGES = [
     "🧩 扩展插件中心"
 ]
 
+# 🔥 预留接口 2：自动读取新文件里的页面，追加到导航栏 🔥
 if custom_plugins and hasattr(custom_plugins, 'EXTRA_PAGES'):
     PAGES.extend(custom_plugins.EXTRA_PAGES)
 
@@ -139,71 +140,75 @@ anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr
 # ==========================================
 scroll_script = "window.parent.scrollTo({top: 0, behavior: 'instant'});" if st.session_state.just_switched else ""
 
-# 🔥 修复：彻底砸碎内存锁，并加入前端对象安全清理机制 🔥
-components.html(f"""
-<script>
-    {scroll_script}
-    let isUpdating = false;
-    let debounceTimer = null;
+# 🔥 提速核武 1：内存锁拦截重复注入 + 加入防抖逻辑，解放 CPU 🔥
+if "core_ui_injected" not in st.session_state:
+    components.html(f"""
+    <script>
+        {scroll_script}
+        let isUpdating = false;
+        let debounceTimer = null;
 
-    const runGlobalEngine = () => {{
-        if(isUpdating) return;
-        isUpdating = true;
+        const runGlobalEngine = () => {{
+            if(isUpdating) return;
+            isUpdating = true;
 
-        requestAnimationFrame(() => {{
-            const doc = window.parent.document;
-            const app = doc.querySelector('.stApp');
-            if (app) {{
-                const color = window.getComputedStyle(app).color;
-                const rgb = color.match(/\\d+/g);
-                if (rgb && rgb.length >= 3) {{
-                    const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
-                    const themeAttr = brightness < 128 ? 'light' : 'dark';
-                    if (app.getAttribute('data-custom-theme') !== themeAttr) app.setAttribute('data-custom-theme', themeAttr);
+            requestAnimationFrame(() => {{
+                const doc = window.parent.document;
+                const app = doc.querySelector('.stApp');
+                if (app) {{
+                    const color = window.getComputedStyle(app).color;
+                    const rgb = color.match(/\\d+/g);
+                    if (rgb && rgb.length >= 3) {{
+                        const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
+                        const themeAttr = brightness < 128 ? 'light' : 'dark';
+                        if (app.getAttribute('data-custom-theme') !== themeAttr) app.setAttribute('data-custom-theme', themeAttr);
+                    }}
                 }}
-            }}
 
-            const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
-            const fileInput = doc.querySelector('div[data-testid="stFileUploader"] input[type="file"]');
+                const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
+                const fileInput = doc.querySelector('div[data-testid="stFileUploader"] input[type="file"]');
 
-            if (chatInputOuter && fileInput) {{
-                const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.firstElementChild; 
+                if (chatInputOuter && fileInput) {{
+                    const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.firstElementChild; 
 
-                if (innerPill && !doc.getElementById('fake-attach-btn')) {{
-                    innerPill.style.setProperty('position', 'relative', 'important');
-                    const fakeBtn = doc.createElement('div');
-                    fakeBtn.id = 'fake-attach-btn';
-                    fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
-                    fakeBtn.style.cssText = 'position: absolute !important; left: 16px !important; top: 50% !important; transform: translateY(-50%) !important; z-index: 9999 !important; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;';
-                    fakeBtn.onclick = () => fileInput.click();
-                    fakeBtn.onmouseover = () => {{ fakeBtn.style.opacity = '0.6'; }};
-                    fakeBtn.onmouseout = () => {{ fakeBtn.style.opacity = '1'; }};
-                    innerPill.appendChild(fakeBtn);
+                    if (innerPill && !doc.getElementById('fake-attach-btn')) {{
+                        innerPill.style.setProperty('position', 'relative', 'important');
+                        const fakeBtn = doc.createElement('div');
+                        fakeBtn.id = 'fake-attach-btn';
+                        fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
+                        fakeBtn.style.cssText = 'position: absolute !important; left: 16px !important; top: 50% !important; transform: translateY(-50%) !important; z-index: 9999 !important; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;';
+                        fakeBtn.onclick = () => fileInput.click();
+                        fakeBtn.onmouseover = () => {{ fakeBtn.style.opacity = '0.6'; }};
+                        fakeBtn.onmouseout = () => {{ fakeBtn.style.opacity = '1'; }};
+                        innerPill.appendChild(fakeBtn);
 
-                    const textAreaWrap = innerPill.querySelector('[data-baseweb="textarea"]');
-                    if(textAreaWrap) textAreaWrap.style.setProperty('padding-left', '40px', 'important');
+                        const textAreaWrap = innerPill.querySelector('[data-baseweb="textarea"]');
+                        if(textAreaWrap) textAreaWrap.style.setProperty('padding-left', '40px', 'important');
+                    }}
                 }}
-            }}
-            isUpdating = false;
-        }});
-    }};
+                isUpdating = false;
+            }});
+        }};
 
-    const debouncedRun = () => {{
-        if(debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(runGlobalEngine, 300); 
-    }};
+        // 🔥 防抖机制：限制 UI 频繁刷新 🔥
+        const debouncedRun = () => {{
+            if(debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(runGlobalEngine, 300); 
+        }};
 
-    if(window.parent.__UI_OBSERVER) {{
-        window.parent.__UI_OBSERVER.disconnect();
-    }}
+        // 清理旧的 Observer，防止热重载产生重影
+        if(window.parent.__UI_OBSERVER) {{
+            window.parent.__UI_OBSERVER.disconnect();
+        }}
 
-    debouncedRun();
-    window.parent.__UI_OBSERVER = new MutationObserver(debouncedRun);
-    window.parent.__UI_OBSERVER.observe(window.parent.document.body, {{ childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }});
-</script>
-""", height=0, width=0)
+        debouncedRun();
+        window.parent.__UI_OBSERVER = new MutationObserver(debouncedRun);
+        window.parent.__UI_OBSERVER.observe(window.parent.document.body, {{ childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }});
+    </script>
+    """, height=0, width=0)
+    st.session_state.core_ui_injected = True
 
-# 🔥 修复：彻底砸碎内存锁！保证桌宠在任意页面都保持存活 🔥
+# 🔥 提速核武 2：3D 噜噜通过 extensions 调用 🔥
 if extensions:
     extensions.summon_global_3d_lulu()
 
@@ -211,6 +216,7 @@ if extensions:
 # 4. 极致静态 CSS + 动态动画
 # ==========================================
 if selected_page == PAGES[1]:
+    # 仅在 AI 战情室页面隐藏上传框，绝不误伤深度学习页面
     st.markdown(
         '<style>div[data-testid="stFileUploader"] { position: absolute !important; top: -9999px !important; opacity: 0 !important; z-index: -9999 !important; pointer-events: none !important; }</style>',
         unsafe_allow_html=True)
@@ -270,6 +276,9 @@ st.markdown("""
     .agent-status-node.success { background: rgba(0, 255, 204, 0.1); border-left-color: #00ffcc; color: #00ffcc; }
     .agent-status-node.error { background: rgba(255, 75, 75, 0.1); border-left-color: #ff4b4b; color: #ff4b4b; }
     .agent-status-node.retry { background: rgba(255, 165, 0, 0.1); border-left-color: #ffa500; color: #ffa500; }
+    .stApp[data-custom-theme='light'] .agent-status-node.success { background: rgba(16, 185, 129, 0.1); border-left-color: #10b981; color: #047857; }
+    .stApp[data-custom-theme='light'] .agent-status-node.error { background: rgba(239, 68, 68, 0.1); border-left-color: #ef4444; color: #b91c1c; }
+    .stApp[data-custom-theme='light'] .agent-status-node.retry { background: rgba(245, 158, 11, 0.1); border-left-color: #f59e0b; color: #b45309; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -308,6 +317,7 @@ def get_tushare_status():
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_and_clean_data(ts_code, adj, start_date):
     df = ts.pro_bar(ts_code=ts_code, adj=adj, start_date=start_date)
+
     if df is not None and not df.empty:
         df = df.sort_values('trade_date').reset_index(drop=True)
         df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
@@ -392,15 +402,32 @@ def render_smart_charts(df):
         x_labels = df['trade_date'].dt.strftime('%m-%d %H:%M')
 
     fig.add_trace(
-        go.Candlestick(x=x_labels, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
-                       increasing_line_color='#FD1050', decreasing_line_color='#00FF00', name='K线'),
-        row=1, col=1
+        go.Candlestick(
+            x=x_labels,
+            open=df['Open'],
+            high=df['High'],
+            low=df['Low'],
+            close=df['Close'],
+            increasing_line_color='#FD1050',
+            decreasing_line_color='#00FF00',
+            name='K线'
+        ),
+        row=1,
+        col=1
     )
 
     colors = ['#FFFF00', '#FF00FF', '#00FFFF', '#FFFFFF']
     for i, col in enumerate(main_inds):
-        fig.add_trace(go.Scatter(x=x_labels, y=df[col], name=col, line=dict(width=1.2, color=colors[i % 4])), row=1,
-                      col=1)
+        fig.add_trace(
+            go.Scatter(
+                x=x_labels,
+                y=df[col],
+                name=col,
+                line=dict(width=1.2, color=colors[i % 4])
+            ),
+            row=1,
+            col=1
+        )
 
     if 'Signal' in df.columns:
         buys = df[df['Signal'] == 1]
@@ -413,43 +440,103 @@ def render_smart_charts(df):
             buy_x = buys['trade_date'].dt.strftime('%m-%d %H:%M')
             sell_x = sells['trade_date'].dt.strftime('%m-%d %H:%M')
 
-        fig.add_trace(go.Scatter(x=buy_x, y=buys['Low'] * 0.998, mode='markers',
-                                 marker=dict(symbol='triangle-up', size=14, color='#00FFFF'), name='买'), row=1, col=1)
-        fig.add_trace(go.Scatter(x=sell_x, y=sells['High'] * 1.002, mode='markers',
-                                 marker=dict(symbol='triangle-down', size=14, color='#FF00FF'), name='卖'), row=1,
-                      col=1)
+        fig.add_trace(
+            go.Scatter(
+                x=buy_x,
+                y=buys['Low'] * 0.998,
+                mode='markers',
+                marker=dict(symbol='triangle-up', size=14, color='#00FFFF'),
+                name='买'
+            ),
+            row=1,
+            col=1
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=sell_x,
+                y=sells['High'] * 1.002,
+                mode='markers',
+                marker=dict(symbol='triangle-down', size=14, color='#FF00FF'),
+                name='卖'
+            ),
+            row=1,
+            col=1
+        )
 
-    fig.add_trace(go.Bar(x=x_labels, y=df.get('Volume', np.zeros(len(df))),
-                         marker_color=np.where(df['Close'] >= df['Open'], '#FD1050', '#00FF00'), name='成交量'), row=2,
-                  col=1)
+    fig.add_trace(
+        go.Bar(
+            x=x_labels,
+            y=df.get('Volume', np.zeros(len(df))),
+            marker_color=np.where(df['Close'] >= df['Open'], '#FD1050', '#00FF00'),
+            name='成交量'
+        ),
+        row=2,
+        col=1
+    )
 
     row_idx = 3
     for gid in sorted(sub_groups.keys(), key=int):
         for i, col in enumerate(sub_groups[gid]):
             if 'HIST' in col.upper():
                 fig.add_trace(
-                    go.Bar(x=x_labels, y=df[col], marker_color=np.where(df[col] >= 0, '#FD1050', '#00FF00'), name=col),
-                    row=row_idx, col=1)
+                    go.Bar(
+                        x=x_labels,
+                        y=df[col],
+                        marker_color=np.where(df[col] >= 0, '#FD1050', '#00FF00'),
+                        name=col
+                    ),
+                    row=row_idx,
+                    col=1
+                )
             else:
-                fig.add_trace(go.Scatter(x=x_labels, y=df[col], line=dict(width=1.2, color=colors[i % 4]), name=col),
-                              row=row_idx, col=1)
+                fig.add_trace(
+                    go.Scatter(
+                        x=x_labels,
+                        y=df[col],
+                        line=dict(width=1.2, color=colors[i % 4]),
+                        name=col
+                    ),
+                    row=row_idx,
+                    col=1
+                )
         row_idx += 1
 
     fig.update_layout(
-        height=500 + len(sub_groups) * 150, template="none", paper_bgcolor='rgba(0,0,0,0)',
+        height=500 + len(sub_groups) * 150,
+        template="none",
+        paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
-        xaxis_rangeslider_visible=False, dragmode='pan', hovermode='x', showlegend=False,
+        xaxis_rangeslider_visible=False,
+        dragmode='pan',
+        hovermode='x',
+        showlegend=False,
         margin=dict(l=10, r=10, t=10, b=10)
     )
-    fig.update_xaxes(type='category', categoryorder='array', categoryarray=x_labels, nticks=8, showgrid=True,
-                     gridwidth=1, gridcolor='rgba(128,128,128,0.2)', tickangle=0)
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
+
+    fig.update_xaxes(
+        type='category',
+        categoryorder='array',
+        categoryarray=x_labels,
+        nticks=8,
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='rgba(128,128,128,0.2)',
+        tickangle=0
+    )
+
+    fig.update_yaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='rgba(128,128,128,0.2)'
+    )
+
     return fig
 
 
 def format_ts_code(raw):
     raw = str(raw).strip().upper()
-    if len(raw) == 6 and raw.isdigit(): return f"{raw}.SH" if raw.startswith(('6', '9')) else f"{raw}.SZ"
+    if len(raw) == 6 and raw.isdigit():
+        return f"{raw}.SH" if raw.startswith(('6', '9')) else f"{raw}.SZ"
     return raw
 
 
@@ -459,7 +546,9 @@ def format_ts_code(raw):
 if selected_page == PAGES[0]:
     st.markdown(
         '<div class="glass-card"><h1 style="margin-bottom:0; color:var(--text-color);">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
-        unsafe_allow_html=True)
+        unsafe_allow_html=True
+    )
+
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.metric("活跃并发沙盒 (UUID)", st.session_state.user_id)
@@ -471,6 +560,7 @@ if selected_page == PAGES[0]:
         st.metric("AI 神经网络", "🟢 融合学习待命")
 
     st.markdown("---")
+
     c_arch, c_point = st.columns([2, 1])
     with c_arch:
         st.markdown("""
@@ -488,18 +578,23 @@ if selected_page == PAGES[0]:
         """, unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心技术升级：**<br>✅ DRACO 压缩解码器挂载<br>✅ 网页监听防抖动优化<br>✅ 局部 Fragment 零闪烁技术</div>',
-            unsafe_allow_html=True)
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ URL 异步无闪加载技术<br>✅ 前端引擎防抖极速化<br>✅ 局部 Fragment 零闪烁技术</div>',
+            unsafe_allow_html=True
+        )
 
 elif selected_page == PAGES[1]:
     st.markdown(
         '<div class="glass-card"><h3 style="margin-bottom:0; color:var(--text-color);">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与全域文档解析模块已就绪，体验沉浸式工作流。</p></div>',
-        unsafe_allow_html=True)
+        unsafe_allow_html=True
+    )
 
     ctrl_col1, ctrl_col2 = st.columns([1, 1])
     with ctrl_col1:
-        selected_model = st.selectbox("🧠 选择大模型算力通道", ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
-                                      index=0)
+        selected_model = st.selectbox(
+            "🧠 选择大模型算力通道",
+            ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
+            index=0
+        )
     with ctrl_col2:
         st.markdown("<div style='height: 32px;'></div>", unsafe_allow_html=True)
         enable_deep_think = st.toggle("💡 强子注入：开启深度思考引擎 (CoT)", value=False)
@@ -507,11 +602,15 @@ elif selected_page == PAGES[1]:
     chat_container = st.container()
     with chat_container:
         for m in st.session_state.messages:
-            with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
+            with st.chat_message(m["role"]):
+                st.markdown(m["content"], unsafe_allow_html=True)
 
-    uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
-                                      type=['pdf', 'doc', 'docx', 'csv', 'txt', 'png', 'jpg', 'jpeg'],
-                                      label_visibility="collapsed")
+    uploaded_files = st.file_uploader(
+        "选择文件",
+        accept_multiple_files=True,
+        type=['pdf', 'doc', 'docx', 'csv', 'txt', 'png', 'jpg', 'jpeg'],
+        label_visibility="collapsed"
+    )
 
     file_context_text = ""
     if 'uploaded_files' in locals() and uploaded_files:
@@ -540,6 +639,8 @@ elif selected_page == PAGES[1]:
                             file_context_text += f"【PDF 核心片段 {file.name}】:\n{text[:5000]}\n"
                         except Exception as e:
                             st.error(f"PDF 读取异常: {e}")
+                    else:
+                        st.info(f"💡 提示：检测到 PDF 文件，请在 requirements.txt 中添加 PyPDF2。")
                 elif fname_lower.endswith(('.doc', '.docx')):
                     if docx:
                         try:
@@ -549,6 +650,8 @@ elif selected_page == PAGES[1]:
                             file_context_text += f"【Word 核心片段 {file.name}】:\n{text[:5000]}\n"
                         except Exception as e:
                             st.error(f"Word 读取异常: {e}")
+                    else:
+                        st.info(f"💡 提示：检测到 Word 文件，请在 requirements.txt 中添加 python-docx。")
 
     if raw_prompt := st.chat_input("向小吕布量化架构师发送军令..."):
         full_prompt_for_ai = f"以下是您需要重点参考的附件原始数据：\n{file_context_text}\n\n我的指令：{raw_prompt}" if file_context_text else raw_prompt
@@ -576,69 +679,99 @@ elif selected_page == PAGES[1]:
                 请直接输出代码及策略白话解析。"""
 
                 messages_to_send = [{"role": "system", "content": sys_p}] + st.session_state.messages[:-1] + [
-                    {"role": "user", "content": full_prompt_for_ai}]
+                    {"role": "user", "content": full_prompt_for_ai}
+                ]
 
-                max_retries = 2;
-                agent_logs = [];
-                last_error = "";
-                full_resp = "";
+                max_retries = 2
+                agent_logs = []
+                last_error = ""
+                full_resp = ""
                 msg_box = st.empty()
 
                 for attempt in range(max_retries + 1):
                     if attempt > 0:
                         agent_logs.append(
-                            f'<div class="agent-status-node retry">🔄 <b>尝试 {attempt}:</b> 沙盒拦截异常 (<code>{last_error}</code>) -> Agent 发起重构</div>')
-                        messages_to_send.extend([{"role": "assistant", "content": full_resp}, {"role": "user",
-                                                                                               "content": f"代码报错：`{last_error}`，请严格遵循模板修复。"}])
+                            f'<div class="agent-status-node retry">🔄 <b>尝试 {attempt}:</b> 沙盒拦截异常 (<code>{last_error}</code>) -> Agent 发起重构</div>'
+                        )
+                        messages_to_send.extend([
+                            {"role": "assistant", "content": full_resp},
+                            {"role": "user", "content": f"代码报错：`{last_error}`，请严格遵循模板修复。"}
+                        ])
 
                     try:
-                        stream = client.chat.completions.create(model=selected_model, messages=messages_to_send,
-                                                                stream=True,
-                                                                temperature=0.3 if enable_deep_think else 0.7)
+                        stream = client.chat.completions.create(
+                            model=selected_model,
+                            messages=messages_to_send,
+                            stream=True,
+                            temperature=0.3 if enable_deep_think else 0.7
+                        )
+
                         full_resp = ""
                         for chunk in stream:
                             if chunk.choices[0].delta.content:
                                 full_resp += chunk.choices[0].delta.content
-                                msg_box.markdown(full_resp.replace("<think>", "🧠 深度思考中...\n\n").replace("</think>",
-                                                                                                             "\n\n---\n") + "▌",
-                                                 unsafe_allow_html=True)
+                                msg_box.markdown(
+                                    full_resp.replace("<think>", "🧠 深度思考中...\n\n").replace("</think>",
+                                                                                                "\n\n---\n") + "▌",
+                                    unsafe_allow_html=True
+                                )
+
                         msg_box.markdown(
                             full_resp.replace("<think>", "🧠 深度思考过程：\n").replace("</think>", "\n---\n"),
-                            unsafe_allow_html=True)
+                            unsafe_allow_html=True
+                        )
 
                         code_match = re.search(r"`{3}python\s*(.*?)\s*`{3}", full_resp, re.DOTALL)
                         resp_clean = re.sub(r"<think>.*?</think>", "", full_resp, flags=re.DOTALL)
-                        explanation = re.sub(r"`{3}python\s*.*?\s*`{3}", "", resp_clean,
-                                             flags=re.DOTALL).strip().replace("【策略白话解析】", "").strip()
-                        st.session_state.strategy_explanation = explanation if explanation else "该策略完全由硬核代码驱动，未返回额外人话分析。"
 
-                        if not code_match: break
+                        explanation = re.sub(r"`{3}python\s*.*?\s*`{3}", "", resp_clean, flags=re.DOTALL).strip()
+                        explanation = explanation.replace("【策略白话解析】", "").replace("【策略白话解析】:", "").replace(
+                            "【策略白话解析】：", "").strip()
+
+                        if explanation:
+                            st.session_state.strategy_explanation = explanation
+                        else:
+                            st.session_state.strategy_explanation = "该策略完全由硬核代码驱动，未返回额外人话分析。"
+
+                        if not code_match:
+                            break
 
                         extracted_code = code_match.group(1).strip()
                         try:
-                            dummy_df = pd.DataFrame(
-                                {'trade_date': pd.date_range('20230101', periods=50), 'Open': np.random.rand(50) * 10,
-                                 'High': np.random.rand(50) * 12, 'Low': np.random.rand(50) * 8,
-                                 'Close': np.random.rand(50) * 10})
-                            _ = execute_safely(extracted_code, add_default_indicators(dummy_df))
+                            dummy_df = pd.DataFrame({
+                                'trade_date': pd.date_range('20230101', periods=50),
+                                'Open': np.random.rand(50) * 10,
+                                'High': np.random.rand(50) * 12,
+                                'Low': np.random.rand(50) * 8,
+                                'Close': np.random.rand(50) * 10
+                            })
+                            dummy_df = add_default_indicators(dummy_df)
+                            _ = execute_safely(extracted_code, dummy_df)
+
                             st.session_state.generated_code = extracted_code
+
                             agent_logs.append(
-                                f'<div class="agent-status-node success">✅ <b>尝试 {attempt + 1}:</b> 代码通过沙盒预检 -> 策略已安全装载</div>')
+                                f'<div class="agent-status-node success">✅ <b>尝试 {attempt + 1}:</b> 代码通过沙盒预检 -> 策略已安全装载</div>'
+                            )
                             st.markdown("".join(agent_logs), unsafe_allow_html=True)
                             break
                         except Exception as e:
                             last_error = str(e)
                             if attempt == max_retries:
                                 agent_logs.append(
-                                    f'<div class="agent-status-node error">❌ <b>最终结果:</b> 失败，最终报错: <code>{last_error}</code></div>')
+                                    f'<div class="agent-status-node error">❌ <b>最终结果:</b> 失败，最终报错: <code>{last_error}</code></div>'
+                                )
                                 st.markdown("".join(agent_logs), unsafe_allow_html=True)
                     except Exception as e:
                         st.error(f"链路断开: {e}")
                         full_resp += f"\n\n❌ [异常阻断: 通信失败或超载 - {e}]"
                         break
 
-                if agent_logs: full_resp += "\n\n" + "".join(agent_logs)
+                if agent_logs:
+                    full_resp += "\n\n" + "".join(agent_logs)
+
                 st.session_state.messages.append({"role": "assistant", "content": full_resp})
+
         st.rerun()
 
 elif selected_page == PAGES[2]:
@@ -650,13 +783,17 @@ elif selected_page == PAGES[2]:
 elif selected_page == PAGES[3]:
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">📊 历史回测全量审计与归因分析</h3></div>',
-        unsafe_allow_html=True)
+        unsafe_allow_html=True
+    )
+
     col_l, col_r = st.columns([1, 3])
     with col_l:
         ts_code = format_ts_code(st.text_input("🎯 回测标的代码", value="000001"))
+
         span_mapping = {"近1年": 1, "近3年": 3, "近5年": 5, "近10年 (极限穿越)": 10}
         span_choice = st.selectbox("⏳ 回测时间跨度", list(span_mapping.keys()), index=1)
         start_year = datetime.now().year - span_mapping[span_choice]
+
         adj_p = st.selectbox("⚖️ 复权模式", ["qfq", "hfq", "None"]).split(" ")[0]
         if st.button("🚀 启动全量归因回测", use_container_width=True, type="primary"):
             with st.spinner("数据挂载中..."):
@@ -670,30 +807,39 @@ elif selected_page == PAGES[3]:
         if st.session_state.bt_result:
             m = st.session_state.bt_result['metrics']
             df = st.session_state.bt_result['df']
+
             c1, c2, c3, c4 = st.columns(4)
             c1.markdown(
                 f'<div class="metric-box"><p>累计收益</p><h2 class="highlight-text">{m["total"] * 100:.2f}%</h2></div>',
-                unsafe_allow_html=True)
+                unsafe_allow_html=True
+            )
             c2.markdown(
                 f'<div class="metric-box"><p>年化收益</p><h2 class="highlight-text">{m["annual"] * 100:.2f}%</h2></div>',
-                unsafe_allow_html=True)
+                unsafe_allow_html=True
+            )
             c3.markdown(
                 f'<div class="metric-box"><p>最大回撤</p><h2 class="danger-text">{m["max_dd"] * 100:.2f}%</h2></div>',
-                unsafe_allow_html=True)
+                unsafe_allow_html=True
+            )
             c4.markdown(
                 f'<div class="metric-box"><p>夏普比率</p><h2 class="highlight-text">{m["sharpe"]:.2f}</h2></div>',
-                unsafe_allow_html=True)
+                unsafe_allow_html=True
+            )
+
             st.markdown("<div style='clear: both; margin-bottom: 30px;'></div>", unsafe_allow_html=True)
 
             if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
                 with st.expander("💡 展开：AI 策略白话解析", expanded=False):
                     st.markdown(st.session_state.strategy_explanation)
+
             st.plotly_chart(render_smart_charts(df), use_container_width=True, config={'scrollZoom': True})
 
 elif selected_page == PAGES[4]:
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
-        unsafe_allow_html=True)
+        unsafe_allow_html=True
+    )
+
     c_ctrl, c_chart = st.columns([1, 2.5])
     with c_ctrl:
         live_code = st.text_input("🎯 动态推送标的", value="000001")
@@ -706,29 +852,38 @@ elif selected_page == PAGES[4]:
         if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
             with st.expander("💡 当前军令：策略白话解析", expanded=False):
                 st.markdown(st.session_state.strategy_explanation)
+
         met_ph = st.empty()
         cht_ph = st.empty()
+
         if st.session_state.is_live_trading:
             stream = fetch_and_clean_data(format_ts_code(live_code), 'qfq', '20230101').tail(120).reset_index(drop=True)
             for i in range(20, len(stream)):
-                if not st.session_state.is_live_trading: break
+                if not st.session_state.is_live_trading:
+                    break
                 sub = stream.iloc[:i].copy()
                 try:
                     if st.session_state.generated_code:
                         sub_ai = execute_safely(st.session_state.generated_code, sub)
                         for col in sub_ai.columns:
-                            if col == 'Signal' or col.startswith(('MAIN_', 'SUB')): sub[col] = sub_ai[col]
+                            if col == 'Signal' or col.startswith(('MAIN_', 'SUB')):
+                                sub[col] = sub_ai[col]
+
                     sig_val = sub['Signal'].iloc[-1] if 'Signal' in sub.columns else 0
+
                     with met_ph.container():
                         c = st.columns(3)
                         c[0].metric("Tick 现价", f"{sub['Close'].iloc[-1]:.2f}")
                         c[1].metric("高频信号", "🟢 买" if sig_val == 1 else "🔴 卖" if sig_val == -1 else "⚪ 观望")
                         c[2].metric("并发收益", f"{(sub['Close'].pct_change().iloc[-1] * 100):.2f}%")
+
                     cht_ph.plotly_chart(render_smart_charts(sub), use_container_width=True)
+
                 except Exception as e:
                     st.error(f"高频熔断: {e}")
                     st.session_state.is_live_trading = False
                     break
+
                 time.sleep(freq)
 
 elif selected_page == PAGES[5]:
@@ -743,10 +898,14 @@ elif selected_page == PAGES[5]:
 
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>',
-        unsafe_allow_html=True)
+        unsafe_allow_html=True
+    )
+
     col_l, col_r = st.columns([1, 2.5])
+
     with col_l:
         st_code = st.text_input("🎯 训练模型标的", value="000001")
+
         span_mapping_dl = {"近1年 (极速)": 1, "近3年 (标准)": 3, "近5年 (深度)": 5}
         span_choice_dl = st.selectbox("⏳ 训练集时间跨度", list(span_mapping_dl.keys()), index=1)
         start_year_dl = datetime.now().year - span_mapping_dl[span_choice_dl]
@@ -779,10 +938,12 @@ elif selected_page == PAGES[5]:
                         df = fetch_and_clean_data(format_ts_code(st_code), 'qfq', f"{start_year_dl}0101")
                         scaler = MinMaxScaler()
                         scaled = scaler.fit_transform(df['Close'].values.reshape(-1, 1))
+
                         X, y = [], []
                         for i in range(slen, len(scaled)):
                             X.append(scaled[i - slen:i, 0])
                             y.append(scaled[i, 0])
+
                         X_t = torch.tensor(np.array(X), dtype=torch.float32).unsqueeze(-1)
                         y_t = torch.tensor(np.array(y), dtype=torch.float32)
 
@@ -826,6 +987,7 @@ elif selected_page == PAGES[5]:
                         future_preds_dict = {}
                         lbox = st.empty()
                         pbar = st.progress(0)
+
                         last_window_orig = X_t[-1].clone().unsqueeze(0)
 
                         for m_idx, m_name in enumerate(model_choices):
@@ -856,6 +1018,7 @@ elif selected_page == PAGES[5]:
                                 lbox.markdown(f"**正在在线训练 {m_name} 模型...**")
                                 opt = torch.optim.Adam(model.parameters(), lr=0.01)
                                 crit = nn.MSELoss()
+
                                 for e in range(eps):
                                     model.train()
                                     opt.zero_grad()
@@ -863,12 +1026,14 @@ elif selected_page == PAGES[5]:
                                     loss = crit(pred.squeeze(), y_t)
                                     loss.backward()
                                     opt.step()
+
                                     pbar.progress((m_idx * eps + e + 1) / (len(model_choices) * eps))
                                     lbox.markdown(f"**{m_name}** | Epoch {e + 1}/{eps} | Loss: {loss.item():.6f}")
 
                             model.eval()
                             test_p = model(X_t[-100:]).detach().numpy()
                             preds_dict[m_name] = scaler.inverse_transform(test_p).flatten()
+
                             curr_win = last_window_orig.clone()
                             m_future = []
                             for _ in range(5):
@@ -876,13 +1041,17 @@ elif selected_page == PAGES[5]:
                                     p_future = model(curr_win)
                                 m_future.append(p_future.item())
                                 curr_win = torch.cat((curr_win[:, 1:, :], p_future.unsqueeze(-1)), dim=1)
+
                             future_preds_dict[m_name] = scaler.inverse_transform(
                                 np.array(m_future).reshape(-1, 1)).flatten()
 
                         lbox.success("✅ 矩阵模型装载完毕，时空推演已就绪！")
                         st.session_state.dl_result = {
-                            "dates": df['trade_date'].iloc[-100:], "actual": df['Close'].iloc[-100:],
-                            "preds": preds_dict, "future": future_preds_dict, "models_used": model_choices
+                            "dates": df['trade_date'].iloc[-100:],
+                            "actual": df['Close'].iloc[-100:],
+                            "preds": preds_dict,
+                            "future": future_preds_dict,
+                            "models_used": model_choices
                         }
                     except Exception as e:
                         st.error(f"DL 张量异常: {e}")
@@ -913,7 +1082,9 @@ elif selected_page == PAGES[5]:
             with st.expander("🤖 AI 深度预测白盒解析舱 (点击展开/收起)", expanded=True):
                 st.markdown(
                     f"**📈 极速解盘预览**：当前实盘价 `<span class='highlight-text'>{latest_price:.2f}</span>` | 驱动核心: {model_desc}",
-                    unsafe_allow_html=True)
+                    unsafe_allow_html=True
+                )
+
                 c_f1, c_f2, c_f3, c_f4 = st.columns(4)
                 c_f1.metric("未来 1 天预测 (T+1)", f"{day1_pred:.2f}",
                             f"{(day1_pred - latest_price) / latest_price * 100:.2f}%")
@@ -928,11 +1099,15 @@ elif selected_page == PAGES[5]:
 已知某标的当前收盘价为 {latest_price:.2f}元。
 基于【{model_desc}】深度学习架构的自回归推演，得出：未来1天预测价为 {day1_pred:.2f}元，未来5天预测价为 {day5_pred:.2f}元。
 【模型信誉档案】：该模型在过去100天的历史拟合中，涨跌方向预测胜率为 {success_rate:.1f}%，平均绝对价格偏差度为 {mape:.2f}%。
-请你用大白话（限200字以内，绝对不能包含代码），向小白用户解释这个预测走势。给出您的终极操作建议。"""
+请你用大白话（限200字以内，绝对不能包含代码），向小白用户解释这个预测走势。
+给出您的终极操作建议。"""
                     try:
-                        stream = client.chat.completions.create(model="moonshot-v1-8k",
-                                                                messages=[{"role": "user", "content": prompt}],
-                                                                stream=True, temperature=0.5)
+                        stream = client.chat.completions.create(
+                            model="moonshot-v1-8k",
+                            messages=[{"role": "user", "content": prompt}],
+                            stream=True,
+                            temperature=0.5
+                        )
                         full_txt = ""
                         for chunk in stream:
                             if chunk.choices[0].delta.content:
@@ -941,8 +1116,6 @@ elif selected_page == PAGES[5]:
                         ai_ph.info(full_txt)
                     except Exception as e:
                         ai_ph.error(f"Kimi 连线中断: {e}")
-
-            import plotly.graph_objects as go
 
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹 (Actual)',
@@ -958,9 +1131,15 @@ elif selected_page == PAGES[5]:
                 fig.add_trace(go.Scatter(x=res['dates'], y=ensemble_pred, name='🔥 均值集成 (Ensemble)',
                                          line=dict(color='#ff4b4b', width=3)))
 
-            fig.update_layout(height=450, template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                              dragmode='pan', hovermode='x',
-                              legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+            fig.update_layout(
+                height=450,
+                template="none",
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                dragmode='pan',
+                hovermode='x',
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
             fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
             fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
             st.plotly_chart(fig, use_container_width=True)
@@ -968,13 +1147,17 @@ elif selected_page == PAGES[5]:
 elif selected_page == PAGES[6]:
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>',
-        unsafe_allow_html=True)
+        unsafe_allow_html=True
+    )
     c1, c2 = st.columns([1, 1.2])
     with c1:
         if os.path.exists("user_logs/global_master_log.csv"):
-            st.download_button("📁 导出审计日志",
-                               data=pd.read_csv("user_logs/global_master_log.csv").to_csv(index=False).encode('utf-8'),
-                               file_name='Audit_Logs.csv', type="primary")
+            st.download_button(
+                "📁 导出审计日志",
+                data=pd.read_csv("user_logs/global_master_log.csv").to_csv(index=False).encode('utf-8'),
+                file_name='Audit_Logs.csv',
+                type="primary"
+            )
     with c2:
         st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
 
@@ -996,6 +1179,7 @@ elif selected_page == PAGES[9]:
     else:
         st.error("🧩 扩展模块加载失败，请检查 `extensions.py` 文件是否存在。")
 
+# 🔥 预留接口 3：如果侧边栏点击了未来新建的页面，则自动通过 custom_plugins 渲染 🔥
 else:
     if custom_plugins and hasattr(custom_plugins, 'route_and_render'):
         custom_plugins.route_and_render(selected_page)

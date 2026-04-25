@@ -4,7 +4,6 @@
 # ==========================================
 import streamlit as st
 import streamlit.components.v1 as components
-import base64
 import os
 import time
 import traceback
@@ -13,7 +12,6 @@ import re
 import json
 import pandas as pd
 import numpy as np
-from datetime import datetime
 
 # 🔥 提速核武 3：安全兼容版 Fragment 装饰器，实现沙盘无闪烁局部刷新 🔥
 try:
@@ -22,12 +20,11 @@ except ImportError:
     try:
         from streamlit import experimental_fragment as st_fragment
     except ImportError:
-        # 如果用户的 Streamlit 版本太低，则降级为普通函数，确保代码绝不报错
         st_fragment = lambda f: f
 
-# 引入开源神兵 AkShare
 try:
     import akshare as ak
+
     HAS_AKSHARE = True
 except ImportError:
     HAS_AKSHARE = False
@@ -36,34 +33,20 @@ SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 
 
 def summon_global_3d_lulu():
-    """终极动态版：全自动适应字典、JSON 数据岛技术、更换国内 Draco 加速 CDN"""
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    """终极异步降维版：使用 HTTP 静态文件异步传输，绝对路径映射"""
 
     # ====================================================================
-    # 🔥 主公的花名册：自动匹配您的截图 🔥
+    # 🔥 绝对路径映射：前面加上 /，确保浏览器直接从服务器根节点抓取！
+    # 只要文件实际存放在 DL_Quant_System/static/ 下，URL 就会永远是 /app/static/
     # ====================================================================
     PET_ROSTER = {
-        "🍊 水豚噜噜": "lulu.glb",
-        "🐧 高雅企鹅": "penguin.glb",
-        "🐱 hello Kitty": "kitty.glb",
-        "🐷 猪猪侠": "pig.glb"
+        "🍊 水豚噜噜": "/app/static/lulu.glb",
+        "🐧 高雅企鹅": "/app/static/penguin.glb",
+        "🐱 hello Kitty": "/app/static/kitty.glb",
+        "🐷 猪猪侠": "/app/static/pig.glb"
     }
 
-    pet_b64 = {}
-    with st.spinner("正在为雷达加装多维宇宙识别系统..."):
-        for name, filename in PET_ROSTER.items():
-            p = os.path.join(current_dir, filename)
-            if os.path.exists(p):
-                with open(p, "rb") as f:
-                    pet_b64[name] = base64.b64encode(f.read()).decode("utf-8")
-            else:
-                pet_b64[name] = ""
-
-    if not any(pet_b64.values()):
-        return
-
-    # 将字典打包成 JSON，通过“数据岛”技术传递
-    pets_json_str = json.dumps(pet_b64)
+    pets_json_str = json.dumps(PET_ROSTER)
 
     html_code = f"""
     <script id="lulu-pet-data" type="application/json">{pets_json_str}</script>
@@ -72,12 +55,10 @@ def summon_global_3d_lulu():
         const pWin = window.parent;
         const pDoc = pWin.document;
 
-        // 获取数据岛中的字典并挂载到父级窗口
         const dataStr = document.getElementById('lulu-pet-data').textContent;
         pWin.__PETS_JSON_DATA__ = JSON.parse(dataStr);
 
-        // 强行覆盖执行标记，确保刷新网页必定重新生成菜单
-        pWin.__LULU_V6_INIT = true;
+        pWin.__LULU_V8_INIT = true;
 
         const loadScript = (src) => new Promise((res) => {{
             const s = pDoc.createElement('script');
@@ -88,7 +69,6 @@ def summon_global_3d_lulu():
             if (!pWin.THREE || !pWin.THREE.DRACOLoader) {{
                 await loadScript("https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js");
                 await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js");
-                // 🔥 核心修复：更换为国内访问极速的 jsdelivr CDN 节点，杜绝 gstatic.com 造成的死机 🔥
                 await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js");
             }}
 
@@ -98,9 +78,8 @@ def summon_global_3d_lulu():
                     const THREE = window.THREE;
                     const doc = document;
                     const win = window;
-                    const petData = window.__PETS_JSON_DATA__; 
+                    const petUrls = window.__PETS_JSON_DATA__; 
 
-                    // 先摧毁旧画布，确保不会生成多个僵尸模型
                     const oldPet = doc.getElementById('lulu-global-pet');
                     if(oldPet) oldPet.remove();
                     const oldMenu = doc.getElementById('lulu-ctx-menu');
@@ -125,7 +104,7 @@ def summon_global_3d_lulu():
                     bubble.style.cssText = "position: absolute; top: 0px; left: 50%; transform: translateX(-50%); opacity: 0; background: rgba(20, 28, 45, 0.95); border: 1px solid #00ffcc; color: #fff; padding: 8px 15px; border-radius: 12px; font-size: 14px; white-space: nowrap; transition: opacity 0.3s; pointer-events: none; box-shadow: 0 4px 12px rgba(0,255,204,0.3); z-index: 10;";
                     petBox.appendChild(bubble);
 
-                    // -------------------- 全自动动态右键菜单构建 --------------------
+                    // -------------------- 自定义右键菜单构建 --------------------
                     const ctxMenu = doc.createElement('div');
                     ctxMenu.id = 'lulu-ctx-menu';
                     ctxMenu.style.cssText = "position: fixed; display: none; background: rgba(15, 23, 35, 0.95); border: 1px solid rgba(0, 255, 204, 0.5); border-radius: 12px; padding: 6px; z-index: 10000000; color: #fff; font-size: 14px; min-width: 140px; box-shadow: 0 8px 24px rgba(0,0,0,0.8); backdrop-filter: blur(10px);";
@@ -136,7 +115,7 @@ def summon_global_3d_lulu():
                     menuTitle.style.cssText = "padding: 6px 12px; color: #8b9bb4; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 4px; pointer-events: none;";
                     ctxMenu.appendChild(menuTitle);
 
-                    Object.keys(petData).forEach(petName => {{
+                    Object.keys(petUrls).forEach(petName => {{
                         const item = doc.createElement('div');
                         item.innerText = petName;
                         item.style.cssText = "padding: 8px 12px; cursor: pointer; border-radius: 6px; transition: 0.2s; margin-bottom: 2px;";
@@ -146,11 +125,7 @@ def summon_global_3d_lulu():
                         item.onclick = (e) => {{
                             e.stopPropagation();
                             ctxMenu.style.display = 'none';
-                            if(petData[petName] !== "") {{
-                                switchModel(petData[petName], petName);
-                            }} else {{
-                                doSpeak(["主公，【" + petName + "】的模型文件还没放入军营哦！"]);
-                            }}
+                            switchModel(petUrls[petName], petName);
                         }};
                         ctxMenu.appendChild(item);
                     }});
@@ -160,12 +135,12 @@ def summon_global_3d_lulu():
                     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
                     camera.position.set(0, 0.8, 5.5); 
 
-                    const renderer = new THREE.WebGLRenderer({{ alpha: true, antialias: win.innerWidth > 768 }});
+                    const renderer = new THREE.WebGLRenderer({{ alpha: true, antialias: true }});
                     renderer.setSize(petSize, petSize);
                     renderer.setPixelRatio(win.devicePixelRatio ? Math.min(win.devicePixelRatio, 2) : 1);
                     renderer.outputEncoding = THREE.sRGBEncoding;
 
-                    // 🔥 绝对镇压：拦截原生浏览器 contextmenu 事件，100% 杜绝另存为 🔥
+                    // 绝对镇压：拦截 contextmenu 事件
                     renderer.domElement.oncontextmenu = function(e) {{
                         e.preventDefault();
                         e.stopPropagation();
@@ -189,18 +164,20 @@ def summon_global_3d_lulu():
                     let targetRotX = 0;
                     let clickableMeshes = [];
 
-                    // 🔥 挂载极速 CDN 版的 DRACO 超级解码器 🔥
                     const loader = new THREE.GLTFLoader();
                     const dracoLoader = new THREE.DRACOLoader();
-                    dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/draco/gltf/');
+                    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.4.1/');
                     loader.setDRACOLoader(dracoLoader);
 
-                    const switchModel = (b64String, name) => {{
+                    // 基于绝对 URL 的极速异步加载
+                    const switchModel = (modelUrl, name) => {{
                         const oldModelRef = currentModelObj;
-                        bubble.innerText = "⏳ 异次元传输中..."; bubble.style.opacity = '1';
+
+                        bubble.innerText = "⏳ 正在从异次元异步下载模型...";
+                        bubble.style.opacity = '1';
 
                         loader.load(
-                            "data:application/octet-stream;base64," + b64String, 
+                            modelUrl, 
                             (gltf) => {{
                                 if(oldModelRef) {{
                                     scene.remove(oldModelRef);
@@ -227,6 +204,7 @@ def summon_global_3d_lulu():
                                     mixer = new THREE.AnimationMixer(currentModelObj);
                                     mixer.clipAction(gltf.animations[0]).play();
                                 }}
+
                                 setTimeout(() => {{ bubble.style.opacity = '0'; }}, 500);
                                 if(name) {{
                                     setTimeout(() => {{
@@ -238,19 +216,18 @@ def summon_global_3d_lulu():
                             }},
                             undefined,
                             (error) => {{
-                                console.error("模型解析失败，可能压缩损坏：", error);
-                                doSpeak(["主公，【" + name + "】的压缩模型好像损坏了，无法变身！😭"]);
+                                console.error("加载失败，请检查 static 目录下是否有该文件：", error);
+                                bubble.innerText = "❌ 传输失败，请确保该模型存放在 static 目录下！";
+                                setTimeout(() => {{ bubble.style.opacity = '0'; }}, 4000);
                             }}
                         );
                     }};
 
-                    // 首次启动
-                    const initialPetKey = Object.keys(petData).find(k => petData[k] !== "");
+                    const initialPetKey = Object.keys(petUrls)[0];
                     if(initialPetKey) {{
-                        switchModel(petData[initialPetKey], null);
+                        switchModel(petUrls[initialPetKey], null);
                     }}
 
-                    // -------------------- 交互逻辑与射线检测 --------------------
                     const raycaster = new THREE.Raycaster();
                     const mouseNDC = new THREE.Vector2();
 
@@ -330,12 +307,6 @@ def summon_global_3d_lulu():
                     const getX = (e) => e.touches ? e.touches[0].clientX : e.clientX;
                     const getY = (e) => e.touches ? e.touches[0].clientY : e.clientY;
 
-                    const doSpeak = (customTexts) => {{
-                        const ts = customTexts || ["主公，我在这呢！🥰", "量化大赚！吃橘子！🍊", "右键可以给我换衣服哦~", "今天赚了多少呀？💸"];
-                        bubble.innerText = ts[Math.floor(Math.random() * ts.length)]; bubble.style.opacity = '1';
-                        setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
-                    }};
-
                     const doDance = () => {{
                         state = 'DANCING'; danceTimer = 3.0; lastActivityTime = Date.now();
                         bubble.innerText = "好耶！开心转圈圈！💃🕺"; bubble.style.opacity = '1';
@@ -350,7 +321,6 @@ def summon_global_3d_lulu():
                         petBox.style.bottom = 'auto'; petBox.style.right = 'auto'; petBox.style.left = startL + 'px'; petBox.style.top = startT + 'px';
                     }};
 
-                    // 点击空白处关闭菜单
                     doc.addEventListener('click', (e) => {{
                         if (e.button !== 2) {{ ctxMenu.style.display = 'none'; }}
                     }});
@@ -790,7 +760,7 @@ def render_futures_backtest():
 
                         try:
                             final_margin_rate = float(margin_input_str) / 100.0 if margin_input_str.strip() else (
-                                                                                                                             api_margin * 1.2) / 100.0
+                                                                                                                         api_margin * 1.2) / 100.0
                         except:
                             final_margin_rate = (api_margin * 1.2) / 100.0
 
@@ -977,7 +947,9 @@ def render_page_dl():
             st.error("🚨 需安装 torch 和 scikit-learn！")
             st.stop()
 
-    st.markdown('<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>',
+        unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 2.5])
     with col_l:
         st_code = st.text_input("🎯 训练模型标的", value="000001")
@@ -995,7 +967,8 @@ def render_page_dl():
             uploaded_model = None
             btn_text = "🚀 启动张量训练"
         else:
-            model_choices = st.multiselect("🧠 指定本地模型架构", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"], max_selections=1)
+            model_choices = st.multiselect("🧠 指定本地模型架构", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"],
+                                           max_selections=1)
             slen = st.slider("📏 滑窗长度 (需与本地模型一致)", 5, 60, 20)
             uploaded_model = st.file_uploader("📥 上传 PyTorch 权重文件 (.pth / .pt)", type=['pth', 'pt'])
             eps = 0
@@ -1024,6 +997,7 @@ def render_page_dl():
                                 super().__init__()
                                 self.lstm = nn.LSTM(1, 64, 2, batch_first=True)
                                 self.fc = nn.Linear(64, 1)
+
                             def forward(self, x):
                                 out, _ = self.lstm(x)
                                 return self.fc(out[:, -1, :])
@@ -1033,6 +1007,7 @@ def render_page_dl():
                                 super().__init__()
                                 self.gru = nn.GRU(1, 64, 2, batch_first=True)
                                 self.fc = nn.Linear(64, 1)
+
                             def forward(self, x):
                                 out, _ = self.gru(x)
                                 return self.fc(out[:, -1, :])
@@ -1042,6 +1017,7 @@ def render_page_dl():
                                 super().__init__()
                                 self.conv = nn.Conv1d(in_channels=1, out_channels=32, kernel_size=3, padding=1)
                                 self.fc = nn.Linear(32 * seq_len, 1)
+
                             def forward(self, x):
                                 x = x.permute(0, 2, 1)
                                 x = torch.relu(self.conv(x))
@@ -1055,9 +1031,12 @@ def render_page_dl():
                         last_window_orig = X_t[-1].clone().unsqueeze(0)
 
                         for m_idx, m_name in enumerate(model_choices):
-                            if m_name == "LSTM": model = LSTM_Model()
-                            elif m_name == "GRU": model = GRU_Model()
-                            elif m_name == "1D-CNN": model = CNN_1D_Model(slen)
+                            if m_name == "LSTM":
+                                model = LSTM_Model()
+                            elif m_name == "GRU":
+                                model = GRU_Model()
+                            elif m_name == "1D-CNN":
+                                model = CNN_1D_Model(slen)
 
                             if "导入本地模型" in run_mode:
                                 lbox.markdown(f"**正在解析并挂载本地 {m_name} 模型权重...**")
@@ -1099,7 +1078,8 @@ def render_page_dl():
                                     p_future = model(curr_win)
                                 m_future.append(p_future.item())
                                 curr_win = torch.cat((curr_win[:, 1:, :], p_future.unsqueeze(-1)), dim=1)
-                            future_preds_dict[m_name] = scaler.inverse_transform(np.array(m_future).reshape(-1, 1)).flatten()
+                            future_preds_dict[m_name] = scaler.inverse_transform(
+                                np.array(m_future).reshape(-1, 1)).flatten()
 
                         lbox.success("✅ 矩阵模型装载完毕，时空推演已就绪！")
                         st.session_state.dl_result = {
@@ -1133,10 +1113,14 @@ def render_page_dl():
             day5_pred = f_preds[4]
 
             with st.expander("🤖 AI 深度预测白盒解析舱 (点击展开/收起)", expanded=True):
-                st.markdown(f"**📈 极速解盘预览**：当前实盘价 `<span class='highlight-text'>{latest_price:.2f}</span>` | 驱动核心: {model_desc}", unsafe_allow_html=True)
+                st.markdown(
+                    f"**📈 极速解盘预览**：当前实盘价 `<span class='highlight-text'>{latest_price:.2f}</span>` | 驱动核心: {model_desc}",
+                    unsafe_allow_html=True)
                 c_f1, c_f2, c_f3, c_f4 = st.columns(4)
-                c_f1.metric("未来 1 天预测 (T+1)", f"{day1_pred:.2f}", f"{(day1_pred - latest_price) / latest_price * 100:.2f}%")
-                c_f2.metric("未来 5 天预测 (T+5)", f"{day5_pred:.2f}", f"{(day5_pred - latest_price) / latest_price * 100:.2f}%")
+                c_f1.metric("未来 1 天预测 (T+1)", f"{day1_pred:.2f}",
+                            f"{(day1_pred - latest_price) / latest_price * 100:.2f}%")
+                c_f2.metric("未来 5 天预测 (T+5)", f"{day5_pred:.2f}",
+                            f"{(day5_pred - latest_price) / latest_price * 100:.2f}%")
                 c_f3.metric("🎯 历史方向胜率", f"{success_rate:.1f}%", "涨跌准确度")
                 c_f4.metric("⚖️ 平均预测偏差", f"{mape:.2f}%", "绝对偏离度", delta_color="inverse")
 
@@ -1148,7 +1132,9 @@ def render_page_dl():
 【模型信誉档案】：该模型在过去100天的历史拟合中，涨跌方向预测胜率为 {success_rate:.1f}%，平均绝对价格偏差度为 {mape:.2f}%。
 请你用大白话（限200字以内，绝对不能包含代码），向小白用户解释这个预测走势。给出您的终极操作建议。"""
                     try:
-                        stream = client.chat.completions.create(model="moonshot-v1-8k", messages=[{"role": "user", "content": prompt}], stream=True, temperature=0.5)
+                        stream = client.chat.completions.create(model="moonshot-v1-8k",
+                                                                messages=[{"role": "user", "content": prompt}],
+                                                                stream=True, temperature=0.5)
                         full_txt = ""
                         for chunk in stream:
                             if chunk.choices[0].delta.content:
@@ -1160,42 +1146,59 @@ def render_page_dl():
 
             import plotly.graph_objects as go
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹 (Actual)', line=dict(color='#00ffcc', width=2)))
+            fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹 (Actual)',
+                                     line=dict(color='#00ffcc', width=2)))
             color_map = {"LSTM": "#ff00ff", "GRU": "#ffff00", "1D-CNN": "#00bfff"}
 
             for m_name, pred_array in res['preds'].items():
-                fig.add_trace(go.Scatter(x=res['dates'], y=pred_array, name=f'{m_name} 历史拟合', line=dict(color=color_map.get(m_name, '#ffffff'), dash='dot', width=1)))
+                fig.add_trace(go.Scatter(x=res['dates'], y=pred_array, name=f'{m_name} 历史拟合',
+                                         line=dict(color=color_map.get(m_name, '#ffffff'), dash='dot', width=1)))
 
             if len(res['preds']) > 1:
                 ensemble_pred = np.mean(list(res['preds'].values()), axis=0)
-                fig.add_trace(go.Scatter(x=res['dates'], y=ensemble_pred, name='🔥 均值集成 (Ensemble)', line=dict(color='#ff4b4b', width=3)))
+                fig.add_trace(go.Scatter(x=res['dates'], y=ensemble_pred, name='🔥 均值集成 (Ensemble)',
+                                         line=dict(color='#ff4b4b', width=3)))
 
-            fig.update_layout(height=450, template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', dragmode='pan', hovermode='x', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+            fig.update_layout(height=450, template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                              dragmode='pan', hovermode='x',
+                              legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
             fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
             fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
             st.plotly_chart(fig, use_container_width=True)
 
 elif selected_page == PAGES[6]:
-    st.markdown('<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>', unsafe_allow_html=True)
-    c1, c2 = st.columns([1, 1.2])
-    with c1:
-        if os.path.exists("user_logs/global_master_log.csv"):
-            st.download_button("📁 导出审计日志", data=pd.read_csv("user_logs/global_master_log.csv").to_csv(index=False).encode('utf-8'), file_name='Audit_Logs.csv', type="primary")
-    with c2:
-        st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
+st.markdown(
+    '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>',
+    unsafe_allow_html=True)
+c1, c2 = st.columns([1, 1.2])
+with c1:
+    if os.path.exists("user_logs/global_master_log.csv"):
+        st.download_button("📁 导出审计日志",
+                           data=pd.read_csv("user_logs/global_master_log.csv").to_csv(index=False).encode('utf-8'),
+                           file_name='Audit_Logs.csv', type="primary")
+with c2:
+    st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
 
 elif selected_page == PAGES[7]:
-    if extensions: extensions.render_futures_backtest()
-    else: st.error("🧩 扩展模块加载失败，请检查 `extensions.py` 文件是否存在。")
+if extensions:
+    extensions.render_futures_backtest()
+else:
+    st.error("🧩 扩展模块加载失败，请检查 `extensions.py` 文件是否存在。")
 
 elif selected_page == PAGES[8]:
-    if extensions: extensions.render_futures_sandbox()
-    else: st.error("🧩 扩展模块加载失败，请检查 `extensions.py` 文件是否存在。")
+if extensions:
+    extensions.render_futures_sandbox()
+else:
+    st.error("🧩 扩展模块加载失败，请检查 `extensions.py` 文件是否存在。")
 
 elif selected_page == PAGES[9]:
-    if extensions: extensions.render_new_features_page()
-    else: st.error("🧩 扩展模块加载失败，请检查 `extensions.py` 文件是否存在。")
+if extensions:
+    extensions.render_new_features_page()
+else:
+    st.error("🧩 扩展模块加载失败，请检查 `extensions.py` 文件是否存在。")
 
 else:
-    if custom_plugins and hasattr(custom_plugins, 'route_and_render'): custom_plugins.route_and_render(selected_page)
-    else: st.error("🚧 该板块属于外部插件模块。请在同一目录下创建 `custom_plugins.py` 文件并实现接入接口！")
+if custom_plugins and hasattr(custom_plugins, 'route_and_render'):
+    custom_plugins.route_and_render(selected_page)
+else:
+    st.error("🚧 该板块属于外部插件模块。请在同一目录下创建 `custom_plugins.py` 文件并实现接入接口！")
