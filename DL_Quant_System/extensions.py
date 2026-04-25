@@ -45,6 +45,7 @@ def summon_global_3d_lulu():
     pet_b64 = {}
     with st.spinner("正在为雷达加装多维宇宙识别系统..."):
         for name, filename in PET_ROSTER.items():
+            # 🔥 免配路径提取：直接暴力查找各个目录，无需主公手动配置文件夹 🔥
             path_static = os.path.join(current_dir, "static", filename)
             path_root = os.path.join(current_dir, filename)
 
@@ -394,14 +395,15 @@ def summon_global_3d_lulu():
 # =======================================================
 
 def safe_exec_fut_strategy(code, df):
+    if not code: return df
     try:
-        safe_code = code.replace("pandas.np", "np")
+        safe_code = str(code).replace("pandas.np", "np")
         l_vars = {}
         exec(safe_code, {"pd": pd, "np": np, "math": math}, l_vars)
         func_to_call = next((v for k, v in l_vars.items() if callable(v)), None)
         if not func_to_call: return df
 
-        df_ai = func_to_call(df)
+        df_ai = func_to_call(df.copy())
         if df_ai is None or not hasattr(df_ai, 'columns'): return df
 
         sig_col = next((c for c in df_ai.columns if c.lower() == 'signal'), None)
@@ -418,7 +420,6 @@ def safe_exec_fut_strategy(code, df):
 def render_fut_charts(df):
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
-
     main_inds = [c for c in df.columns if c.startswith('MAIN_')]
     sub_groups = {}
     for c in df.columns:
@@ -428,7 +429,6 @@ def render_fut_charts(df):
     rows = 2 + len(sub_groups)
     fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.03,
                         row_heights=[0.5, 0.15] + [0.35 / max(1, len(sub_groups))] * len(sub_groups))
-
     x_labels = df['trade_date'].dt.strftime('%Y-%m-%d') if df['trade_date'].dt.time.nunique() <= 1 else df[
         'trade_date'].dt.strftime('%m-%d %H:%M')
 
@@ -505,16 +505,14 @@ def render_ide_page():
         with t_col2:
             if st.button("📥 载入模板", use_container_width=True): st.session_state.generated_code = templates[
                 selected_tpl]; st.rerun()
-
         current_code = st.session_state.get('generated_code', '')
         if not current_code.strip(): current_code = default_code
         user_code = st.text_area("Code Editor", value=current_code, height=450, label_visibility="collapsed")
-
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
-            if st.button("💾 同步保存至全局引擎", use_container_width=True, type="primary"):
-                st.session_state.generated_code = user_code;
-                st.success("✅ 代码已成功注入全局中枢！现在您可以切换到【全量回测】页面进行图表渲染了。")
+            if st.button("💾 同步保存至全局引擎", use_container_width=True,
+                         type="primary"): st.session_state.generated_code = user_code; st.success(
+                "✅ 代码已成功注入全局中枢！")
         with col_btn2:
             run_debug = st.button("🐞 运行防爆沙盒测试", use_container_width=True)
 
@@ -525,13 +523,12 @@ def render_ide_page():
             with console_ph.container():
                 st.info("正在挂载虚拟沙盒测试环境...")
                 try:
-                    dates = pd.date_range('20240101', periods=100)
-                    dummy_df = pd.DataFrame({'trade_date': dates, 'Open': np.random.uniform(2000, 2100, 100),
+                    dummy_df = pd.DataFrame({'trade_date': pd.date_range('20240101', periods=100),
+                                             'Open': np.random.uniform(2000, 2100, 100),
                                              'High': np.random.uniform(2100, 2150, 100),
                                              'Low': np.random.uniform(1950, 2000, 100),
                                              'Close': np.random.uniform(2000, 2100, 100),
                                              'Volume': np.random.randint(1000, 5000, 100)})
-                    st.text("🚀 正在强行编译执行您的代码...")
                     start_time = time.time()
                     res_df = safe_exec_fut_strategy(user_code, dummy_df)
                     st.success(f"✅ 编译完美通过！内核耗时: {time.time() - start_time:.4f} 秒")
@@ -566,7 +563,6 @@ def render_futures_backtest():
         with st.expander("🛠️ 不知道输入什么代码？点击查看帮助", expanded=False):
             st.markdown(
                 "**直接输入品种代码 + 年月即可 (绝对无需后缀！)**\n- 纯碱主力: `SA2409`\n- 螺纹钢: `RB2410`\n- 铁矿石: `I2409`\n- 玻璃: `FG2409`")
-        st.markdown("---")
         fut_code_input = st.text_input("🎯 期货合约代码", value="", placeholder="直接输入，如: SA2409")
         freq_mapping = {"日线 (Daily)": "D", "60分钟 (60min)": "60", "30分钟 (30min)": "30", "15分钟 (15min)": "15",
                         "5分钟 (5min)": "5", "1分钟 (1min)": "1"}
@@ -606,7 +602,7 @@ def render_futures_backtest():
                             f"⚠️ **触发容灾机制**：AkShare 接口未返回 `{real_code}` 的真实数据。\n\n系统已自动启动【底层沙盒模拟引擎】，为您瞬间生成逼真的 **{freq_choice}** 高频推演数据！")
                         base_p = 3000 if 'RB' in real_code else (800 if 'I' in real_code else 2000)
                         volatility = base_p * 0.0015
-                        np.random.seed()
+                        np.random.seed();
                         periods_num = 400
                         freq_pd = selected_freq.replace('m', 'T') if selected_freq != 'D' else 'D'
                         dates = pd.date_range(end=datetime.now(), periods=periods_num, freq=freq_pd)
@@ -635,7 +631,6 @@ def render_futures_backtest():
                         symbol_letter = sym_match.group(1).upper() if sym_match else 'SA'
                         api_mult = default_mult_map.get(symbol_letter, 10.0)
                         api_margin = 10.0
-
                         try:
                             final_margin_rate = float(margin_input_str) / 100.0 if margin_input_str.strip() else (
                                                                                                                              api_margin * 1.2) / 100.0

@@ -97,7 +97,7 @@ curr_idx = PAGES.index(st.session_state.curr_page)
 anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr_idx < prev_idx else "fogFadeIn")
 
 # ==========================================
-# 3. 宗师级 JS 引擎：防抖 + YIQ 光照探测
+# 3. 宗师级 JS 引擎：防抖 + 原生背景光照探测
 # ==========================================
 scroll_script = "window.parent.scrollTo({top: 0, behavior: 'instant'});" if st.session_state.just_switched else ""
 
@@ -115,16 +115,16 @@ if "core_ui_injected" not in st.session_state:
                 const doc = window.parent.document;
                 const app = doc.querySelector('.stApp');
 
-                // 🔥 修复：精准探测屏幕上的文字颜色来判断白天/黑夜模式 🔥
-                if (app) {{
-                    const textElem = doc.querySelector('p, h1, h2, h3, span');
-                    if (textElem) {{
-                        const color = window.getComputedStyle(textElem).color;
-                        const rgb = color.match(/\\d+/g);
-                        if (rgb && rgb.length >= 3) {{
-                            const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
-                            // 文字是黑色的（亮度暗），说明背景是白色的（浅色模式）
-                            app.setAttribute('data-custom-theme', brightness < 128 ? 'light' : 'dark');
+                // 🔥 修复：直接探测底层 body 的真实背景色，不受我们自定义 CSS 的干扰！ 🔥
+                if (app && doc.body) {{
+                    const bgColor = window.getComputedStyle(doc.body).backgroundColor;
+                    const rgb = bgColor.match(/\\d+/g);
+                    if (rgb && rgb.length >= 3) {{
+                        const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
+                        // 背景颜色明亮 (> 128) 则说明当前是白色 Light 主题
+                        const themeAttr = brightness > 128 ? 'light' : 'dark';
+                        if (app.getAttribute('data-custom-theme') !== themeAttr) {{
+                            app.setAttribute('data-custom-theme', themeAttr);
                         }}
                     }}
                 }}
@@ -249,8 +249,8 @@ def add_default_indicators(df):
 @st.cache_data(ttl=300, show_spinner=False)
 def get_tushare_status():
     try:
-        t0 = time.time();
-        pro.trade_cal(exchange='SSE', start_date='20240101', end_date='20240101');
+        t0 = time.time()
+        pro.trade_cal(exchange='SSE', start_date='20240101', end_date='20240101')
         return f"🟢 Online ({int((time.time() - t0) * 1000)}ms)"
     except:
         return "🔴 Offline"
@@ -279,13 +279,11 @@ def run_backtest_metrics(df_source, strategy_code):
         if df_ai is not None and hasattr(df_ai, 'columns'):
             for col in df_ai.columns:
                 if col == 'Signal' or col.startswith(('MAIN_', 'SUB')): df_safe[col] = df_ai[col]
-
     df = df_safe
     df['Ret'] = df['Close'].pct_change()
     df['Pos'] = df.get('Signal', pd.Series([0] * len(df))).replace(0, np.nan).ffill().fillna(0)
     df['Strat_Ret'] = df['Pos'].shift(1) * df['Ret']
     df['Cum_Prod'] = (1 + df['Strat_Ret'].fillna(0)).cumprod()
-
     total_ret = (df['Cum_Prod'].iloc[-1] - 1) if not df.empty else 0
     annual = (1 + total_ret) ** (252 / max(1, len(df))) - 1 if not df.empty else 0
     max_dd = (df['Cum_Prod'] / df['Cum_Prod'].cummax() - 1).min() if not df.empty else 0
@@ -294,9 +292,11 @@ def run_backtest_metrics(df_source, strategy_code):
     return {"df": df, "metrics": {"total": total_ret, "annual": annual, "max_dd": max_dd, "sharpe": sharpe}}
 
 
+# 🔥 核心防爆盾：专门针对 NoneType 拦截，保全主系统运行 🔥
 def execute_safely(code, df):
+    if not code: return df
     try:
-        safe_code = code.replace("pandas.np", "np")
+        safe_code = str(code).replace("pandas.np", "np")
         l_vars = {}
         exec(safe_code, {"pd": pd, "np": np, "math": math}, l_vars)
         func_to_call = next((v for k, v in l_vars.items() if callable(v)), None)
@@ -320,22 +320,20 @@ def render_smart_charts(df):
     for c in df.columns:
         gid = SUB_PATTERN.match(c)
         if gid: sub_groups.setdefault(gid.group(1), []).append(c)
-
     rows = 2 + len(sub_groups)
     fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.03,
                         row_heights=[0.5, 0.15] + [0.35 / max(1, len(sub_groups))] * len(sub_groups))
     x_labels = df['trade_date'].dt.strftime('%Y-%m-%d') if df['trade_date'].dt.time.nunique() <= 1 else df[
         'trade_date'].dt.strftime('%m-%d %H:%M')
-
     fig.add_trace(go.Candlestick(x=x_labels, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
                                  increasing_line_color='#ef4444', decreasing_line_color='#10b981', name='K线'), row=1,
                   col=1)
     colors = ['#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899']
     for i, col in enumerate(main_inds): fig.add_trace(
         go.Scatter(x=x_labels, y=df[col], name=col, line=dict(width=1.2, color=colors[i % 4])), row=1, col=1)
-
     if 'Signal' in df.columns:
-        buys, sells = df[df['Signal'] == 1], df[df['Signal'] == -1]
+        buys = df[df['Signal'] == 1]
+        sells = df[df['Signal'] == -1]
         buy_x = buys['trade_date'].dt.strftime('%Y-%m-%d' if df['trade_date'].dt.time.nunique() <= 1 else '%m-%d %H:%M')
         sell_x = sells['trade_date'].dt.strftime(
             '%Y-%m-%d' if df['trade_date'].dt.time.nunique() <= 1 else '%m-%d %H:%M')
@@ -344,11 +342,9 @@ def render_smart_charts(df):
         fig.add_trace(go.Scatter(x=sell_x, y=sells['High'] * 1.002, mode='markers',
                                  marker=dict(symbol='triangle-down', size=14, color='#f59e0b'), name='卖'), row=1,
                       col=1)
-
     fig.add_trace(go.Bar(x=x_labels, y=df.get('Volume', np.zeros(len(df))),
                          marker_color=np.where(df['Close'] >= df['Open'], '#ef4444', '#10b981'), name='成交量'), row=2,
                   col=1)
-
     row_idx = 3
     for gid in sorted(sub_groups.keys(), key=int):
         for i, col in enumerate(sub_groups[gid]):
@@ -360,7 +356,6 @@ def render_smart_charts(df):
                 fig.add_trace(go.Scatter(x=x_labels, y=df[col], line=dict(width=1.2, color=colors[i % 4]), name=col),
                               row=row_idx, col=1)
         row_idx += 1
-
     fig.update_layout(height=500 + len(sub_groups) * 150, template="none", paper_bgcolor='rgba(0,0,0,0)',
                       plot_bgcolor='rgba(0,0,0,0)', xaxis_rangeslider_visible=False, dragmode='pan', hovermode='x',
                       showlegend=False, margin=dict(l=10, r=10, t=10, b=10))
@@ -411,7 +406,7 @@ if selected_page == PAGES[0]:
         """, unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ <b>完美适配明亮/暗黑渐变主题</b><br>✅ 前端引擎防抖极速化<br>✅ 代码沙盒全域防爆盾<br>✅ LLM 空数据拦截网</div>',
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ <b>完美适配明亮/暗黑渐变主题</b><br>✅ 前端引擎防抖极速化<br>✅ <b>代码沙盒防 NoneType 拦截器</b><br>✅ LLM 空数据拦截网</div>',
             unsafe_allow_html=True
         )
 
@@ -482,7 +477,7 @@ elif selected_page == PAGES[1]:
             with st.chat_message("assistant"):
                 st.toast(f"🚀 连线底层算力集群: {selected_model}", icon="⚡")
                 ticks = "`" * 3
-                sys_p = f"你是一名顶级量化工程师。严格遵守沙盒限制：只能使用 pandas, numpy, math。必须生成 `df['Signal']`。代码骨架：{ticks}python\ndef generate_signals(df):\n    return df\n{ticks}"
+                sys_p = f"""你是一名顶级量化工程师。拒绝闲聊。如果用户只是让你解读文字，直接输出解答。如果是编写策略，你必须严格遵守以下【小吕布量化系统 SDK 开发军规】：1. 只能使用 pandas, numpy 和 math。禁止 import talib！2. 数据源有效列名严格为：['Open', 'High', 'Low', 'Close', 'Volume']。3. 画图命名协议：主图列名以 `MAIN_` 开头，副图以 `SUB1_` 或 `SUB2_` 开头。4. 交易信号协议：必须生成一列 `df['Signal']`。1=买入，-1=卖出，0=持有。5. 代码骨架：{ticks}python\ndef generate_signals(df):\n    return df\n{ticks}\n请直接输出代码及策略白话解析。"""
                 messages_to_send = [{"role": "system", "content": sys_p}] + st.session_state.messages[:-1] + [
                     {"role": "user", "content": full_prompt_for_ai}]
                 max_retries = 2;
@@ -490,12 +485,11 @@ elif selected_page == PAGES[1]:
                 last_error = "";
                 full_resp = "";
                 msg_box = st.empty()
-
                 for attempt in range(max_retries + 1):
                     if attempt > 0:
                         agent_logs.append(
                             f'<div class="agent-status-node retry">🔄 <b>尝试 {attempt}:</b> 沙盒拦截异常 (<code>{last_error}</code>) -> Agent 发起重构</div>')
-                        safe_resp = full_resp if full_resp and full_resp.strip() else "(API 前一次流响应为空)"
+                        safe_resp = full_resp if full_resp and full_resp.strip() else "(API 前一次流响应为空，因引发沙盒报错被退回)"
                         messages_to_send.extend([{"role": "assistant", "content": safe_resp}, {"role": "user",
                                                                                                "content": f"代码报错：`{last_error}`，请严格遵循模板修复。"}])
                     try:
@@ -513,13 +507,11 @@ elif selected_page == PAGES[1]:
                         msg_box.markdown(
                             full_resp.replace("<think>", "🧠 深度思考过程：\n").replace("</think>", "\n---\n"),
                             unsafe_allow_html=True)
-
                         code_match = re.search(r"`{3}python\s*(.*?)\s*`{3}", full_resp, re.DOTALL)
                         resp_clean = re.sub(r"<think>.*?</think>", "", full_resp, flags=re.DOTALL)
                         explanation = re.sub(r"`{3}python\s*.*?\s*`{3}", "", resp_clean,
                                              flags=re.DOTALL).strip().replace("【策略白话解析】", "").strip()
                         st.session_state.strategy_explanation = explanation if explanation else "该策略完全由硬核代码驱动，未返回额外人话分析。"
-
                         if not code_match: break
                         extracted_code = code_match.group(1).strip()
                         try:
@@ -531,7 +523,7 @@ elif selected_page == PAGES[1]:
                             st.session_state.generated_code = extracted_code
                             agent_logs.append(
                                 f'<div class="agent-status-node success">✅ <b>尝试 {attempt + 1}:</b> 代码通过沙盒预检 -> 策略已安全装载</div>')
-                            st.markdown("".join(agent_logs), unsafe_allow_html=True);
+                            st.markdown("".join(agent_logs), unsafe_allow_html=True)
                             break
                         except Exception as e:
                             last_error = str(e)
@@ -540,10 +532,9 @@ elif selected_page == PAGES[1]:
                                     f'<div class="agent-status-node error">❌ <b>最终结果:</b> 失败，最终报错: <code>{last_error}</code></div>')
                                 st.markdown("".join(agent_logs), unsafe_allow_html=True)
                     except Exception as e:
-                        st.error(f"链路断开: {e}");
-                        full_resp += f"\n\n❌ [异常阻断: 通信失败或超载 - {e}]";
+                        st.error(f"链路断开: {e}")
+                        full_resp += f"\n\n❌ [异常阻断: 通信失败或超载 - {e}]"
                         break
-
                 if not full_resp or not full_resp.strip(): full_resp = "❌ 大模型网络中断或未返回任何数据，请重试。"
                 if agent_logs: full_resp += "\n\n" + "".join(agent_logs)
                 st.session_state.messages.append({"role": "assistant", "content": full_resp})
@@ -570,23 +561,22 @@ elif selected_page == PAGES[3]:
                     st.session_state.bt_result = run_backtest_metrics(df_raw, st.session_state.generated_code)
                 except Exception as e:
                     st.error(f"异常: {e}")
-
     with col_r:
         if st.session_state.bt_result:
-            m = st.session_state.bt_result['metrics'];
+            m = st.session_state.bt_result['metrics']
             df = st.session_state.bt_result['df']
             c1, c2, c3, c4 = st.columns(4)
             c1.markdown(
-                f'<div class="metric-box"><p>累计收益</p><h2 class="highlight-text">{m["total"] * 100:.2f}%</h2></div>',
+                f'<div class="metric-box"><p>累计收益</p><h2 style="color:#3b82f6;">{m["total"] * 100:.2f}%</h2></div>',
                 unsafe_allow_html=True)
             c2.markdown(
-                f'<div class="metric-box"><p>年化收益</p><h2 class="highlight-text">{m["annual"] * 100:.2f}%</h2></div>',
+                f'<div class="metric-box"><p>年化收益</p><h2 style="color:#3b82f6;">{m["annual"] * 100:.2f}%</h2></div>',
                 unsafe_allow_html=True)
             c3.markdown(
-                f'<div class="metric-box"><p>最大回撤</p><h2 class="danger-text">{m["max_dd"] * 100:.2f}%</h2></div>',
+                f'<div class="metric-box"><p>最大回撤</p><h2 style="color:#ef4444;">{m["max_dd"] * 100:.2f}%</h2></div>',
                 unsafe_allow_html=True)
             c4.markdown(
-                f'<div class="metric-box"><p>夏普比率</p><h2 class="highlight-text">{m["sharpe"]:.2f}</h2></div>',
+                f'<div class="metric-box"><p>夏普比率</p><h2 style="color:#3b82f6;">{m["sharpe"]:.2f}</h2></div>',
                 unsafe_allow_html=True)
             st.markdown("<div style='clear: both; margin-bottom: 30px;'></div>", unsafe_allow_html=True)
             if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
@@ -605,7 +595,6 @@ elif selected_page == PAGES[4]:
         st.button("▶️ 开启高频推演", on_click=lambda: st.session_state.update({"is_live_trading": True}),
                   type="primary")
         st.button("⏹️ 强行停止", on_click=lambda: st.session_state.update({"is_live_trading": False}))
-
     with c_chart:
         if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
             with st.expander("💡 当前军令：策略白话解析", expanded=False): st.markdown(
@@ -645,7 +634,6 @@ elif selected_page == PAGES[5]:
         except ImportError:
             st.error("🚨 需安装 torch 和 scikit-learn！")
             st.stop()
-
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>',
         unsafe_allow_html=True)
@@ -657,7 +645,6 @@ elif selected_page == PAGES[5]:
         start_year_dl = datetime.now().year - span_mapping_dl[span_choice_dl]
         st.markdown("---")
         run_mode = st.radio("⚙️ 引擎运行模式", ["🚀 在线动态训练", "📂 导入本地模型"], horizontal=True)
-
         if "在线动态" in run_mode:
             model_choices = st.multiselect("🧠 选择预测模型 (支持多选融合)", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"])
             slen = st.slider("📏 滑窗长度", 5, 60, 20)
@@ -780,7 +767,6 @@ elif selected_page == PAGES[5]:
             res = st.session_state.dl_result
             latest_price = res['actual'].iloc[-1];
             actual_vals = res['actual'].values
-
             if len(res['models_used']) > 1:
                 f_preds = np.mean(list(res['future'].values()), axis=0);
                 h_preds = np.mean(list(res['preds'].values()), axis=0)
@@ -826,22 +812,18 @@ elif selected_page == PAGES[5]:
 
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹 (Actual)',
-                                     line=dict(color='#00ffcc', width=2)))
-            color_map = {"LSTM": "#ff00ff", "GRU": "#ffff00", "1D-CNN": "#00bfff"}
-
-            for m_name, pred_array in res['preds'].items():
-                fig.add_trace(go.Scatter(x=res['dates'], y=pred_array, name=f'{m_name} 历史拟合',
-                                         line=dict(color=color_map.get(m_name, '#ffffff'), dash='dot', width=1)))
-
-            if len(res['preds']) > 1:
-                ensemble_pred = np.mean(list(res['preds'].values()), axis=0)
-                fig.add_trace(go.Scatter(x=res['dates'], y=ensemble_pred, name='🔥 均值集成 (Ensemble)',
-                                         line=dict(color='#ff4b4b', width=3)))
-
+                                     line=dict(color='#10b981', width=2)))
+            color_map = {"LSTM": "#3b82f6", "GRU": "#f59e0b", "1D-CNN": "#8b5cf6"}
+            for m_name, pred_array in res['preds'].items(): fig.add_trace(
+                go.Scatter(x=res['dates'], y=pred_array, name=f'{m_name} 历史拟合',
+                           line=dict(color=color_map.get(m_name, '#94a3b8'), dash='dot', width=1.5)))
+            if len(res['preds']) > 1: fig.add_trace(
+                go.Scatter(x=res['dates'], y=np.mean(list(res['preds'].values()), axis=0), name='🔥 均值集成 (Ensemble)',
+                           line=dict(color='#ef4444', width=3)))
             fig.update_layout(height=450, template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                               dragmode='pan', hovermode='x',
                               legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-            fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
+            fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)');
             fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
             st.plotly_chart(fig, use_container_width=True)
 
@@ -858,22 +840,13 @@ elif selected_page == PAGES[6]:
         st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
 
 elif selected_page == PAGES[7]:
-    if extensions:
-        extensions.render_futures_backtest()
-    else:
-        st.error("🧩 扩展模块加载失败。")
+    if extensions: extensions.render_futures_backtest()
 
 elif selected_page == PAGES[8]:
-    if extensions:
-        extensions.render_futures_sandbox()
-    else:
-        st.error("🧩 扩展模块加载失败。")
+    if extensions: extensions.render_futures_sandbox()
 
 elif selected_page == PAGES[9]:
-    if extensions:
-        extensions.render_new_features_page()
-    else:
-        st.error("🧩 扩展模块加载失败。")
+    if extensions: extensions.render_new_features_page()
 
 else:
     if custom_plugins and hasattr(custom_plugins, 'route_and_render'): custom_plugins.route_and_render(selected_page)
