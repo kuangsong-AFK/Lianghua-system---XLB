@@ -1,400 +1,308 @@
-# ==========================================
-# 文件名：extensions.py (扩展功能先锋营)
-# 功能：极客 IDE、AkShare 期货、高频沙盘、多模型 3D 桌宠
-# ==========================================
+import os
+import sys
 import streamlit as st
 import streamlit.components.v1 as components
-import base64
-import os
-import time
-import math
-import re
-import json
 import pandas as pd
 import numpy as np
+from openai import OpenAI
+import re
+import time
+import tushare as ts
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from datetime import datetime
+import uuid
+import math
+from PIL import Image
+
+# 🔥 安全导入扩展先锋营 🔥
+try:
+    import extensions
+except ImportError:
+    extensions = None
 
 try:
-    from streamlit import fragment as st_fragment
+    import custom_plugins
 except ImportError:
-    try:
-        from streamlit import experimental_fragment as st_fragment
-    except ImportError:
-        st_fragment = lambda f: f
+    custom_plugins = None
 
+# ==========================================
+# 0. 环境优雅降级
+# ==========================================
 try:
-    import akshare as ak
-
-    HAS_AKSHARE = True
+    import PyPDF2
 except ImportError:
-    HAS_AKSHARE = False
+    PyPDF2 = None
+try:
+    import docx
+except ImportError:
+    docx = None
 
+pd.np = np
 SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 
+# ==========================================
+# 1. 核心兵符与状态初始化
+# ==========================================
+st.set_page_config(
+    page_title="小吕布量化 Pro",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-def summon_global_3d_lulu():
-    """全地形无敌装甲版：纯净国内 jsdelivr CDN + 强制缓存刺穿 + 绝对凝视"""
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+KIMI_API_KEY = "sk-yS2foVgWtvnFMWKRTLnI6l8NFqFrRiB8ojre75g2mK2P8LBk"
+TUSHARE_TOKEN = "ba486af7606bc2f6018f1d592251a49674132225f59d37b3473d676e"
+ts.set_token(TUSHARE_TOKEN)
 
-    PET_ROSTER = {
-        "🍊 水豚噜噜": "lulu.glb",
-        "🐧 高雅企鹅": "penguin.glb",
-        "🐱 hello Kitty": "kitty.glb",
-        "🐷 猪猪侠": "pig.glb"
-    }
 
-    pet_b64 = {}
-    with st.spinner("正在为雷达加装多维宇宙识别系统..."):
-        for name, filename in PET_ROSTER.items():
-            path_static = os.path.join(current_dir, "static", filename)
-            path_root = os.path.join(current_dir, filename)
+@st.cache_resource
+def get_ts_pro(): return ts.pro_api()
 
-            # 🔥 免配路径提取：直接暴力查找各个目录，无需主公手动配置文件夹 🔥
-            if os.path.exists(path_static):
-                with open(path_static, "rb") as f:
-                    pet_b64[name] = base64.b64encode(f.read()).decode("utf-8")
-            elif os.path.exists(path_root):
-                with open(path_root, "rb") as f:
-                    pet_b64[name] = base64.b64encode(f.read()).decode("utf-8")
-            else:
-                pet_b64[name] = ""
 
-    if not any(pet_b64.values()):
-        return
+pro = get_ts_pro()
+client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=60.0)
 
-    pets_json_str = json.dumps(pet_b64)
+for key, val in {"user_id": f"User_{str(uuid.uuid4())[:6]}", "messages": [], "generated_code": "",
+                 "strategy_explanation": "暂无策略解析，请先前往 AI 战情室下达军令。", "dl_result": None,
+                 "bt_result": None, "sys_logs": [], "is_live_trading": False}.items():
+    if key not in st.session_state: st.session_state[key] = val
 
-    # 🔥 加入动态时间戳刺穿 Streamlit 缓存机制，确保修改代码后必运行 🔥
-    html_code = f"""
-    <script id="lulu-pet-data" type="application/json">{pets_json_str}</script>
+# ==========================================
+# 2. 空间流形导航逻辑
+# ==========================================
+PAGES = ["🏠 系统总览 (监控中控)", "🤖 AI 策略引擎 (LLM)", "💻 极客量化 IDE (代码编译)", "📈 深度静态全量回测",
+         "⚡ 实时高频交易 (Live)", "🧠 深度学习预测矩阵", "🛡️ 论文审计日志", "🔗 期货全量审计 (归因)", "🌪️ 期货高频沙盘",
+         "🧩 扩展插件中心"]
+if custom_plugins and hasattr(custom_plugins, 'EXTRA_PAGES'): PAGES.extend(custom_plugins.EXTRA_PAGES)
 
+if "curr_page" not in st.session_state: st.session_state.curr_page = PAGES[0]
+if "prev_page" not in st.session_state: st.session_state.prev_page = PAGES[0]
+if "just_switched" not in st.session_state: st.session_state.just_switched = False
+
+with st.sidebar:
+    st.markdown("### 🎓 小吕布量化 Pro")
+    st.caption(f"🛡️ 节点 ID: {st.session_state.user_id}")
+    st.markdown("---")
+    selected_page = st.radio("导航菜单", PAGES, label_visibility="collapsed")
+
+if selected_page != st.session_state.curr_page:
+    st.session_state.prev_page = st.session_state.curr_page
+    st.session_state.curr_page = selected_page
+    st.session_state.just_switched = True
+else:
+    st.session_state.just_switched = False
+
+prev_idx = PAGES.index(st.session_state.prev_page)
+curr_idx = PAGES.index(st.session_state.curr_page)
+anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr_idx < prev_idx else "fogFadeIn")
+
+# ==========================================
+# 3. 宗师级 JS 引擎：防抖 + 原生背景光照探测
+# ==========================================
+scroll_script = "window.parent.scrollTo({top: 0, behavior: 'instant'});" if st.session_state.just_switched else ""
+
+if "core_ui_injected" not in st.session_state:
+    components.html(f"""
     <script>
-        const pWin = window.parent;
-        const pDoc = pWin.document;
+        {scroll_script}
+        let isUpdating = false;
+        let debounceTimer = null;
 
-        const dataStr = document.getElementById('lulu-pet-data').textContent;
-        pWin.__PETS_JSON_DATA__ = JSON.parse(dataStr);
+        const runGlobalEngine = () => {{
+            if(isUpdating) return;
+            isUpdating = true;
+            requestAnimationFrame(() => {{
+                const doc = window.parent.document;
+                const app = doc.querySelector('.stApp');
 
-        const loadScript = (src) => new Promise((res) => {{
-            const s = pDoc.createElement('script');
-            s.src = src; s.onload = res; pDoc.head.appendChild(s);
-        }});
-
-        const initLulu = async () => {{
-            if (!pWin.THREE || !pWin.THREE.DRACOLoader) {{
-                // 🔥 使用 jsdelivr 的全球企业级 CDN，速度最快最稳 🔥
-                await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js");
-                await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js");
-                await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js");
-            }}
-
-            const script = pDoc.createElement('script');
-            script.innerHTML = `
-                (function() {{
-                    const THREE = window.THREE;
-                    const doc = document;
-                    const win = window;
-                    const petData = window.__PETS_JSON_DATA__; 
-
-                    // 每次运行都先清除前一个留下的旧模型，防止“叠罗汉”
-                    const oldPet = doc.getElementById('lulu-global-pet');
-                    if(oldPet) oldPet.remove();
-                    const oldMenu = doc.getElementById('lulu-ctx-menu');
-                    if(oldMenu) oldMenu.remove();
-
-                    let state = 'IDLE'; 
-                    let danceTimer = 0;
-                    let lastActivityTime = Date.now();
-
-                    let targetRotY = 0; 
-                    let targetRotX = 0;
-
-                    const petSize = 280; 
-                    const overflowLimit = 80; 
-
-                    const petBox = doc.createElement('div');
-                    petBox.id = 'lulu-global-pet';
-                    petBox.style.cssText = "position: fixed; bottom: 20px; right: 20px; width: " + petSize + "px; height: " + petSize + "px; z-index: 9999999; cursor: grab; user-select: none; pointer-events: none; transition: transform 0.2s; touch-action: none;"; 
-                    doc.body.appendChild(petBox);
-
-                    const bubble = doc.createElement('div');
-                    bubble.style.cssText = "position: absolute; top: 0px; left: 50%; transform: translateX(-50%); opacity: 0; background: rgba(30, 41, 59, 0.95); border: 1px solid rgba(148, 163, 184, 0.5); color: #fff; padding: 8px 15px; border-radius: 12px; font-size: 14px; white-space: nowrap; transition: opacity 0.3s; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 10;";
-                    petBox.appendChild(bubble);
-
-                    const ctxMenu = doc.createElement('div');
-                    ctxMenu.id = 'lulu-ctx-menu';
-                    ctxMenu.style.cssText = "position: fixed; display: none; background: rgba(30, 41, 59, 0.95); border: 1px solid rgba(148, 163, 184, 0.5); border-radius: 12px; padding: 6px; z-index: 10000000; color: #fff; font-size: 14px; min-width: 140px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); backdrop-filter: blur(10px);";
-                    doc.body.appendChild(ctxMenu);
-
-                    const menuTitle = doc.createElement('div');
-                    menuTitle.innerHTML = "<b>✨ 召唤新伙伴</b>";
-                    menuTitle.style.cssText = "padding: 6px 12px; color: #94a3b8; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 4px; pointer-events: none;";
-                    ctxMenu.appendChild(menuTitle);
-
-                    Object.keys(petData).forEach(petName => {{
-                        const item = doc.createElement('div');
-                        item.innerText = petName;
-                        item.style.cssText = "padding: 8px 12px; cursor: pointer; border-radius: 6px; transition: 0.2s; margin-bottom: 2px;";
-                        item.onmouseover = () => {{ item.style.background = "rgba(255, 255, 255, 0.1)"; item.style.color = "#38bdf8"; }};
-                        item.onmouseout = () => {{ item.style.background = "transparent"; item.style.color = "#fff"; }};
-
-                        item.onclick = (e) => {{
-                            e.stopPropagation();
-                            ctxMenu.style.display = 'none';
-                            if(petData[petName] !== "") {{
-                                switchModel(petData[petName], petName);
-                            }} else {{
-                                doSpeak(["主公，【" + petName + "】的模型文件还没放入军营哦！"]);
-                            }}
-                        }};
-                        ctxMenu.appendChild(item);
-                    }});
-
-                    const scene = new THREE.Scene();
-                    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-                    camera.position.set(0, 0.8, 5.5); 
-
-                    const renderer = new THREE.WebGLRenderer({{ alpha: true, antialias: win.innerWidth > 768 }});
-                    renderer.setSize(petSize, petSize);
-                    renderer.setPixelRatio(win.devicePixelRatio ? Math.min(win.devicePixelRatio, 2) : 1);
-                    renderer.outputEncoding = THREE.sRGBEncoding;
-
-                    renderer.domElement.oncontextmenu = function(e) {{
-                        e.preventDefault(); e.stopPropagation();
-                        ctxMenu.style.display = 'block';
-                        ctxMenu.style.left = (e.clientX + 10) + 'px'; ctxMenu.style.top = (e.clientY - 10) + 'px';
-                        return false;
-                    }};
-
-                    petBox.appendChild(renderer.domElement);
-
-                    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
-                    scene.add(ambientLight);
-                    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-                    dirLight.position.set(5, 10, 5);
-                    scene.add(dirLight);
-
-                    let currentModelObj = null; 
-                    let mixer = null;
-                    let clickableMeshes = [];
-
-                    const loader = new THREE.GLTFLoader();
-                    const dracoLoader = new THREE.DRACOLoader();
-                    dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/draco/gltf/');
-                    loader.setDRACOLoader(dracoLoader);
-
-                    const switchModel = (b64String, name) => {{
-                        const oldModelRef = currentModelObj;
-                        bubble.innerText = "⏳ 极速数据解码中..."; bubble.style.opacity = '1';
-
-                        loader.load(
-                            "data:application/octet-stream;base64," + b64String, 
-                            (gltf) => {{
-                                if(oldModelRef) {{ scene.remove(oldModelRef); }}
-                                clickableMeshes = []; mixer = null;
-
-                                currentModelObj = gltf.scene;
-                                currentModelObj.position.set(0, -1.2, 0); 
-
-                                currentModelObj.traverse((child) => {{
-                                    if (child.isMesh) {{
-                                        let isTrash = false;
-                                        if (child.material) {{
-                                            if (child.material.transparent && child.material.opacity < 0.1) isTrash = true;
-                                            if (child.material.opacity === 0) isTrash = true;
-                                        }}
-                                        if (isTrash) {{ child.visible = false; }} else {{ clickableMeshes.push(child); }}
-                                    }}
-                                }});
-                                scene.add(currentModelObj);
-                                if (gltf.animations.length > 0) {{
-                                    mixer = new THREE.AnimationMixer(currentModelObj);
-                                    mixer.clipAction(gltf.animations[0]).play();
-                                }}
-                                setTimeout(() => {{ bubble.style.opacity = '0'; }}, 500);
-                                if(name) {{
-                                    setTimeout(() => {{
-                                        bubble.innerText = "变身完成！我是" + name;
-                                        bubble.style.opacity = '1';
-                                        setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
-                                    }}, 600);
-                                }}
-                            }},
-                            undefined,
-                            (error) => {{
-                                console.error("模型解析失败：", error);
-                                bubble.innerText = "❌ 解析失败！请尝试更换模型。";
-                                setTimeout(() => {{ bubble.style.opacity = '0'; }}, 4000);
-                            }}
-                        );
-                    }};
-
-                    const initialPetKey = Object.keys(petData).find(k => petData[k] !== "");
-                    if(initialPetKey) {{ switchModel(petData[initialPetKey], null); }}
-
-                    const raycaster = new THREE.Raycaster();
-                    const mouseNDC = new THREE.Vector2();
-
-                    const checkHit = (clientX, clientY) => {{
-                        if (clickableMeshes.length === 0) return false;
-                        const rect = renderer.domElement.getBoundingClientRect();
-                        if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {{ return false; }}
-                        mouseNDC.x = ((clientX - rect.left) / petSize) * 2 - 1;
-                        mouseNDC.y = -((clientY - rect.top) / petSize) * 2 + 1;
-                        raycaster.setFromCamera(mouseNDC, camera);
-                        return raycaster.intersectObjects(clickableMeshes, false).length > 0; 
-                    }};
-
-                    const updateLookAt = (clientX, clientY) => {{
-                        if (state === 'IDLE') {{
-                            const rect = renderer.domElement.getBoundingClientRect();
-                            const petCenterX = rect.left + rect.width / 2;
-                            const petCenterY = rect.top + rect.height / 2;
-                            const dx = clientX - petCenterX;
-                            const dy = clientY - petCenterY;
-                            targetRotY = Math.max(-1.1, Math.min(1.1, (dx / (win.innerWidth / 2)) * 1.5));
-                            targetRotX = Math.max(-0.8, Math.min(0.8, (dy / (win.innerHeight / 2)) * 1.2));
+                if (app && doc.body) {{
+                    const bgColor = window.getComputedStyle(doc.body).backgroundColor;
+                    const rgb = bgColor.match(/\\d+/g);
+                    if (rgb && rgb.length >= 3) {{
+                        const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
+                        const themeAttr = brightness > 128 ? 'light' : 'dark';
+                        if (app.getAttribute('data-custom-theme') !== themeAttr) {{
+                            app.setAttribute('data-custom-theme', themeAttr);
                         }}
-                    }};
-
-                    const clock = new THREE.Clock();
-                    function animate() {{
-                        win.requestAnimationFrame(animate);
-                        const delta = clock.getDelta();
-                        const time = clock.getElapsedTime();
-                        if (mixer) mixer.update(delta);
-
-                        if (currentModelObj) {{
-                            if (state === 'STRUGGLING') {{
-                                currentModelObj.rotation.y = 0; currentModelObj.rotation.x = 0;
-                                currentModelObj.position.x = Math.sin(time * 50) * 0.05;
-                                currentModelObj.rotation.z = Math.cos(time * 50) * 0.1;
-                                currentModelObj.position.y = -1.2;
-                            }} else if (state === 'DANCING') {{
-                                currentModelObj.position.y = -1.2 + Math.abs(Math.sin(time * 10)) * 0.5;
-                                currentModelObj.rotation.y += 0.2; currentModelObj.rotation.x = 0; currentModelObj.rotation.z = 0; currentModelObj.position.x = 0;
-                                danceTimer -= delta;
-                                if (danceTimer <= 0) {{ state = 'IDLE'; currentModelObj.position.y = -1.2; }}
-                            }} else {{
-                                currentModelObj.position.y = -1.2 + Math.sin(time * 2) * 0.01; 
-                                currentModelObj.position.x = 0; 
-                                currentModelObj.rotation.z = 0;
-                                currentModelObj.rotation.y += (targetRotY - currentModelObj.rotation.y) * 0.15;
-                                currentModelObj.rotation.x += (targetRotX - currentModelObj.rotation.x) * 0.15;
-                            }}
-                        }}
-                        renderer.render(scene, camera);
                     }}
+                }}
 
-                    let isDragging = false, initX, initY, startL, startT, isPossibleClick = false, isHolding = false, clickTimeout = null, lastTapTime = 0;
-                    const getX = (e) => e.touches ? e.touches[0].clientX : e.clientX;
-                    const getY = (e) => e.touches ? e.touches[0].clientY : e.clientY;
+                const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
+                const fileInput = doc.querySelector('div[data-testid="stFileUploader"] input[type="file"]');
+                if (chatInputOuter && fileInput) {{
+                    const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.firstElementChild; 
+                    if (innerPill && !doc.getElementById('fake-attach-btn')) {{
+                        innerPill.style.setProperty('position', 'relative', 'important');
+                        const fakeBtn = doc.createElement('div');
+                        fakeBtn.id = 'fake-attach-btn';
+                        fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
+                        fakeBtn.style.cssText = 'position: absolute !important; left: 16px !important; top: 50% !important; transform: translateY(-50%) !important; z-index: 9999 !important; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;';
+                        fakeBtn.onclick = () => fileInput.click();
+                        fakeBtn.onmouseover = () => {{ fakeBtn.style.opacity = '0.6'; }};
+                        fakeBtn.onmouseout = () => {{ fakeBtn.style.opacity = '1'; }};
+                        innerPill.appendChild(fakeBtn);
 
-                    const doSpeak = (customTexts) => {{
-                        const ts = customTexts || ["主公，我在这呢！🥰", "量化大赚！吃橘子！🍊", "右键可以给我换衣服哦~", "今天赚了多少呀？💸"];
-                        bubble.innerText = ts[Math.floor(Math.random() * ts.length)]; bubble.style.opacity = '1';
-                        setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
-                    }};
-
-                    const doDance = () => {{
-                        state = 'DANCING'; danceTimer = 3.0; lastActivityTime = Date.now();
-                        bubble.innerText = "好耶！开心转圈圈！💃🕺"; bubble.style.opacity = '1';
-                        setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
-                    }};
-
-                    const startInteraction = (e) => {{
-                        if(e.button === 2) return; 
-                        isHolding = true; initX = getX(e); initY = getY(e);
-                        const r = petBox.getBoundingClientRect(); startL = r.left; startT = r.top;
-                        isDragging = false; isPossibleClick = true; 
-                        petBox.style.bottom = 'auto'; petBox.style.right = 'auto'; petBox.style.left = startL + 'px'; petBox.style.top = startT + 'px';
-                    }};
-
-                    doc.addEventListener('click', (e) => {{ if (e.button !== 2) {{ ctxMenu.style.display = 'none'; }} }});
-
-                    win.addEventListener('mousemove', (e) => {{
-                        if (isHolding) {{
-                            const curX = getX(e); const curY = getY(e);
-                            const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
-                            if (moveDist > 20) {{ 
-                                if (!isDragging) {{
-                                    isDragging = true; isPossibleClick = false; state = 'STRUGGLING'; 
-                                    petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; 
-                                }}
-                                let newLeft = startL + curX - initX; let newTop = startT + curY - initY;
-                                newLeft = Math.max(-overflowLimit, Math.min(newLeft, win.innerWidth - petSize + overflowLimit));
-                                newTop = Math.max(-overflowLimit, Math.min(newTop, win.innerHeight - petSize + overflowLimit));
-                                petBox.style.left = newLeft + 'px'; petBox.style.top = newTop + 'px';
-                                if(e.cancelable) e.preventDefault(); 
-                            }}
-                            return;
-                        }}
-                        updateLookAt(e.clientX, e.clientY);
-                        if (checkHit(e.clientX, e.clientY)) {{
-                            if (petBox.style.pointerEvents !== 'auto') {{ petBox.style.pointerEvents = 'auto'; petBox.style.cursor = 'grab'; }}
-                        }} else {{
-                            if (petBox.style.pointerEvents !== 'none') {{ petBox.style.pointerEvents = 'none'; }}
-                        }}
-                    }}, true);
-
-                    const endInteraction = (e) => {{
-                        if (!isHolding) return;
-                        isHolding = false; petBox.style.transition = 'transform 0.2s'; petBox.style.cursor = 'grab'; petBox.style.transform = 'scale(1)';
-                        if (isDragging) {{ isDragging = false; if (state !== 'DANCING') state = 'IDLE'; return; }}
-                        if (isPossibleClick) {{
-                            const currentTime = new Date().getTime(); const tapLength = currentTime - lastTapTime; clearTimeout(clickTimeout); 
-                            if (tapLength < 350 && tapLength > 0) {{ doDance(); }} else {{ 
-                                clickTimeout = setTimeout(() => {{
-                                    bubble.innerText = "右键可以给我换衣服哦~";
-                                    bubble.style.opacity = '1';
-                                    setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
-                                }}, 300); 
-                            }}
-                            lastTapTime = currentTime;
-                        }}
-                    }};
-
-                    petBox.addEventListener('mousedown', startInteraction); doc.addEventListener('mouseup', endInteraction); doc.addEventListener('mouseleave', endInteraction);
-
-                    doc.addEventListener('touchstart', (e) => {{
-                        if (checkHit(e.touches[0].clientX, e.touches[0].clientY)) {{
-                            petBox.style.pointerEvents = 'auto'; startInteraction(e); e.stopPropagation();
-                        }} else {{ petBox.style.pointerEvents = 'none'; }}
-                    }}, {{ capture: true, passive: false }});
-
-                    doc.addEventListener('touchmove', (e) => {{
-                        if (isHolding) {{
-                            const curX = getX(e); const curY = getY(e); const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
-                            if (moveDist > 20) {{ 
-                                if (!isDragging) {{
-                                    isDragging = true; isPossibleClick = false; state = 'STRUGGLING';
-                                    petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; 
-                                }}
-                                let newLeft = startL + curX - initX; let newTop = startT + curY - initY;
-                                newLeft = Math.max(-overflowLimit, Math.min(newLeft, win.innerWidth - petSize + overflowLimit));
-                                newTop = Math.max(-overflowLimit, Math.min(newTop, win.innerHeight - petSize + overflowLimit));
-                                petBox.style.left = newLeft + 'px'; petBox.style.top = newTop + 'px';
-                                e.stopPropagation(); if(e.cancelable) e.preventDefault(); 
-                            }}
-                        }} else {{ updateLookAt(e.touches[0].clientX, e.touches[0].clientY); }}
-                    }}, {{ passive: false }});
-
-                    doc.addEventListener('touchend', endInteraction); doc.addEventListener('touchcancel', endInteraction);
-                    setTimeout(animate, 1500);
-                }})();
-            `;
-            pDoc.head.appendChild(script);
+                        const textAreaWrap = innerPill.querySelector('[data-baseweb="textarea"]');
+                        if(textAreaWrap) textAreaWrap.style.setProperty('padding-left', '40px', 'important');
+                    }}
+                }}
+                isUpdating = false;
+            }});
         }};
-        setTimeout(initLulu, 500); 
+
+        const debouncedRun = () => {{
+            if(debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(runGlobalEngine, 300); 
+        }};
+
+        if(window.parent.__UI_OBSERVER) {{ window.parent.__UI_OBSERVER.disconnect(); }}
+        debouncedRun();
+        window.parent.__UI_OBSERVER = new MutationObserver(debouncedRun);
+        window.parent.__UI_OBSERVER.observe(window.parent.document.body, {{ childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }});
     </script>
-    """
-    components.html(html_code, height=0, width=0)
+    """, height=0, width=0)
+    st.session_state.core_ui_injected = True
+
+if extensions: extensions.summon_global_3d_lulu()
+
+# ==========================================
+# 4. 极致静态 CSS (双主题无缝流转，彻底解决大括号语法冲突)
+# ==========================================
+if selected_page == PAGES[1]:
+    st.markdown(
+        '<style>div[data-testid="stFileUploader"] { position: absolute !important; top: -9999px !important; opacity: 0 !important; z-index: -9999 !important; pointer-events: none !important; }</style>',
+        unsafe_allow_html=True)
+
+# 动效变量使用 f-string 隔离注入
+st.markdown(f"""
+<style>
+    .block-container {{ animation: {anim_name} 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; background: transparent !important; padding-top: 4.5rem !important; padding-bottom: 120px !important; }}
+</style>
+""", unsafe_allow_html=True)
+
+# 静态 CSS 使用常规字符串，彻底杜绝 {} 被 Python 误认的 BUG！
+st.markdown("""
+<style>
+    @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
+    @keyframes waveBlurUpIn { 0% { opacity: 0; margin-top: 60px; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); } }
+    @keyframes waveBlurDownIn { 0% { opacity: 0; margin-top: -60px; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); } }
+    @keyframes fogFadeIn { 0% { opacity: 0; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; filter: blur(0px); transform: scale(1); } }
+
+    header[data-testid="stHeader"] { position: fixed !important; top: 0px !important; transform: translateY(0px) !important; opacity: 1 !important; visibility: visible !important; background: transparent !important; pointer-events: none !important; }
+    [data-testid="collapsedControl"], [data-testid="stToolbar"] { pointer-events: auto !important; opacity: 1 !important; visibility: visible !important; display: flex !important; transform: none !important;}
+    .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
+    [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
+
+    /* 🔥 默认：深色主题渐变背景 🔥 */
+    .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
+    .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
+    .highlight-text { color: #00ffcc !important; }
+    .sub-text { color: #cbd5e1 !important; }
+    .danger-text { color: #ff4b4b !important; }
+
+    [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; min-height: 100vh !important; }
+    [data-testid="stSidebar"] > div:first-child { background: transparent !important; }
+    div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important;}
+    div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
+
+    .glass-card { background: rgba(20, 28, 45, 0.65) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
+    .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px; overflow: hidden; }
+    .metric-box p { margin: 0 !important; font-size: 0.9rem; color: #cbd5e1; }
+    .metric-box h2 { margin: 8px 0 0 0 !important; font-size: 1.8rem; line-height: 1.2; }
+    [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); margin-bottom: 20px !important; }
+
+    [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
+    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; display: flex !important; align-items: center !important; }
+    [data-testid="stChatInput"] [data-baseweb="textarea"], [data-testid="stChatInput"] [data-baseweb="textarea"] > div { background-color: transparent !important; border: none !important; box-shadow: none !important; outline: none !important; }
+    [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }
+    textarea { font-family: 'Consolas', 'Courier New', monospace !important; }
+
+    /* 🔥 绝杀修复：浅色主题专属优雅流动渐变（浅紫蓝薄荷渐变） 🔥 */
+    .stApp[data-custom-theme='light'] { background-image: linear-gradient(132deg, #fdfbfb, #e0c3fc, #8ec5fc, #e2ebf0, #fdfbfb) !important; background-size: 400% 400% !important; animation: fluidFlow 12s ease infinite !important; }
+    .stApp[data-custom-theme='light'] .stMarkdown, .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] h4, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div { color: #1e293b !important; }
+    .stApp[data-custom-theme='light'] .highlight-text { color: #0284c7 !important; }
+    .stApp[data-custom-theme='light'] .sub-text { color: #475569 !important; }
+    .stApp[data-custom-theme='light'] .danger-text { color: #dc2626 !important; }
+    .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.6) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.05) !important; }
+    .stApp[data-custom-theme='light'] .metric-box { background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; }
+    .stApp[data-custom-theme='light'] .metric-box p { color: #475569; }
+    .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.7) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.75) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.6) !important; border-left: 4px solid transparent !important; }
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea { color: #1e293b !important; }
+
+    .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; background: rgba(128,128,128,0.1); }
+    .agent-status-node.success { border-left-color: #10b981; }
+    .agent-status-node.error { border-left-color: #ef4444; }
+    .agent-status-node.retry { border-left-color: #f59e0b; }
+</style>
+""", unsafe_allow_html=True)
 
 
-# =======================================================
-# 保留 IDE, 回测, 沙盘等功能 (带防爆盾)
-# =======================================================
+# ==========================================
+# 5. 高速缓存装甲：分离复杂计算
+# ==========================================
+def add_default_indicators(df):
+    if 'Close' in df.columns:
+        df['MAIN_MA5'] = df['Close'].rolling(window=5).mean()
+        df['MAIN_MA20'] = df['Close'].rolling(window=20).mean()
+        exp1 = df['Close'].ewm(span=12, adjust=False).mean()
+        exp2 = df['Close'].ewm(span=26, adjust=False).mean()
+        df['SUB1_MACD_DIFF'] = exp1 - exp2
+        df['SUB1_MACD_DEA'] = df['SUB1_MACD_DIFF'].ewm(span=9, adjust=False).mean()
+        df['SUB1_MACD_HIST'] = 2 * (df['SUB1_MACD_DIFF'] - df['SUB1_MACD_DEA'])
+    return df
 
-def safe_exec_fut_strategy(code, df):
+
+@st.cache_data(ttl=300, show_spinner=False)
+def get_tushare_status():
+    try:
+        t0 = time.time()
+        pro.trade_cal(exchange='SSE', start_date='20240101', end_date='20240101')
+        return f"🟢 Online ({int((time.time() - t0) * 1000)}ms)"
+    except:
+        return "🔴 Offline"
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_and_clean_data(ts_code, adj, start_date):
+    df = ts.pro_bar(ts_code=ts_code, adj=adj, start_date=start_date)
+    if df is not None and not df.empty:
+        df = df.sort_values('trade_date').reset_index(drop=True)
+        df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
+        mapping_base = {'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'vol': 'Volume',
+                        'amount': 'Amount'}
+        for l_case, c_case in mapping_base.items():
+            if l_case in df.columns: df[c_case] = df[l_case]
+        if 'Volume' not in df.columns and 'vol' in df.columns: df['Volume'] = df['vol']
+        return add_default_indicators(df)
+    return pd.DataFrame()
+
+
+@st.cache_data(show_spinner=False)
+def run_backtest_metrics(df_source, strategy_code):
+    df_safe = df_source.copy()
+    if strategy_code:
+        df_ai = execute_safely(strategy_code, df_source)
+        if df_ai is not None and hasattr(df_ai, 'columns'):
+            for col in df_ai.columns:
+                if col == 'Signal' or col.startswith(('MAIN_', 'SUB')): df_safe[col] = df_ai[col]
+    df = df_safe
+    df['Ret'] = df['Close'].pct_change()
+    df['Pos'] = df.get('Signal', pd.Series([0] * len(df))).replace(0, np.nan).ffill().fillna(0)
+    df['Strat_Ret'] = df['Pos'].shift(1) * df['Ret']
+    df['Cum_Prod'] = (1 + df['Strat_Ret'].fillna(0)).cumprod()
+    total_ret = (df['Cum_Prod'].iloc[-1] - 1) if not df.empty else 0
+    annual = (1 + total_ret) ** (252 / max(1, len(df))) - 1 if not df.empty else 0
+    max_dd = (df['Cum_Prod'] / df['Cum_Prod'].cummax() - 1).min() if not df.empty else 0
+    vol = df['Strat_Ret'].std() * np.sqrt(252) if not df.empty else 0
+    sharpe = annual / vol if vol != 0 else 0
+    return {"df": df, "metrics": {"total": total_ret, "annual": annual, "max_dd": max_dd, "sharpe": sharpe}}
+
+
+def execute_safely(code, df):
     if not code: return df
     try:
         safe_code = str(code).replace("pandas.np", "np")
@@ -402,10 +310,8 @@ def safe_exec_fut_strategy(code, df):
         exec(safe_code, {"pd": pd, "np": np, "math": math}, l_vars)
         func_to_call = next((v for k, v in l_vars.items() if callable(v)), None)
         if not func_to_call: return df
-
         df_ai = func_to_call(df.copy())
         if df_ai is None or not hasattr(df_ai, 'columns'): return df
-
         sig_col = next((c for c in df_ai.columns if c.lower() == 'signal'), None)
         if sig_col:
             df_ai['Signal'] = df_ai[sig_col].fillna(0).apply(
@@ -417,28 +323,23 @@ def safe_exec_fut_strategy(code, df):
         return df
 
 
-def render_fut_charts(df):
-    import plotly.graph_objects as go
-    from plotly.subplots import make_subplots
+def render_smart_charts(df):
     main_inds = [c for c in df.columns if c.startswith('MAIN_')]
     sub_groups = {}
     for c in df.columns:
         gid = SUB_PATTERN.match(c)
         if gid: sub_groups.setdefault(gid.group(1), []).append(c)
-
     rows = 2 + len(sub_groups)
     fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.03,
                         row_heights=[0.5, 0.15] + [0.35 / max(1, len(sub_groups))] * len(sub_groups))
     x_labels = df['trade_date'].dt.strftime('%Y-%m-%d') if df['trade_date'].dt.time.nunique() <= 1 else df[
         'trade_date'].dt.strftime('%m-%d %H:%M')
-
     fig.add_trace(go.Candlestick(x=x_labels, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
                                  increasing_line_color='#ef4444', decreasing_line_color='#10b981', name='K线'), row=1,
                   col=1)
     colors = ['#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899']
     for i, col in enumerate(main_inds): fig.add_trace(
         go.Scatter(x=x_labels, y=df[col], name=col, line=dict(width=1.2, color=colors[i % 4])), row=1, col=1)
-
     if 'Signal' in df.columns:
         buys = df[df['Signal'] == 1]
         sells = df[df['Signal'] == -1]
@@ -450,11 +351,9 @@ def render_fut_charts(df):
         fig.add_trace(go.Scatter(x=sell_x, y=sells['High'] * 1.002, mode='markers',
                                  marker=dict(symbol='triangle-down', size=14, color='#f59e0b'), name='卖'), row=1,
                       col=1)
-
     fig.add_trace(go.Bar(x=x_labels, y=df.get('Volume', np.zeros(len(df))),
                          marker_color=np.where(df['Close'] >= df['Open'], '#ef4444', '#10b981'), name='成交量'), row=2,
                   col=1)
-
     row_idx = 3
     for gid in sorted(sub_groups.keys(), key=int):
         for i, col in enumerate(sub_groups[gid]):
@@ -463,10 +362,9 @@ def render_fut_charts(df):
                     go.Bar(x=x_labels, y=df[col], marker_color=np.where(df[col] >= 0, '#ef4444', '#10b981'), name=col),
                     row=row_idx, col=1)
             else:
-                fig.add_trace(go.Scatter(x=x_labels, y=df[col], line=dict(width=1.5, color=colors[i % 4]), name=col),
+                fig.add_trace(go.Scatter(x=x_labels, y=df[col], line=dict(width=1.2, color=colors[i % 4]), name=col),
                               row=row_idx, col=1)
         row_idx += 1
-
     fig.update_layout(height=500 + len(sub_groups) * 150, template="none", paper_bgcolor='rgba(0,0,0,0)',
                       plot_bgcolor='rgba(0,0,0,0)', xaxis_rangeslider_visible=False, dragmode='pan', hovermode='x',
                       showlegend=False, margin=dict(l=10, r=10, t=10, b=10))
@@ -476,312 +374,267 @@ def render_fut_charts(df):
     return fig
 
 
-def render_ide_page():
+def format_ts_code(raw):
+    raw = str(raw).strip().upper()
+    if len(raw) == 6 and raw.isdigit(): return f"{raw}.SH" if raw.startswith(('6', '9')) else f"{raw}.SZ"
+    return raw
+
+
+# ==========================================
+# 6. 各页面业务逻辑
+# ==========================================
+if selected_page == PAGES[0]:
     st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">💻 极客量化 IDE (代码沙盒编译器)</h3><p class="sub-text">您可以直接修改 AI 生成的策略，或者在此手动硬编码！支持一键沙盒运行测试，防止实盘崩溃。</p></div>',
+        '<div class="glass-card"><h1 style="margin-bottom:0; color:var(--text-color);">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
         unsafe_allow_html=True)
-    default_code = """def generate_signals(df):\n    df['MAIN_MA5'] = df['Close'].rolling(window=5).mean()\n    df['MAIN_MA20'] = df['Close'].rolling(window=20).mean()\n    df['Signal'] = np.where(df['MAIN_MA5'] > df['MAIN_MA20'], 1, -1)\n    return df"""
-    boll_code = """def generate_signals(df):\n    df['MAIN_BOLL_MID'] = df['Close'].rolling(window=20).mean()\n    std = df['Close'].rolling(window=20).std()\n    df['MAIN_BOLL_UP'] = df['MAIN_BOLL_MID'] + 2 * std\n    df['MAIN_BOLL_DN'] = df['MAIN_BOLL_MID'] - 2 * std\n    df['Signal'] = 0\n    df.loc[df['Close'] > df['MAIN_BOLL_UP'], 'Signal'] = 1\n    df.loc[df['Close'] < df['MAIN_BOLL_DN'], 'Signal'] = -1\n    return df"""
-    kdj_code = """def generate_signals(df):\n    n, m1, m2 = 9, 3, 3\n    low_list = df['Low'].rolling(window=n).min()\n    high_list = df['High'].rolling(window=n).max()\n    rsv = (df['Close'] - low_list) / (high_list - low_list) * 100\n    df['SUB1_K'] = rsv.ewm(com=m1-1, adjust=False).mean()\n    df['SUB1_D'] = df['SUB1_K'].ewm(com=m2-1, adjust=False).mean()\n    df['SUB1_J'] = 3 * df['SUB1_K'] - 2 * df['SUB1_D']\n    df['Signal'] = 0\n    df.loc[df['SUB1_J'] < 20, 'Signal'] = 1\n    df.loc[df['SUB1_J'] > 80, 'Signal'] = -1\n    return df"""
-    macd_code = """def generate_signals(df):\n    exp1 = df['Close'].ewm(span=12, adjust=False).mean()\n    exp2 = df['Close'].ewm(span=26, adjust=False).mean()\n    df['SUB1_MACD_DIFF'] = exp1 - exp2\n    df['SUB1_MACD_DEA'] = df['SUB1_MACD_DIFF'].ewm(span=9, adjust=False).mean()\n    df['SUB1_MACD_HIST'] = 2 * (df['SUB1_MACD_DIFF'] - df['SUB1_MACD_DEA'])\n    df['Signal'] = 0\n    df.loc[(df['SUB1_MACD_DIFF'] > df['SUB1_MACD_DEA']) & (df['SUB1_MACD_DIFF'].shift(1) <= df['SUB1_MACD_DEA'].shift(1)), 'Signal'] = 1\n    df.loc[(df['SUB1_MACD_DIFF'] < df['SUB1_MACD_DEA']) & (df['SUB1_MACD_DIFF'].shift(1) >= df['SUB1_MACD_DEA'].shift(1)), 'Signal'] = -1\n    return df"""
-    templates = {"💡 经典双均线模板 (默认)": default_code, "📈 趋势突破流 (布林带 BOLL)": boll_code,
-                 "🌊 震荡反转流 (超买超卖 KDJ)": kdj_code, "🚀 动量加速流 (量价 MACD)": macd_code}
-
-    try:
-        import strategy_templates;
-        import inspect
-        for name, func in inspect.getmembers(strategy_templates, inspect.isfunction):
-            if name.startswith("strategy_"): templates[
-                "🛡️ 严谨：" + name.replace("strategy_", "").upper()] = inspect.getsource(func)
-    except:
-        pass
-
-    c1, c2 = st.columns([2.2, 1.8])
+    c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.markdown("#### ⌨️ 策略代码编辑区")
-        t_col1, t_col2 = st.columns([3, 1])
-        with t_col1:
-            selected_tpl = st.selectbox("📚 预设经典策略模板", list(templates.keys()), label_visibility="collapsed")
-        with t_col2:
-            if st.button("📥 载入模板", use_container_width=True): st.session_state.generated_code = templates[
-                selected_tpl]; st.rerun()
-        current_code = st.session_state.get('generated_code', '')
-        if not current_code.strip(): current_code = default_code
-        user_code = st.text_area("Code Editor", value=current_code, height=450, label_visibility="collapsed")
-        col_btn1, col_btn2 = st.columns(2)
-        with col_btn1:
-            if st.button("💾 同步保存至全局引擎", use_container_width=True,
-                         type="primary"): st.session_state.generated_code = user_code; st.success(
-                "✅ 代码已成功注入全局中枢！")
-        with col_btn2:
-            run_debug = st.button("🐞 运行防爆沙盒测试", use_container_width=True)
-
+        st.metric("活跃并发沙盒 (UUID)", st.session_state.user_id)
     with c2:
-        st.markdown("#### 🖥️ 编译器控制台 (Console)")
-        console_ph = st.empty()
-        if run_debug:
-            with console_ph.container():
-                st.info("正在挂载虚拟沙盒测试环境...")
-                try:
-                    dummy_df = pd.DataFrame({'trade_date': pd.date_range('20240101', periods=100),
-                                             'Open': np.random.uniform(2000, 2100, 100),
-                                             'High': np.random.uniform(2100, 2150, 100),
-                                             'Low': np.random.uniform(1950, 2000, 100),
-                                             'Close': np.random.uniform(2000, 2100, 100),
-                                             'Volume': np.random.randint(1000, 5000, 100)})
-                    start_time = time.time()
-                    res_df = safe_exec_fut_strategy(user_code, dummy_df)
-                    st.success(f"✅ 编译完美通过！内核耗时: {time.time() - start_time:.4f} 秒")
-                    if 'Signal' in res_df.columns:
-                        st.write("🎯 **买卖信号探测统计**:"); st.json(res_df['Signal'].value_counts().to_dict())
-                    else:
-                        st.warning("⚠️ 警告：您的代码忘了返回 `Signal` 列！(规定 1=买入, -1=卖出, 0=观望)")
-                    custom_cols = [c for c in res_df.columns if c.startswith(('MAIN_', 'SUB'))]
-                    if custom_cols: st.write("📊 **主副图指标提取雷达**:"); st.write(custom_cols)
-                    st.write("🔍 **沙盒返回的数据矩阵 (前 3 行)**:");
-                    st.dataframe(res_df.head(3))
-                except Exception as e:
-                    st.error("❌ 沙盒编译失败！您的代码存在语法或逻辑错误：");
-                    st.code(str(e), language="python")
-        else:
-            console_ph.info(
-                "等待您下达编译指令...\n\n点击左侧【运行防爆沙盒测试】按钮，系统将凭空生成虚拟行情数据并安全执行您的代码，绝不会导致实盘引擎崩溃。")
-
-
-def render_futures_backtest():
-    if not HAS_AKSHARE: st.error(
-        "🚨 警告：检测到未装备 AkShare 引擎！\n\n主公，请立即在终端执行以下军令完成列装：\n`pip install akshare`"); return
-    st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🔗 期货全量审计与归因分析</h3><p class="sub-text">已切换至全免费无限制的 AkShare 开源数据引擎。直接输入代码，自动拉取分钟与日线数据！</p></div>',
-        unsafe_allow_html=True)
-    if "fut_bt_run" not in st.session_state: st.session_state.fut_bt_run = False
-    if "fut_bt_data" not in st.session_state: st.session_state.fut_bt_data = None
-    if "fut_bt_metrics" not in st.session_state: st.session_state.fut_bt_metrics = None
-
-    c1, c2 = st.columns([1, 3])
-    with c1:
-        with st.expander("🛠️ 不知道输入什么代码？点击查看帮助", expanded=False):
-            st.markdown(
-                "**直接输入品种代码 + 年月即可 (绝对无需后缀！)**\n- 纯碱主力: `SA2409`\n- 螺纹钢: `RB2410`\n- 铁矿石: `I2409`\n- 玻璃: `FG2409`")
-        fut_code_input = st.text_input("🎯 期货合约代码", value="", placeholder="直接输入，如: SA2409")
-        freq_mapping = {"日线 (Daily)": "D", "60分钟 (60min)": "60", "30分钟 (30min)": "30", "15分钟 (15min)": "15",
-                        "5分钟 (5min)": "5", "1分钟 (1min)": "1"}
-        freq_choice = st.selectbox("⏱️ 数据周期", list(freq_mapping.keys()), index=0)
-        selected_freq = freq_mapping[freq_choice]
-        span_mapping = {"近1个月": 0.08, "近3个月": 0.25, "近半年": 0.5, "近1年": 1, "近3年": 3, "近5年": 5}
-        span_choice = st.selectbox("⏳ 回测时间跨度", list(span_mapping.keys()), index=3)
-        start_year = int(datetime.now().year - span_mapping[span_choice])
-        margin_input_str = st.text_input("⚖️ 保证金比例 (%)", value="", placeholder="留空默认自动计算")
-        multiplier_input_str = st.text_input("🔢 合约乘数 (吨/手)", value="", placeholder="留空自动匹配对应品种")
-        if st.button("🚀 开始穿透回测", type="primary", use_container_width=True):
-            if fut_code_input.strip() == "":
-                st.error("主公，请先输入期货代码！")
-            else:
-                st.session_state.fut_bt_run = True; st.session_state.fut_bt_data = None; st.session_state.fut_bt_metrics = None
-
-    with c2:
-        if st.session_state.fut_bt_run and fut_code_input.strip() != "":
-            with st.spinner(f"正在调取开源神兵 AkShare 获取 {fut_code_input} 的 {freq_choice} 数据..."):
-                try:
-                    real_code = fut_code_input.upper().strip().split('.')[0]
-                    df = None
-                    try:
-                        if selected_freq == 'D':
-                            df_temp = ak.futures_zh_daily_sina(symbol=real_code)
-                            if df_temp is not None and not df_temp.empty: df_temp['trade_date'] = pd.to_datetime(
-                                df_temp['date']); df = df_temp
-                        else:
-                            df_temp = ak.futures_zh_minute_sina(symbol=real_code, period=selected_freq)
-                            if df_temp is not None and not df_temp.empty: df_temp['trade_date'] = pd.to_datetime(
-                                df_temp['datetime']); df = df_temp
-                    except Exception:
-                        pass
-
-                    if df is None or df.empty:
-                        st.warning(
-                            f"⚠️ **触发容灾机制**：AkShare 接口未返回 `{real_code}` 的真实数据。\n\n系统已自动启动【底层沙盒模拟引擎】，为您瞬间生成逼真的 **{freq_choice}** 高频推演数据！")
-                        base_p = 3000 if 'RB' in real_code else (800 if 'I' in real_code else 2000)
-                        volatility = base_p * 0.0015
-                        np.random.seed();
-                        periods_num = 400
-                        freq_pd = selected_freq.replace('m', 'T') if selected_freq != 'D' else 'D'
-                        dates = pd.date_range(end=datetime.now(), periods=periods_num, freq=freq_pd)
-                        closes = [base_p]
-                        for _ in range(periods_num - 1): closes.append(closes[-1] + np.random.normal(0, volatility))
-                        df = pd.DataFrame({'trade_date': dates})
-                        df['close'] = closes
-                        df['open'] = df['close'].shift(1).fillna(df['close'][0] + np.random.normal(0, volatility))
-                        df['high'] = df[['open', 'close']].max(axis=1) + np.abs(
-                            np.random.normal(0, volatility / 1.5, periods_num))
-                        df['low'] = df[['open', 'close']].min(axis=1) - np.abs(
-                            np.random.normal(0, volatility / 1.5, periods_num))
-                        df['volume'] = np.abs(np.random.normal(15000, 5000, periods_num)).astype(int)
-                    else:
-                        df = df[df['trade_date'] >= pd.to_datetime(f"{start_year}0101")].reset_index(drop=True)
-
-                    if df.empty:
-                        st.error(
-                            "❌ 您选择的时间范围内没有数据。请尝试拉长【回测时间跨度】。"); st.session_state.fut_bt_run = False
-                    else:
-                        default_mult_map = {'SA': 20, 'RB': 10, 'I': 100, 'HC': 10, 'FG': 20, 'V': 5, 'P': 10, 'M': 10,
-                                            'Y': 10, 'C': 10, 'CS': 10, 'JD': 10, 'CU': 5, 'AL': 5, 'ZN': 5, 'NI': 1,
-                                            'AU': 1000, 'AG': 15, 'RU': 10, 'TA': 5, 'MA': 10, 'CF': 5, 'SR': 10,
-                                            'OI': 10, 'RM': 10, 'ZC': 100, 'JM': 60, 'J': 100, 'UR': 20}
-                        sym_match = re.match(r'^([A-Za-z]+)', real_code)
-                        symbol_letter = sym_match.group(1).upper() if sym_match else 'SA'
-                        api_mult = default_mult_map.get(symbol_letter, 10.0)
-                        api_margin = 10.0
-                        try:
-                            final_margin_rate = float(margin_input_str) / 100.0 if margin_input_str.strip() else (
-                                                                                                                             api_margin * 1.2) / 100.0
-                        except:
-                            final_margin_rate = (api_margin * 1.2) / 100.0
-                        try:
-                            final_mult = float(multiplier_input_str) if multiplier_input_str.strip() else api_mult
-                        except:
-                            final_mult = api_mult
-
-                        st.success(
-                            f"✅ 成功挂载：**{real_code}** ({freq_choice})！已应用底层查询乘数: **{final_mult}**, 智能计算保证金率: **{final_margin_rate * 100:.2f}%**")
-                        mapping_base = {'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close',
-                                        'volume': 'Volume', 'vol': 'Volume'}
-                        for l_case, c_case in mapping_base.items():
-                            if l_case in df.columns: df[c_case] = df[l_case]
-
-                        df['MAIN_MA5'] = df['Close'].rolling(window=5).mean()
-                        df['MAIN_MA20'] = df['Close'].rolling(window=20).mean()
-                        exp1 = df['Close'].ewm(span=12, adjust=False).mean()
-                        exp2 = df['Close'].ewm(span=26, adjust=False).mean()
-                        df['SUB1_MACD_DIFF'] = exp1 - exp2
-                        df['SUB1_MACD_DEA'] = df['SUB1_MACD_DIFF'].ewm(span=9, adjust=False).mean()
-                        df['SUB1_MACD_HIST'] = 2 * (df['SUB1_MACD_DIFF'] - df['SUB1_MACD_DEA'])
-
-                        if st.session_state.get('generated_code'):
-                            df_ai = safe_exec_fut_strategy(st.session_state.generated_code, df)
-                            if df_ai is not None and hasattr(df_ai, 'columns'):
-                                for col in df_ai.columns:
-                                    if col == 'Signal' or col.startswith(('MAIN_', 'SUB')): df[col] = df_ai[col]
-                        if 'Signal' not in df.columns: df['Signal'] = np.where(df['MAIN_MA5'] > df['MAIN_MA20'], 1, -1)
-
-                        df['Ret'] = df['Close'].pct_change()
-                        df['Pos'] = df.get('Signal', pd.Series([0] * len(df))).replace(0, np.nan).ffill().fillna(0)
-                        df['Price_Diff'] = df['Close'].diff().fillna(0)
-                        init_cash, trade_lots = 1000000, 10
-
-                        df['Long_PnL'] = np.where(df['Pos'].shift(1) == 1, df['Price_Diff'] * final_mult * trade_lots,
-                                                  0)
-                        df['Short_PnL'] = np.where(df['Pos'].shift(1) == -1,
-                                                   -df['Price_Diff'] * final_mult * trade_lots, 0)
-                        df['Total_PnL'] = df['Long_PnL'] + df['Short_PnL']
-                        df['Equity'] = init_cash + df['Total_PnL'].cumsum()
-                        df['Margin_Used'] = df['Close'] * final_mult * final_margin_rate * trade_lots * df[
-                            'Pos'].abs().shift(1).fillna(0)
-
-                        final_equity = df['Equity'].iloc[-1]
-                        total_return = (final_equity - init_cash) / init_cash
-                        annual = (1 + total_return) ** (252 / max(1, len(df))) - 1 if not df.empty else 0
-                        max_dd = (df['Equity'] / df['Equity'].cummax() - 1).min()
-                        max_margin = df['Margin_Used'].max()
-
-                        st.session_state.fut_bt_data = df
-                        st.session_state.fut_bt_metrics = {"total": total_return, "annual": annual, "max_dd": max_dd,
-                                                           "max_margin": max_margin, "init_cash": init_cash}
-                except Exception as e:
-                    st.error(f"系统运算发生熔断: {e}");
-                    st.session_state.fut_bt_run = False
-
-        if st.session_state.fut_bt_data is not None:
-            m = st.session_state.fut_bt_metrics;
-            df = st.session_state.fut_bt_data
-            c1, c2, c3, c4 = st.columns(4)
-            c1.markdown(
-                f'<div class="metric-box"><p>累计收益 (双边多空计算)</p><h2 class="highlight-text">{m["total"] * 100:.2f}%</h2></div>',
-                unsafe_allow_html=True)
-            c2.markdown(
-                f'<div class="metric-box"><p>期末总权益</p><h2 class="highlight-text">¥ {m["init_cash"] * (1 + m["total"]):,.0f}</h2></div>',
-                unsafe_allow_html=True)
-            c3.markdown(
-                f'<div class="metric-box"><p>最大资金回撤</p><h2 class="danger-text">{m["max_dd"] * 100:.2f}%</h2></div>',
-                unsafe_allow_html=True)
-            c4.markdown(
-                f'<div class="metric-box"><p>最高保证金占用</p><h2 class="highlight-text">¥ {m["max_margin"]:,.0f}</h2></div>',
-                unsafe_allow_html=True)
-            st.markdown("<div style='clear: both; margin-bottom: 30px;'></div>", unsafe_allow_html=True)
-            st.plotly_chart(render_fut_charts(df), use_container_width=True, config={'scrollZoom': True})
-        elif not st.session_state.fut_bt_run:
-            st.markdown(
-                """<div class="metric-box" style="height: 250px; display: flex; flex-direction: column; justify-content: center; align-items: center;"><p>等待主公下达指令</p><h2 style="color: #cbd5e1;">点击 [开始穿透回测] 进行推演</h2><p class="sub-text" style="margin-top: 10px;">AkShare 引擎已接管，自动突破高频数据封锁！</p></div>""",
-                unsafe_allow_html=True)
-
-
-@st_fragment
-def render_futures_sandbox():
-    st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🌪️ 期货高频沙盘模拟推演</h3><p class="sub-text">Tick 级盘口模拟、毫秒级信号响应测试与动态滑点侦测。</p></div>',
-        unsafe_allow_html=True)
-    c_ctrl1, c_ctrl2, c_ctrl3, c_ctrl4 = st.columns(4)
-    with c_ctrl1:
-        sandbox_code = st.text_input("推演标的", value="SA2409")
-    with c_ctrl2:
-        base_price = st.number_input("初始基准价", value=2000.0)
-    with c_ctrl3:
-        speed = st.slider("脉冲频率 (秒)", 0.1, 2.0, 0.5)
-    with c_ctrl4:
-        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-        is_running = st.toggle("🚀 启动高频脉冲引擎")
+        st.metric("Tushare 行情链路", get_tushare_status())
+    with c3:
+        st.metric("大模型底层通信", "🟢 Moonshot-v1 正常")
+    with c4:
+        st.metric("AI 神经网络", "🟢 融合学习待命")
 
     st.markdown("---")
-    c_left, c_right = st.columns([1, 2.5])
-    dom_placeholder = c_left.empty();
-    chart_placeholder = c_right.empty()
+    c_arch, c_point = st.columns([2, 1])
+    with c_arch:
+        st.markdown("""
+        <div class="glass-card">
+            <h3 style="color:var(--text-color); margin-bottom: 15px;">🌟 平台简介 (Platform Intro)</h3>
+            <p style="color:var(--text-color); line-height: 1.8; font-size: 1.05rem;">
+                欢迎来到 <b>小吕布量化 Pro</b>，这是一个专为现代极客打造的智能投研终端。<br><br>
+                在这里，传统手写代码的繁琐已被彻底颠覆。您可以：<br>
+                • <b>📝 全模态投研</b>：一键无缝上传 PDF/Word 研报或 CSV 矩阵，让大模型直接提取精髓。<br>
+                • <b>🤖 零代码写策略</b>：通过自然语言对话，Agent 将自动为您生成并修复交易代码。<br>
+                • <b>📈 穿越牛熊回测</b>：长达 10 年的全局历史回测，并附带 AI 胜率归因与白话解析。<br>
+                • <b>🧠 时序张量预测</b>：利用 LSTM/GRU 融合矩阵，自回归推演未来 5 天的价格轨迹。<br>
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    with c_point:
+        st.markdown(
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ <b>完美修复动态 CSS 解析崩溃</b><br>✅ 前端引擎防抖极速化<br>✅ <b>代码沙盒防 NoneType 拦截器</b><br>✅ LLM 空数据拦截网</div>',
+            unsafe_allow_html=True
+        )
 
-    if is_running:
-        current_price = base_price;
-        tick_history = []
-        while is_running:
-            price_change = np.random.choice([-3, -2, -1, 0, 1, 2, 3])
-            current_price += price_change
-            tick_history.append(current_price)
-            if len(tick_history) > 100: tick_history.pop(0)
-            asks = [(current_price + i, np.random.randint(10, 500)) for i in range(5, 0, -1)]
-            bids = [(current_price - i, np.random.randint(10, 500)) for i in range(1, 6)]
+elif selected_page == PAGES[1]:
+    st.markdown(
+        '<div class="glass-card"><h3 style="margin-bottom:0; color:var(--text-color);">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与全域文档解析模块已就绪，体验沉浸式工作流。</p></div>',
+        unsafe_allow_html=True)
 
-            with dom_placeholder.container():
-                st.markdown('<div class="glass-card" style="padding: 15px;">', unsafe_allow_html=True)
-                st.markdown('<h4 style="margin-top:0; color:#ef4444;">卖盘 (Ask)</h4>', unsafe_allow_html=True)
-                for i, (p, v) in enumerate(asks): st.markdown(
-                    f'<div style="display:flex; justify-content:space-between; color:#64748b;"><span>卖{5 - i}</span><span>{p:.0f}</span><span>{v}</span></div>',
-                    unsafe_allow_html=True)
-                st.markdown('<hr style="margin: 10px 0; border-color: rgba(128,128,128,0.2);">', unsafe_allow_html=True)
-                color = "#ef4444" if price_change >= 0 else "#10b981"
-                st.markdown(
-                    f'<h3 style="margin:0; text-align:center; color:{color}; text-shadow: 0 0 10px rgba(0,0,0,0.1);">现价: {current_price:.0f}</h3>',
-                    unsafe_allow_html=True)
-                st.markdown('<hr style="margin: 10px 0; border-color: rgba(128,128,128,0.2);">', unsafe_allow_html=True)
-                st.markdown('<h4 style="margin-top:0; color:#10b981;">买盘 (Bid)</h4>', unsafe_allow_html=True)
-                for i, (p, v) in enumerate(bids): st.markdown(
-                    f'<div style="display:flex; justify-content:space-between; color:#64748b;"><span>买{i + 1}</span><span>{p:.0f}</span><span>{v}</span></div>',
-                    unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+    ctrl_col1, ctrl_col2 = st.columns([1, 1])
+    with ctrl_col1:
+        selected_model = st.selectbox("🧠 选择大模型算力通道", ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
+                                      index=0)
+    with ctrl_col2:
+        st.markdown("<div style='height: 32px;'></div>", unsafe_allow_html=True)
+        enable_deep_think = st.toggle("💡 强子注入：开启深度思考引擎 (CoT)", value=False)
 
-            with chart_placeholder.container():
-                fig = go.Figure(
-                    data=go.Scatter(y=tick_history, mode='lines', line=dict(color='#3b82f6', width=2), fill='tozeroy',
-                                    fillcolor='rgba(59, 130, 246, 0.1)'))
-                fig.update_layout(height=380, template="none", paper_bgcolor='rgba(0,0,0,0)',
-                                  plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=0, t=10, b=0),
-                                  xaxis=dict(showgrid=False, visible=False),
-                                  yaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.2)'))
-                st.plotly_chart(fig, use_container_width=True, key=f"tick_chart_{time.time()}")
-            time.sleep(speed)
-    else:
-        dom_placeholder.info("请打开上方的【启动高频脉冲引擎】开关，唤醒沙盘。")
-        chart_placeholder.markdown(
-            """<div class="metric-box" style="height: 380px; display: flex; flex-direction: column; justify-content: center; align-items: center;"><p>高频推演</p><h2 style="color: #3b82f6;">等待引擎唤醒...</h2></div>""",
-            unsafe_allow_html=True)
+    chat_container = st.container()
+    with chat_container:
+        for m in st.session_state.messages:
+            with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
 
+    uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
+                                      type=['pdf', 'doc', 'docx', 'csv', 'txt', 'png', 'jpg', 'jpeg'],
+                                      label_visibility="collapsed")
+    file_context_text = ""
+    if 'uploaded_files' in locals() and uploaded_files:
+        cols = st.columns(3)
+        for idx, file in enumerate(uploaded_files):
+            with cols[idx % 3]:
+                fname_lower = file.name.lower()
+                if file.type.startswith('image/'):
+                    st.image(Image.open(file), use_container_width=True)
+                    file_context_text += f"[用户上传了一张图片: {file.name}。]\n"
+                elif fname_lower.endswith('.csv'):
+                    df_upload = pd.read_csv(file)
+                    st.dataframe(df_upload.head(2))
+                    file_context_text += f"【CSV 数据源 {file.name} (前100行特征)】:\n{df_upload.head(100).to_string()}\n"
+                elif fname_lower.endswith('.txt'):
+                    content = file.getvalue().decode('utf-8', errors='replace')
+                    st.success(f"📝 {file.name} 挂载成功")
+                    file_context_text += f"【TXT 研报核心片段 {file.name}】:\n{content[:5000]}\n"
+                elif fname_lower.endswith('.pdf'):
+                    if PyPDF2:
+                        try:
+                            pdf_reader = PyPDF2.PdfReader(file)
+                            text = "".join(
+                                [page.extract_text() for page in pdf_reader.pages[:10] if page.extract_text()])
+                            st.success(f"📄 PDF {file.name} 解析成功")
+                            file_context_text += f"【PDF 核心片段 {file.name}】:\n{text[:5000]}\n"
+                        except Exception as e:
+                            st.error(f"PDF 读取异常: {e}")
+                elif fname_lower.endswith(('.doc', '.docx')):
+                    if docx:
+                        try:
+                            doc_obj = docx.Document(file)
+                            text = "\n".join([para.text for para in doc_obj.paragraphs])
+                            st.success(f"📘 Word {file.name} 解析成功")
+                            file_context_text += f"【Word 核心片段 {file.name}】:\n{text[:5000]}\n"
+                        except Exception as e:
+                            st.error(f"Word 读取异常: {e}")
 
-def render_page_dl():
+    if raw_prompt := st.chat_input("向小吕布量化架构师发送军令..."):
+        full_prompt_for_ai = f"以下是您需要重点参考的附件原始数据：\n{file_context_text}\n\n我的指令：{raw_prompt}" if file_context_text else raw_prompt
+        st.session_state.messages.append({"role": "user", "content": raw_prompt})
+        with chat_container:
+            with st.chat_message("user"):
+                st.markdown(raw_prompt)
+            with st.chat_message("assistant"):
+                st.toast(f"🚀 连线底层算力集群: {selected_model}", icon="⚡")
+                ticks = "`" * 3
+                sys_p = f"""你是一名顶级量化工程师。拒绝闲聊。如果用户只是让你解读文字，直接输出解答。如果是编写策略，你必须严格遵守以下【小吕布量化系统 SDK 开发军规】：1. 只能使用 pandas, numpy 和 math。禁止 import talib！2. 数据源有效列名严格为：['Open', 'High', 'Low', 'Close', 'Volume']。3. 画图命名协议：主图列名以 `MAIN_` 开头，副图以 `SUB1_` 或 `SUB2_` 开头。4. 交易信号协议：必须生成一列 `df['Signal']`。1=买入，-1=卖出，0=持有。5. 代码骨架：{ticks}python\ndef generate_signals(df):\n    return df\n{ticks}\n请直接输出代码及策略白话解析。"""
+                messages_to_send = [{"role": "system", "content": sys_p}] + st.session_state.messages[:-1] + [
+                    {"role": "user", "content": full_prompt_for_ai}]
+                max_retries = 2;
+                agent_logs = [];
+                last_error = "";
+                full_resp = "";
+                msg_box = st.empty()
+                for attempt in range(max_retries + 1):
+                    if attempt > 0:
+                        agent_logs.append(
+                            f'<div class="agent-status-node retry">🔄 <b>尝试 {attempt}:</b> 沙盒拦截异常 (<code>{last_error}</code>) -> Agent 发起重构</div>')
+                        safe_resp = full_resp if full_resp and full_resp.strip() else "(API 前一次流响应为空，因引发沙盒报错被退回)"
+                        messages_to_send.extend([{"role": "assistant", "content": safe_resp}, {"role": "user",
+                                                                                               "content": f"代码报错：`{last_error}`，请严格遵循模板修复。"}])
+                    try:
+                        valid_messages = [m for m in messages_to_send if m.get("content") and str(m["content"]).strip()]
+                        stream = client.chat.completions.create(model=selected_model, messages=valid_messages,
+                                                                stream=True,
+                                                                temperature=0.3 if enable_deep_think else 0.7)
+                        full_resp = ""
+                        for chunk in stream:
+                            if chunk.choices[0].delta.content:
+                                full_resp += chunk.choices[0].delta.content
+                                msg_box.markdown(full_resp.replace("<think>", "🧠 深度思考中...\n\n").replace("</think>",
+                                                                                                             "\n\n---\n") + "▌",
+                                                 unsafe_allow_html=True)
+                        msg_box.markdown(
+                            full_resp.replace("<think>", "🧠 深度思考过程：\n").replace("</think>", "\n---\n"),
+                            unsafe_allow_html=True)
+                        code_match = re.search(r"`{3}python\s*(.*?)\s*`{3}", full_resp, re.DOTALL)
+                        resp_clean = re.sub(r"<think>.*?</think>", "", full_resp, flags=re.DOTALL)
+                        explanation = re.sub(r"`{3}python\s*.*?\s*`{3}", "", resp_clean,
+                                             flags=re.DOTALL).strip().replace("【策略白话解析】", "").strip()
+                        st.session_state.strategy_explanation = explanation if explanation else "该策略完全由硬核代码驱动，未返回额外人话分析。"
+                        if not code_match: break
+                        extracted_code = code_match.group(1).strip()
+                        try:
+                            dummy_df = pd.DataFrame(
+                                {'trade_date': pd.date_range('20230101', periods=50), 'Open': np.random.rand(50) * 10,
+                                 'High': np.random.rand(50) * 12, 'Low': np.random.rand(50) * 8,
+                                 'Close': np.random.rand(50) * 10})
+                            _ = execute_safely(extracted_code, add_default_indicators(dummy_df))
+                            st.session_state.generated_code = extracted_code
+                            agent_logs.append(
+                                f'<div class="agent-status-node success">✅ <b>尝试 {attempt + 1}:</b> 代码通过沙盒预检 -> 策略已安全装载</div>')
+                            st.markdown("".join(agent_logs), unsafe_allow_html=True)
+                            break
+                        except Exception as e:
+                            last_error = str(e)
+                            if attempt == max_retries:
+                                agent_logs.append(
+                                    f'<div class="agent-status-node error">❌ <b>最终结果:</b> 失败，最终报错: <code>{last_error}</code></div>')
+                                st.markdown("".join(agent_logs), unsafe_allow_html=True)
+                    except Exception as e:
+                        st.error(f"链路断开: {e}")
+                        full_resp += f"\n\n❌ [异常阻断: 通信失败或超载 - {e}]"
+                        break
+                if not full_resp or not full_resp.strip(): full_resp = "❌ 大模型网络中断或未返回任何数据，请重试。"
+                if agent_logs: full_resp += "\n\n" + "".join(agent_logs)
+                st.session_state.messages.append({"role": "assistant", "content": full_resp})
+        st.rerun()
+
+elif selected_page == PAGES[2]:
+    if extensions: extensions.render_ide_page()
+
+elif selected_page == PAGES[3]:
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">📊 历史回测全量审计与归因分析</h3></div>',
+        unsafe_allow_html=True)
+    col_l, col_r = st.columns([1, 3])
+    with col_l:
+        ts_code = format_ts_code(st.text_input("🎯 回测标的代码", value="000001"))
+        span_mapping = {"近1年": 1, "近3年": 3, "近5年": 5, "近10年 (极限穿越)": 10}
+        span_choice = st.selectbox("⏳ 回测时间跨度", list(span_mapping.keys()), index=1)
+        start_year = datetime.now().year - span_mapping[span_choice]
+        adj_p = st.selectbox("⚖️ 复权模式", ["qfq", "hfq", "None"]).split(" ")[0]
+        if st.button("🚀 启动全量归因回测", use_container_width=True, type="primary"):
+            with st.spinner("数据挂载中..."):
+                try:
+                    df_raw = fetch_and_clean_data(ts_code, adj_p if adj_p != "None" else None, f"{start_year}0101")
+                    st.session_state.bt_result = run_backtest_metrics(df_raw, st.session_state.generated_code)
+                except Exception as e:
+                    st.error(f"异常: {e}")
+    with col_r:
+        if st.session_state.bt_result:
+            m = st.session_state.bt_result['metrics']
+            df = st.session_state.bt_result['df']
+            c1, c2, c3, c4 = st.columns(4)
+            c1.markdown(
+                f'<div class="metric-box"><p>累计收益</p><h2 style="color:#3b82f6;">{m["total"] * 100:.2f}%</h2></div>',
+                unsafe_allow_html=True)
+            c2.markdown(
+                f'<div class="metric-box"><p>年化收益</p><h2 style="color:#3b82f6;">{m["annual"] * 100:.2f}%</h2></div>',
+                unsafe_allow_html=True)
+            c3.markdown(
+                f'<div class="metric-box"><p>最大回撤</p><h2 style="color:#ef4444;">{m["max_dd"] * 100:.2f}%</h2></div>',
+                unsafe_allow_html=True)
+            c4.markdown(
+                f'<div class="metric-box"><p>夏普比率</p><h2 style="color:#3b82f6;">{m["sharpe"]:.2f}</h2></div>',
+                unsafe_allow_html=True)
+            st.markdown("<div style='clear: both; margin-bottom: 30px;'></div>", unsafe_allow_html=True)
+            if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
+                with st.expander("💡 展开：AI 策略白话解析", expanded=False): st.markdown(
+                    st.session_state.strategy_explanation)
+            st.plotly_chart(render_smart_charts(df), use_container_width=True, config={'scrollZoom': True})
+
+elif selected_page == PAGES[4]:
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
+        unsafe_allow_html=True)
+    c_ctrl, c_chart = st.columns([1, 2.5])
+    with c_ctrl:
+        live_code = st.text_input("🎯 动态推送标的", value="000001")
+        freq = st.slider("⏱️ 刷新间隔 (秒)", 0.1, 2.0, 0.5)
+        st.button("▶️ 开启高频推演", on_click=lambda: st.session_state.update({"is_live_trading": True}),
+                  type="primary")
+        st.button("⏹️ 强行停止", on_click=lambda: st.session_state.update({"is_live_trading": False}))
+    with c_chart:
+        if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
+            with st.expander("💡 当前军令：策略白话解析", expanded=False): st.markdown(
+                st.session_state.strategy_explanation)
+        met_ph = st.empty();
+        cht_ph = st.empty()
+        if st.session_state.is_live_trading:
+            stream = fetch_and_clean_data(format_ts_code(live_code), 'qfq', '20230101').tail(120).reset_index(drop=True)
+            for i in range(20, len(stream)):
+                if not st.session_state.is_live_trading: break
+                sub = stream.iloc[:i].copy()
+                try:
+                    if st.session_state.generated_code:
+                        sub_ai = execute_safely(st.session_state.generated_code, sub)
+                        if sub_ai is not None and hasattr(sub_ai, 'columns'):
+                            for col in sub_ai.columns:
+                                if col == 'Signal' or col.startswith(('MAIN_', 'SUB')): sub[col] = sub_ai[col]
+                    sig_val = sub['Signal'].iloc[-1] if 'Signal' in sub.columns else 0
+                    with met_ph.container():
+                        c = st.columns(3)
+                        c[0].metric("Tick 现价", f"{sub['Close'].iloc[-1]:.2f}")
+                        c[1].metric("高频信号", "🟢 买" if sig_val == 1 else "🔴 卖" if sig_val == -1 else "⚪ 观望")
+                        c[2].metric("并发收益", f"{(sub['Close'].pct_change().iloc[-1] * 100):.2f}%")
+                    cht_ph.plotly_chart(render_smart_charts(sub), use_container_width=True)
+                except Exception as e:
+                    st.error(f"高频熔断: {e}");
+                    st.session_state.is_live_trading = False;
+                    break
+                time.sleep(freq)
+
+elif selected_page == PAGES[5]:
     with st.spinner("唤醒深度学习底层张量引擎..."):
         try:
             import torch
@@ -791,7 +644,7 @@ def render_page_dl():
             st.error("🚨 需安装 torch 和 scikit-learn！")
             st.stop()
     st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>',
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>',
         unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 2.5])
     with col_l:
@@ -831,6 +684,7 @@ def render_page_dl():
                         X_t = torch.tensor(np.array(X), dtype=torch.float32).unsqueeze(-1)
                         y_t = torch.tensor(np.array(y), dtype=torch.float32)
 
+
                         class LSTM_Model(nn.Module):
                             def __init__(self):
                                 super().__init__();
@@ -838,6 +692,7 @@ def render_page_dl():
                                 self.fc = nn.Linear(64, 1)
 
                             def forward(self, x): out, _ = self.lstm(x); return self.fc(out[:, -1, :])
+
 
                         class GRU_Model(nn.Module):
                             def __init__(self):
@@ -847,6 +702,7 @@ def render_page_dl():
 
                             def forward(self, x): out, _ = self.gru(x); return self.fc(out[:, -1, :])
 
+
                         class CNN_1D_Model(nn.Module):
                             def __init__(self, seq_len):
                                 super().__init__();
@@ -855,6 +711,7 @@ def render_page_dl():
 
                             def forward(self, x): x = x.permute(0, 2, 1); x = torch.relu(self.conv(x)); x = x.reshape(
                                 x.size(0), -1); return self.fc(x)
+
 
                         preds_dict, future_preds_dict = {}, {}
                         lbox = st.empty();
@@ -980,27 +837,25 @@ def render_page_dl():
             st.plotly_chart(fig, use_container_width=True)
 
 elif selected_page == PAGES[6]:
-st.markdown(
-    '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>',
-    unsafe_allow_html=True)
-c1, c2 = st.columns([1, 1.2])
-with c1:
-    if os.path.exists("user_logs/global_master_log.csv"): st.download_button("📁 导出审计日志", data=pd.read_csv(
-        "user_logs/global_master_log.csv").to_csv(index=False).encode('utf-8'), file_name='Audit_Logs.csv',
-                                                                             type="primary")
-with c2: st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>',
+        unsafe_allow_html=True)
+    c1, c2 = st.columns([1, 1.2])
+    with c1:
+        if os.path.exists("user_logs/global_master_log.csv"): st.download_button("📁 导出审计日志", data=pd.read_csv(
+            "user_logs/global_master_log.csv").to_csv(index=False).encode('utf-8'), file_name='Audit_Logs.csv',
+                                                                                 type="primary")
+    with c2:
+        st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
 
 elif selected_page == PAGES[7]:
-if extensions:
-    extensions.render_futures_backtest()
+    if extensions: extensions.render_futures_backtest()
 
 elif selected_page == PAGES[8]:
-    if extensions:
-        extensions.render_futures_sandbox()
+    if extensions: extensions.render_futures_sandbox()
 
-    elif selected_page == PAGES[9]:
-    if extensions:
-        extensions.render_new_features_page()
+elif selected_page == PAGES[9]:
+    if extensions: extensions.render_new_features_page()
 
-    else:
+else:
     if custom_plugins and hasattr(custom_plugins, 'route_and_render'): custom_plugins.route_and_render(selected_page)
