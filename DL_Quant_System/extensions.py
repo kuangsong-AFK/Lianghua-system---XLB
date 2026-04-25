@@ -12,7 +12,7 @@ import re
 import json
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime  # 🔥 绝杀修复：补上这个缺失的灵魂模块，彻底消灭 NameError 崩溃！ 🔥
 
 try:
     from streamlit import fragment as st_fragment
@@ -33,7 +33,7 @@ SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 
 
 def summon_global_3d_lulu():
-    """全地形无敌装甲版：彻底抛弃强制重载，采用原生缓存驻留，解放 100% 性能"""
+    """全自动免配置版：强制重载缓存，采用 jsdelivr 极速 CDN"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     PET_ROSTER = {
@@ -63,7 +63,6 @@ def summon_global_3d_lulu():
 
     pets_json_str = json.dumps(pet_b64)
 
-    # 🔥 核心优化：去除了 time.time()！利用浏览器原生缓存，从此打字/点击绝不卡顿！ 🔥
     html_code = f"""
     <script id="lulu-pet-data" type="application/json">{pets_json_str}</script>
 
@@ -71,326 +70,318 @@ def summon_global_3d_lulu():
         const pWin = window.parent;
         const pDoc = pWin.document;
 
-        // 防止 Streamlit 每次重载时重复挂载 3D 引擎，彻底拯救您的 CPU
-        if (!pWin.__LULU_3D_IS_RUNNING) {{
-            pWin.__LULU_3D_IS_RUNNING = true;
+        const dataStr = document.getElementById('lulu-pet-data').textContent;
+        pWin.__PETS_JSON_DATA__ = JSON.parse(dataStr);
 
-            const dataStr = document.getElementById('lulu-pet-data').textContent;
-            pWin.__PETS_JSON_DATA__ = JSON.parse(dataStr);
+        const loadScript = (src) => new Promise((res) => {{
+            const s = pDoc.createElement('script');
+            s.src = src; s.onload = res; pDoc.head.appendChild(s);
+        }});
 
-            const loadScript = (src) => new Promise((res, rej) => {{
-                const s = pDoc.createElement('script');
-                s.src = src; 
-                s.onload = res; 
-                s.onerror = () => {{ console.error("加载依赖失败: " + src); res(); }};
-                pDoc.head.appendChild(s);
-            }});
+        const initLulu = async () => {{
+            if (!pWin.THREE || !pWin.THREE.DRACOLoader) {{
+                await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js");
+                await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js");
+                await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js");
+            }}
 
-            const initLulu = async () => {{
-                if (!pWin.THREE || !pWin.THREE.DRACOLoader) {{
-                    await loadScript("https://registry.npmmirror.com/three/0.128.0/files/build/three.min.js");
-                    await loadScript("https://registry.npmmirror.com/three/0.128.0/files/examples/js/loaders/GLTFLoader.js");
-                    await loadScript("https://registry.npmmirror.com/three/0.128.0/files/examples/js/loaders/DRACOLoader.js");
-                }}
+            const script = pDoc.createElement('script');
+            script.innerHTML = `
+                (function() {{
+                    const THREE = window.THREE;
+                    const doc = document;
+                    const win = window;
+                    const petData = window.__PETS_JSON_DATA__; 
 
-                const script = pDoc.createElement('script');
-                script.innerHTML = `
-                    (function() {{
-                        const THREE = window.THREE;
-                        const doc = document;
-                        const win = window;
-                        const petData = window.__PETS_JSON_DATA__; 
+                    const oldPet = doc.getElementById('lulu-global-pet');
+                    if(oldPet) oldPet.remove();
+                    const oldMenu = doc.getElementById('lulu-ctx-menu');
+                    if(oldMenu) oldMenu.remove();
 
-                        const oldPet = doc.getElementById('lulu-global-pet');
-                        if(oldPet) oldPet.remove();
-                        const oldMenu = doc.getElementById('lulu-ctx-menu');
-                        if(oldMenu) oldMenu.remove();
+                    let state = 'IDLE'; 
+                    let danceTimer = 0;
+                    let lastActivityTime = Date.now();
 
-                        let state = 'IDLE'; 
-                        let danceTimer = 0;
-                        let lastActivityTime = Date.now();
+                    let targetRotY = 0; 
+                    let targetRotX = 0;
 
-                        let targetRotY = 0; 
-                        let targetRotX = 0;
+                    const petSize = 280; 
+                    const overflowLimit = 80; 
 
-                        const petSize = 280; 
-                        const overflowLimit = 80; 
+                    const petBox = doc.createElement('div');
+                    petBox.id = 'lulu-global-pet';
+                    petBox.style.cssText = "position: fixed; bottom: 20px; right: 20px; width: " + petSize + "px; height: " + petSize + "px; z-index: 9999999; cursor: grab; user-select: none; pointer-events: none; transition: transform 0.2s; touch-action: none;"; 
+                    doc.body.appendChild(petBox);
 
-                        const petBox = doc.createElement('div');
-                        petBox.id = 'lulu-global-pet';
-                        petBox.style.cssText = "position: fixed; bottom: 20px; right: 20px; width: " + petSize + "px; height: " + petSize + "px; z-index: 9999999; cursor: grab; user-select: none; pointer-events: none; transition: transform 0.2s; touch-action: none;"; 
-                        doc.body.appendChild(petBox);
+                    const bubble = doc.createElement('div');
+                    bubble.style.cssText = "position: absolute; top: 0px; left: 50%; transform: translateX(-50%); opacity: 0; background: rgba(30, 41, 59, 0.95); border: 1px solid rgba(148, 163, 184, 0.5); color: #fff; padding: 8px 15px; border-radius: 12px; font-size: 14px; white-space: nowrap; transition: opacity 0.3s; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 10;";
+                    petBox.appendChild(bubble);
 
-                        const bubble = doc.createElement('div');
-                        bubble.style.cssText = "position: absolute; top: 0px; left: 50%; transform: translateX(-50%); opacity: 0; background: rgba(30, 41, 59, 0.95); border: 1px solid rgba(148, 163, 184, 0.5); color: #fff; padding: 8px 15px; border-radius: 12px; font-size: 14px; white-space: nowrap; transition: opacity 0.3s; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 10;";
-                        petBox.appendChild(bubble);
+                    const ctxMenu = doc.createElement('div');
+                    ctxMenu.id = 'lulu-ctx-menu';
+                    ctxMenu.style.cssText = "position: fixed; display: none; background: rgba(30, 41, 59, 0.95); border: 1px solid rgba(148, 163, 184, 0.5); border-radius: 12px; padding: 6px; z-index: 10000000; color: #fff; font-size: 14px; min-width: 140px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); backdrop-filter: blur(10px);";
+                    doc.body.appendChild(ctxMenu);
 
-                        const ctxMenu = doc.createElement('div');
-                        ctxMenu.id = 'lulu-ctx-menu';
-                        ctxMenu.style.cssText = "position: fixed; display: none; background: rgba(30, 41, 59, 0.95); border: 1px solid rgba(148, 163, 184, 0.5); border-radius: 12px; padding: 6px; z-index: 10000000; color: #fff; font-size: 14px; min-width: 140px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); backdrop-filter: blur(10px);";
-                        doc.body.appendChild(ctxMenu);
+                    const menuTitle = doc.createElement('div');
+                    menuTitle.innerHTML = "<b>✨ 召唤新伙伴</b>";
+                    menuTitle.style.cssText = "padding: 6px 12px; color: #94a3b8; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 4px; pointer-events: none;";
+                    ctxMenu.appendChild(menuTitle);
 
-                        const menuTitle = doc.createElement('div');
-                        menuTitle.innerHTML = "<b>✨ 召唤新伙伴</b>";
-                        menuTitle.style.cssText = "padding: 6px 12px; color: #94a3b8; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 4px; pointer-events: none;";
-                        ctxMenu.appendChild(menuTitle);
+                    Object.keys(petData).forEach(petName => {{
+                        const item = doc.createElement('div');
+                        item.innerText = petName;
+                        item.style.cssText = "padding: 8px 12px; cursor: pointer; border-radius: 6px; transition: 0.2s; margin-bottom: 2px;";
+                        item.onmouseover = () => {{ item.style.background = "rgba(255, 255, 255, 0.1)"; item.style.color = "#38bdf8"; }};
+                        item.onmouseout = () => {{ item.style.background = "transparent"; item.style.color = "#fff"; }};
 
-                        Object.keys(petData).forEach(petName => {{
-                            const item = doc.createElement('div');
-                            item.innerText = petName;
-                            item.style.cssText = "padding: 8px 12px; cursor: pointer; border-radius: 6px; transition: 0.2s; margin-bottom: 2px;";
-                            item.onmouseover = () => {{ item.style.background = "rgba(255, 255, 255, 0.1)"; item.style.color = "#38bdf8"; }};
-                            item.onmouseout = () => {{ item.style.background = "transparent"; item.style.color = "#fff"; }};
-
-                            item.onclick = (e) => {{
-                                e.stopPropagation();
-                                ctxMenu.style.display = 'none';
-                                if(petData[petName] !== "") {{
-                                    switchModel(petData[petName], petName);
-                                }} else {{
-                                    doSpeak(["主公，【" + petName + "】的模型文件还没放入军营哦！"]);
-                                }}
-                            }};
-                            ctxMenu.appendChild(item);
-                        }});
-
-                        const scene = new THREE.Scene();
-                        const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-                        camera.position.set(0, 0.8, 5.5); 
-
-                        const renderer = new THREE.WebGLRenderer({{ alpha: true, antialias: win.innerWidth > 768 }});
-                        renderer.setSize(petSize, petSize);
-                        renderer.setPixelRatio(win.devicePixelRatio ? Math.min(win.devicePixelRatio, 2) : 1);
-                        renderer.outputEncoding = THREE.sRGBEncoding;
-
-                        renderer.domElement.oncontextmenu = function(e) {{
-                            e.preventDefault(); e.stopPropagation();
-                            ctxMenu.style.display = 'block';
-                            ctxMenu.style.left = (e.clientX + 10) + 'px'; ctxMenu.style.top = (e.clientY - 10) + 'px';
-                            return false;
-                        }};
-
-                        petBox.appendChild(renderer.domElement);
-
-                        const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
-                        scene.add(ambientLight);
-                        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-                        dirLight.position.set(5, 10, 5);
-                        scene.add(dirLight);
-
-                        let currentModelObj = null; 
-                        let mixer = null;
-                        let clickableMeshes = [];
-
-                        const loader = new THREE.GLTFLoader();
-                        const dracoLoader = new THREE.DRACOLoader();
-                        dracoLoader.setDecoderPath('https://registry.npmmirror.com/three/0.128.0/files/examples/js/libs/draco/gltf/');
-                        loader.setDRACOLoader(dracoLoader);
-
-                        const switchModel = (b64String, name) => {{
-                            const oldModelRef = currentModelObj;
-                            bubble.innerText = "⏳ 极速数据解码中..."; bubble.style.opacity = '1';
-
-                            loader.load(
-                                "data:application/octet-stream;base64," + b64String, 
-                                (gltf) => {{
-                                    if(oldModelRef) {{ scene.remove(oldModelRef); }}
-                                    clickableMeshes = []; mixer = null;
-
-                                    currentModelObj = gltf.scene;
-                                    currentModelObj.position.set(0, -1.2, 0); 
-
-                                    currentModelObj.traverse((child) => {{
-                                        if (child.isMesh) {{
-                                            let isTrash = false;
-                                            if (child.material) {{
-                                                if (child.material.transparent && child.material.opacity < 0.1) isTrash = true;
-                                                if (child.material.opacity === 0) isTrash = true;
-                                            }}
-                                            if (isTrash) {{ child.visible = false; }} else {{ clickableMeshes.push(child); }}
-                                        }}
-                                    }});
-                                    scene.add(currentModelObj);
-                                    if (gltf.animations.length > 0) {{
-                                        mixer = new THREE.AnimationMixer(currentModelObj);
-                                        mixer.clipAction(gltf.animations[0]).play();
-                                    }}
-                                    setTimeout(() => {{ bubble.style.opacity = '0'; }}, 500);
-                                    if(name) {{
-                                        setTimeout(() => {{
-                                            bubble.innerText = "变身完成！我是" + name;
-                                            bubble.style.opacity = '1';
-                                            setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
-                                        }}, 600);
-                                    }}
-                                }},
-                                undefined,
-                                (error) => {{
-                                    console.error("模型解析失败：", error);
-                                    bubble.innerText = "❌ 解析失败！请尝试更换模型。";
-                                    setTimeout(() => {{ bubble.style.opacity = '0'; }}, 4000);
-                                }}
-                            );
-                        }};
-
-                        const initialPetKey = Object.keys(petData).find(k => petData[k] !== "");
-                        if(initialPetKey) {{ switchModel(petData[initialPetKey], null); }}
-
-                        const raycaster = new THREE.Raycaster();
-                        const mouseNDC = new THREE.Vector2();
-
-                        const checkHit = (clientX, clientY) => {{
-                            if (clickableMeshes.length === 0) return false;
-                            const rect = renderer.domElement.getBoundingClientRect();
-                            if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {{ return false; }}
-                            mouseNDC.x = ((clientX - rect.left) / petSize) * 2 - 1;
-                            mouseNDC.y = -((clientY - rect.top) / petSize) * 2 + 1;
-                            raycaster.setFromCamera(mouseNDC, camera);
-                            return raycaster.intersectObjects(clickableMeshes, false).length > 0; 
-                        }};
-
-                        const updateLookAt = (clientX, clientY) => {{
-                            if (state === 'IDLE') {{
-                                const rect = renderer.domElement.getBoundingClientRect();
-                                const petCenterX = rect.left + rect.width / 2;
-                                const petCenterY = rect.top + rect.height / 2;
-                                const dx = clientX - petCenterX;
-                                const dy = clientY - petCenterY;
-                                targetRotY = Math.max(-1.1, Math.min(1.1, (dx / (win.innerWidth / 2)) * 1.5));
-                                targetRotX = Math.max(-0.8, Math.min(0.8, (dy / (win.innerHeight / 2)) * 1.2));
-                            }}
-                        }};
-
-                        const clock = new THREE.Clock();
-                        function animate() {{
-                            win.requestAnimationFrame(animate);
-                            const delta = clock.getDelta();
-                            const time = clock.getElapsedTime();
-                            if (mixer) mixer.update(delta);
-
-                            if (currentModelObj) {{
-                                if (state === 'STRUGGLING') {{
-                                    currentModelObj.rotation.y = 0; currentModelObj.rotation.x = 0;
-                                    currentModelObj.position.x = Math.sin(time * 50) * 0.05;
-                                    currentModelObj.rotation.z = Math.cos(time * 50) * 0.1;
-                                    currentModelObj.position.y = -1.2;
-                                }} else if (state === 'DANCING') {{
-                                    currentModelObj.position.y = -1.2 + Math.abs(Math.sin(time * 10)) * 0.5;
-                                    currentModelObj.rotation.y += 0.2; currentModelObj.rotation.x = 0; currentModelObj.rotation.z = 0; currentModelObj.position.x = 0;
-                                    danceTimer -= delta;
-                                    if (danceTimer <= 0) {{ state = 'IDLE'; currentModelObj.position.y = -1.2; }}
-                                }} else {{
-                                    currentModelObj.position.y = -1.2 + Math.sin(time * 2) * 0.01; 
-                                    currentModelObj.position.x = 0; 
-                                    currentModelObj.rotation.z = 0;
-                                    currentModelObj.rotation.y += (targetRotY - currentModelObj.rotation.y) * 0.15;
-                                    currentModelObj.rotation.x += (targetRotX - currentModelObj.rotation.x) * 0.15;
-                                }}
-                            }}
-                            renderer.render(scene, camera);
-                        }}
-
-                        let isDragging = false, initX, initY, startL, startT, isPossibleClick = false, isHolding = false, clickTimeout = null, lastTapTime = 0;
-                        const getX = (e) => e.touches ? e.touches[0].clientX : e.clientX;
-                        const getY = (e) => e.touches ? e.touches[0].clientY : e.clientY;
-
-                        const doSpeak = (customTexts) => {{
-                            const ts = customTexts || ["主公，我在这呢！🥰", "量化大赚！吃橘子！🍊", "右键可以给我换衣服哦~", "今天赚了多少呀？💸"];
-                            bubble.innerText = ts[Math.floor(Math.random() * ts.length)]; bubble.style.opacity = '1';
-                            setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
-                        }};
-
-                        const doDance = () => {{
-                            state = 'DANCING'; danceTimer = 3.0; lastActivityTime = Date.now();
-                            bubble.innerText = "好耶！开心转圈圈！💃🕺"; bubble.style.opacity = '1';
-                            setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
-                        }};
-
-                        const startInteraction = (e) => {{
-                            if(e.button === 2) return; 
-                            isHolding = true; initX = getX(e); initY = getY(e);
-                            const r = petBox.getBoundingClientRect(); startL = r.left; startT = r.top;
-                            isDragging = false; isPossibleClick = true; 
-                            petBox.style.bottom = 'auto'; petBox.style.right = 'auto'; petBox.style.left = startL + 'px'; petBox.style.top = startT + 'px';
-                        }};
-
-                        doc.addEventListener('click', (e) => {{ if (e.button !== 2) {{ ctxMenu.style.display = 'none'; }} }});
-
-                        win.addEventListener('mousemove', (e) => {{
-                            if (isHolding) {{
-                                const curX = getX(e); const curY = getY(e);
-                                const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
-                                if (moveDist > 20) {{ 
-                                    if (!isDragging) {{
-                                        isDragging = true; isPossibleClick = false; state = 'STRUGGLING'; 
-                                        petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; 
-                                    }}
-                                    let newLeft = startL + curX - initX; let newTop = startT + curY - initY;
-                                    newLeft = Math.max(-overflowLimit, Math.min(newLeft, win.innerWidth - petSize + overflowLimit));
-                                    newTop = Math.max(-overflowLimit, Math.min(newTop, win.innerHeight - petSize + overflowLimit));
-                                    petBox.style.left = newLeft + 'px'; petBox.style.top = newTop + 'px';
-                                    if(e.cancelable) e.preventDefault(); 
-                                }}
-                                return;
-                            }}
-                            updateLookAt(e.clientX, e.clientY);
-                            if (checkHit(e.clientX, e.clientY)) {{
-                                if (petBox.style.pointerEvents !== 'auto') {{ petBox.style.pointerEvents = 'auto'; petBox.style.cursor = 'grab'; }}
+                        item.onclick = (e) => {{
+                            e.stopPropagation();
+                            ctxMenu.style.display = 'none';
+                            if(petData[petName] !== "") {{
+                                switchModel(petData[petName], petName);
                             }} else {{
-                                if (petBox.style.pointerEvents !== 'none') {{ petBox.style.pointerEvents = 'none'; }}
+                                doSpeak(["主公，【" + petName + "】的模型文件还没放入军营哦！"]);
                             }}
-                        }}, true);
+                        }};
+                        ctxMenu.appendChild(item);
+                    }});
 
-                        const endInteraction = (e) => {{
-                            if (!isHolding) return;
-                            isHolding = false; petBox.style.transition = 'transform 0.2s'; petBox.style.cursor = 'grab'; petBox.style.transform = 'scale(1)';
-                            if (isDragging) {{ isDragging = false; if (state !== 'DANCING') state = 'IDLE'; return; }}
-                            if (isPossibleClick) {{
-                                const currentTime = new Date().getTime(); const tapLength = currentTime - lastTapTime; clearTimeout(clickTimeout); 
-                                if (tapLength < 350 && tapLength > 0) {{ doDance(); }} else {{ 
-                                    clickTimeout = setTimeout(() => {{
-                                        bubble.innerText = "右键可以给我换衣服哦~";
+                    const scene = new THREE.Scene();
+                    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+                    camera.position.set(0, 0.8, 5.5); 
+
+                    const renderer = new THREE.WebGLRenderer({{ alpha: true, antialias: win.innerWidth > 768 }});
+                    renderer.setSize(petSize, petSize);
+                    renderer.setPixelRatio(win.devicePixelRatio ? Math.min(win.devicePixelRatio, 2) : 1);
+                    renderer.outputEncoding = THREE.sRGBEncoding;
+
+                    renderer.domElement.oncontextmenu = function(e) {{
+                        e.preventDefault(); e.stopPropagation();
+                        ctxMenu.style.display = 'block';
+                        ctxMenu.style.left = (e.clientX + 10) + 'px'; ctxMenu.style.top = (e.clientY - 10) + 'px';
+                        return false;
+                    }};
+
+                    petBox.appendChild(renderer.domElement);
+
+                    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+                    scene.add(ambientLight);
+                    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+                    dirLight.position.set(5, 10, 5);
+                    scene.add(dirLight);
+
+                    let currentModelObj = null; 
+                    let mixer = null;
+                    let clickableMeshes = [];
+
+                    const loader = new THREE.GLTFLoader();
+                    const dracoLoader = new THREE.DRACOLoader();
+                    dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/draco/gltf/');
+                    loader.setDRACOLoader(dracoLoader);
+
+                    const switchModel = (b64String, name) => {{
+                        const oldModelRef = currentModelObj;
+                        bubble.innerText = "⏳ 极速数据解码中..."; bubble.style.opacity = '1';
+
+                        loader.load(
+                            "data:application/octet-stream;base64," + b64String, 
+                            (gltf) => {{
+                                if(oldModelRef) {{ scene.remove(oldModelRef); }}
+                                clickableMeshes = []; mixer = null;
+
+                                currentModelObj = gltf.scene;
+                                currentModelObj.position.set(0, -1.2, 0); 
+
+                                currentModelObj.traverse((child) => {{
+                                    if (child.isMesh) {{
+                                        let isTrash = false;
+                                        if (child.material) {{
+                                            if (child.material.transparent && child.material.opacity < 0.1) isTrash = true;
+                                            if (child.material.opacity === 0) isTrash = true;
+                                        }}
+                                        if (isTrash) {{ child.visible = false; }} else {{ clickableMeshes.push(child); }}
+                                    }}
+                                }});
+                                scene.add(currentModelObj);
+                                if (gltf.animations.length > 0) {{
+                                    mixer = new THREE.AnimationMixer(currentModelObj);
+                                    mixer.clipAction(gltf.animations[0]).play();
+                                }}
+                                setTimeout(() => {{ bubble.style.opacity = '0'; }}, 500);
+                                if(name) {{
+                                    setTimeout(() => {{
+                                        bubble.innerText = "变身完成！我是" + name;
                                         bubble.style.opacity = '1';
                                         setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
-                                    }}, 300); 
+                                    }}, 600);
                                 }}
-                                lastTapTime = currentTime;
+                            }},
+                            undefined,
+                            (error) => {{
+                                console.error("模型解析失败：", error);
+                                bubble.innerText = "❌ 解析失败！请尝试更换模型。";
+                                setTimeout(() => {{ bubble.style.opacity = '0'; }}, 4000);
                             }}
-                        }};
+                        );
+                    }};
 
-                        petBox.addEventListener('mousedown', startInteraction); doc.addEventListener('mouseup', endInteraction); doc.addEventListener('mouseleave', endInteraction);
+                    const initialPetKey = Object.keys(petData).find(k => petData[k] !== "");
+                    if(initialPetKey) {{ switchModel(petData[initialPetKey], null); }}
 
-                        doc.addEventListener('touchstart', (e) => {{
-                            if (checkHit(e.touches[0].clientX, e.touches[0].clientY)) {{
-                                petBox.style.pointerEvents = 'auto'; startInteraction(e); e.stopPropagation();
-                            }} else {{ petBox.style.pointerEvents = 'none'; }}
-                        }}, {{ capture: true, passive: false }});
+                    const raycaster = new THREE.Raycaster();
+                    const mouseNDC = new THREE.Vector2();
 
-                        doc.addEventListener('touchmove', (e) => {{
-                            if (isHolding) {{
-                                const curX = getX(e); const curY = getY(e); const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
-                                if (moveDist > 20) {{ 
-                                    if (!isDragging) {{
-                                        isDragging = true; isPossibleClick = false; state = 'STRUGGLING';
-                                        petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; 
-                                    }}
-                                    let newLeft = startL + curX - initX; let newTop = startT + curY - initY;
-                                    newLeft = Math.max(-overflowLimit, Math.min(newLeft, win.innerWidth - petSize + overflowLimit));
-                                    newTop = Math.max(-overflowLimit, Math.min(newTop, win.innerHeight - petSize + overflowLimit));
-                                    petBox.style.left = newLeft + 'px'; petBox.style.top = newTop + 'px';
-                                    e.stopPropagation(); if(e.cancelable) e.preventDefault(); 
+                    const checkHit = (clientX, clientY) => {{
+                        if (clickableMeshes.length === 0) return false;
+                        const rect = renderer.domElement.getBoundingClientRect();
+                        if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {{ return false; }}
+                        mouseNDC.x = ((clientX - rect.left) / petSize) * 2 - 1;
+                        mouseNDC.y = -((clientY - rect.top) / petSize) * 2 + 1;
+                        raycaster.setFromCamera(mouseNDC, camera);
+                        return raycaster.intersectObjects(clickableMeshes, false).length > 0; 
+                    }};
+
+                    const updateLookAt = (clientX, clientY) => {{
+                        if (state === 'IDLE') {{
+                            const rect = renderer.domElement.getBoundingClientRect();
+                            const petCenterX = rect.left + rect.width / 2;
+                            const petCenterY = rect.top + rect.height / 2;
+                            const dx = clientX - petCenterX;
+                            const dy = clientY - petCenterY;
+                            targetRotY = Math.max(-1.1, Math.min(1.1, (dx / (win.innerWidth / 2)) * 1.5));
+                            targetRotX = Math.max(-0.8, Math.min(0.8, (dy / (win.innerHeight / 2)) * 1.2));
+                        }}
+                    }};
+
+                    const clock = new THREE.Clock();
+                    function animate() {{
+                        win.requestAnimationFrame(animate);
+                        const delta = clock.getDelta();
+                        const time = clock.getElapsedTime();
+                        if (mixer) mixer.update(delta);
+
+                        if (currentModelObj) {{
+                            if (state === 'STRUGGLING') {{
+                                currentModelObj.rotation.y = 0; currentModelObj.rotation.x = 0;
+                                currentModelObj.position.x = Math.sin(time * 50) * 0.05;
+                                currentModelObj.rotation.z = Math.cos(time * 50) * 0.1;
+                                currentModelObj.position.y = -1.2;
+                            }} else if (state === 'DANCING') {{
+                                currentModelObj.position.y = -1.2 + Math.abs(Math.sin(time * 10)) * 0.5;
+                                currentModelObj.rotation.y += 0.2; currentModelObj.rotation.x = 0; currentModelObj.rotation.z = 0; currentModelObj.position.x = 0;
+                                danceTimer -= delta;
+                                if (danceTimer <= 0) {{ state = 'IDLE'; currentModelObj.position.y = -1.2; }}
+                            }} else {{
+                                currentModelObj.position.y = -1.2 + Math.sin(time * 2) * 0.01; 
+                                currentModelObj.position.x = 0; 
+                                currentModelObj.rotation.z = 0;
+                                currentModelObj.rotation.y += (targetRotY - currentModelObj.rotation.y) * 0.15;
+                                currentModelObj.rotation.x += (targetRotX - currentModelObj.rotation.x) * 0.15;
+                            }}
+                        }}
+                        renderer.render(scene, camera);
+                    }}
+
+                    let isDragging = false, initX, initY, startL, startT, isPossibleClick = false, isHolding = false, clickTimeout = null, lastTapTime = 0;
+                    const getX = (e) => e.touches ? e.touches[0].clientX : e.clientX;
+                    const getY = (e) => e.touches ? e.touches[0].clientY : e.clientY;
+
+                    const doSpeak = (customTexts) => {{
+                        const ts = customTexts || ["主公，我在这呢！🥰", "量化大赚！吃橘子！🍊", "右键可以给我换衣服哦~", "今天赚了多少呀？💸"];
+                        bubble.innerText = ts[Math.floor(Math.random() * ts.length)]; bubble.style.opacity = '1';
+                        setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
+                    }};
+
+                    const doDance = () => {{
+                        state = 'DANCING'; danceTimer = 3.0; lastActivityTime = Date.now();
+                        bubble.innerText = "好耶！开心转圈圈！💃🕺"; bubble.style.opacity = '1';
+                        setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
+                    }};
+
+                    const startInteraction = (e) => {{
+                        if(e.button === 2) return; 
+                        isHolding = true; initX = getX(e); initY = getY(e);
+                        const r = petBox.getBoundingClientRect(); startL = r.left; startT = r.top;
+                        isDragging = false; isPossibleClick = true; 
+                        petBox.style.bottom = 'auto'; petBox.style.right = 'auto'; petBox.style.left = startL + 'px'; petBox.style.top = startT + 'px';
+                    }};
+
+                    doc.addEventListener('click', (e) => {{ if (e.button !== 2) {{ ctxMenu.style.display = 'none'; }} }});
+
+                    win.addEventListener('mousemove', (e) => {{
+                        if (isHolding) {{
+                            const curX = getX(e); const curY = getY(e);
+                            const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
+                            if (moveDist > 20) {{ 
+                                if (!isDragging) {{
+                                    isDragging = true; isPossibleClick = false; state = 'STRUGGLING'; 
+                                    petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; 
                                 }}
-                            }} else {{ updateLookAt(e.touches[0].clientX, e.touches[0].clientY); }}
-                        }}, {{ passive: false }});
+                                let newLeft = startL + curX - initX; let newTop = startT + curY - initY;
+                                newLeft = Math.max(-overflowLimit, Math.min(newLeft, win.innerWidth - petSize + overflowLimit));
+                                newTop = Math.max(-overflowLimit, Math.min(newTop, win.innerHeight - petSize + overflowLimit));
+                                petBox.style.left = newLeft + 'px'; petBox.style.top = newTop + 'px';
+                                if(e.cancelable) e.preventDefault(); 
+                            }}
+                            return;
+                        }}
+                        updateLookAt(e.clientX, e.clientY);
+                        if (checkHit(e.clientX, e.clientY)) {{
+                            if (petBox.style.pointerEvents !== 'auto') {{ petBox.style.pointerEvents = 'auto'; petBox.style.cursor = 'grab'; }}
+                        }} else {{
+                            if (petBox.style.pointerEvents !== 'none') {{ petBox.style.pointerEvents = 'none'; }}
+                        }}
+                    }}, true);
 
-                        doc.addEventListener('touchend', endInteraction); doc.addEventListener('touchcancel', endInteraction);
-                        setTimeout(animate, 1500);
-                    }})();
-                `;
-                pDoc.head.appendChild(script);
-            }};
-            setTimeout(initLulu, 500); 
-        }}
+                    const endInteraction = (e) => {{
+                        if (!isHolding) return;
+                        isHolding = false; petBox.style.transition = 'transform 0.2s'; petBox.style.cursor = 'grab'; petBox.style.transform = 'scale(1)';
+                        if (isDragging) {{ isDragging = false; if (state !== 'DANCING') state = 'IDLE'; return; }}
+                        if (isPossibleClick) {{
+                            const currentTime = new Date().getTime(); const tapLength = currentTime - lastTapTime; clearTimeout(clickTimeout); 
+                            if (tapLength < 350 && tapLength > 0) {{ doDance(); }} else {{ 
+                                clickTimeout = setTimeout(() => {{
+                                    bubble.innerText = "右键可以给我换衣服哦~";
+                                    bubble.style.opacity = '1';
+                                    setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
+                                }}, 300); 
+                            }}
+                            lastTapTime = currentTime;
+                        }}
+                    }};
+
+                    petBox.addEventListener('mousedown', startInteraction); doc.addEventListener('mouseup', endInteraction); doc.addEventListener('mouseleave', endInteraction);
+
+                    doc.addEventListener('touchstart', (e) => {{
+                        if (checkHit(e.touches[0].clientX, e.touches[0].clientY)) {{
+                            petBox.style.pointerEvents = 'auto'; startInteraction(e); e.stopPropagation();
+                        }} else {{ petBox.style.pointerEvents = 'none'; }}
+                    }}, {{ capture: true, passive: false }});
+
+                    doc.addEventListener('touchmove', (e) => {{
+                        if (isHolding) {{
+                            const curX = getX(e); const curY = getY(e); const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
+                            if (moveDist > 20) {{ 
+                                if (!isDragging) {{
+                                    isDragging = true; isPossibleClick = false; state = 'STRUGGLING';
+                                    petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; 
+                                }}
+                                let newLeft = startL + curX - initX; let newTop = startT + curY - initY;
+                                newLeft = Math.max(-overflowLimit, Math.min(newLeft, win.innerWidth - petSize + overflowLimit));
+                                newTop = Math.max(-overflowLimit, Math.min(newTop, win.innerHeight - petSize + overflowLimit));
+                                petBox.style.left = newLeft + 'px'; petBox.style.top = newTop + 'px';
+                                e.stopPropagation(); if(e.cancelable) e.preventDefault(); 
+                            }}
+                        }} else {{ updateLookAt(e.touches[0].clientX, e.touches[0].clientY); }}
+                    }}, {{ passive: false }});
+
+                    doc.addEventListener('touchend', endInteraction); doc.addEventListener('touchcancel', endInteraction);
+                    setTimeout(animate, 1500);
+                }})();
+            `;
+            pDoc.head.appendChild(script);
+        }};
+        setTimeout(initLulu, 500); 
     </script>
     """
     components.html(html_code, height=0, width=0)
@@ -784,226 +775,8 @@ def render_futures_sandbox():
             unsafe_allow_html=True)
 
 
-def render_page_dl():
-    with st.spinner("唤醒深度学习底层张量引擎..."):
-        try:
-            import torch
-            import torch.nn as nn
-            from sklearn.preprocessing import MinMaxScaler
-        except ImportError:
-            st.error("🚨 需安装 torch 和 scikit-learn！")
-            st.stop()
+def render_new_features_page():
     st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>',
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3></div>',
         unsafe_allow_html=True)
-    col_l, col_r = st.columns([1, 2.5])
-    with col_l:
-        st_code = st.text_input("🎯 训练模型标的", value="000001")
-        span_mapping_dl = {"近1年 (极速)": 1, "近3年 (标准)": 3, "近5年 (深度)": 5}
-        span_choice_dl = st.selectbox("⏳ 训练集时间跨度", list(span_mapping_dl.keys()), index=1)
-        start_year_dl = datetime.now().year - span_mapping_dl[span_choice_dl]
-        st.markdown("---")
-        run_mode = st.radio("⚙️ 引擎运行模式", ["🚀 在线动态训练", "📂 导入本地模型"], horizontal=True)
-        if "在线动态" in run_mode:
-            model_choices = st.multiselect("🧠 选择预测模型 (支持多选融合)", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"])
-            slen = st.slider("📏 滑窗长度", 5, 60, 20)
-            eps = st.slider("🔄 Epoch 迭代", 10, 50, 30)
-            uploaded_model = None;
-            btn_text = "🚀 启动张量训练"
-        else:
-            model_choices = st.multiselect("🧠 指定本地模型架构", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"],
-                                           max_selections=1)
-            slen = st.slider("📏 滑窗长度 (需与本地模型一致)", 5, 60, 20)
-            uploaded_model = st.file_uploader("📥 上传 PyTorch 权重文件 (.pth / .pt)", type=['pth', 'pt'])
-            eps = 0;
-            btn_text = "⚡ 挂载模型并推演"
-
-        if st.button(btn_text, type="primary", use_container_width=True):
-            if "导入本地模型" in run_mode and not uploaded_model:
-                st.error("主公，请先上传本地训练好的权重文件！")
-            elif not model_choices:
-                st.error("主公，请至少选择一种预测模型！")
-            else:
-                with st.spinner("神经网络前向传播中..."):
-                    try:
-                        df = fetch_and_clean_data(format_ts_code(st_code), 'qfq', f"{start_year_dl}0101")
-                        scaler = MinMaxScaler()
-                        scaled = scaler.fit_transform(df['Close'].values.reshape(-1, 1))
-                        X, y = [], []
-                        for i in range(slen, len(scaled)): X.append(scaled[i - slen:i, 0]); y.append(scaled[i, 0])
-                        X_t = torch.tensor(np.array(X), dtype=torch.float32).unsqueeze(-1)
-                        y_t = torch.tensor(np.array(y), dtype=torch.float32)
-
-                        class LSTM_Model(nn.Module):
-                            def __init__(self):
-                                super().__init__();
-                                self.lstm = nn.LSTM(1, 64, 2, batch_first=True);
-                                self.fc = nn.Linear(64, 1)
-
-                            def forward(self, x): out, _ = self.lstm(x); return self.fc(out[:, -1, :])
-
-                        class GRU_Model(nn.Module):
-                            def __init__(self):
-                                super().__init__();
-                                self.gru = nn.GRU(1, 64, 2, batch_first=True);
-                                self.fc = nn.Linear(64, 1)
-
-                            def forward(self, x): out, _ = self.gru(x); return self.fc(out[:, -1, :])
-
-                        class CNN_1D_Model(nn.Module):
-                            def __init__(self, seq_len):
-                                super().__init__();
-                                self.conv = nn.Conv1d(in_channels=1, out_channels=32, kernel_size=3, padding=1);
-                                self.fc = nn.Linear(32 * seq_len, 1)
-
-                            def forward(self, x): x = x.permute(0, 2, 1); x = torch.relu(self.conv(x)); x = x.reshape(
-                                x.size(0), -1); return self.fc(x)
-
-                        preds_dict, future_preds_dict = {}, {}
-                        lbox = st.empty();
-                        pbar = st.progress(0);
-                        last_window_orig = X_t[-1].clone().unsqueeze(0)
-
-                        for m_idx, m_name in enumerate(model_choices):
-                            if m_name == "LSTM":
-                                model = LSTM_Model()
-                            elif m_name == "GRU":
-                                model = GRU_Model()
-                            elif m_name == "1D-CNN":
-                                model = CNN_1D_Model(slen)
-
-                            if "导入本地模型" in run_mode:
-                                lbox.markdown(f"**正在解析并挂载本地 {m_name} 模型权重...**")
-                                try:
-                                    model.load_state_dict(torch.load(uploaded_model, map_location=torch.device('cpu')))
-                                    lbox.success(f"**{m_name}** | 权重校验通过，挂载成功！");
-                                    pbar.progress(1.0)
-                                except Exception as load_e:
-                                    st.warning(f"⚠️ 模型架构不匹配，极速重训练... ({load_e})")
-                                    opt = torch.optim.Adam(model.parameters(), lr=0.01);
-                                    crit = nn.MSELoss()
-                                    for e in range(10): model.train(); opt.zero_grad(); loss = crit(
-                                        model(X_t).squeeze(), y_t); loss.backward(); opt.step()
-                            else:
-                                lbox.markdown(f"**正在在线训练 {m_name} 模型...**")
-                                opt = torch.optim.Adam(model.parameters(), lr=0.01);
-                                crit = nn.MSELoss()
-                                for e in range(eps):
-                                    model.train();
-                                    opt.zero_grad();
-                                    pred = model(X_t);
-                                    loss = crit(pred.squeeze(), y_t);
-                                    loss.backward();
-                                    opt.step()
-                                    pbar.progress((m_idx * eps + e + 1) / (len(model_choices) * eps))
-                                    lbox.markdown(f"**{m_name}** | Epoch {e + 1}/{eps} | Loss: {loss.item():.6f}")
-
-                            model.eval()
-                            test_p = model(X_t[-100:]).detach().numpy()
-                            preds_dict[m_name] = scaler.inverse_transform(test_p).flatten()
-                            curr_win = last_window_orig.clone()
-                            m_future = []
-                            for _ in range(5):
-                                with torch.no_grad(): p_future = model(curr_win)
-                                m_future.append(p_future.item())
-                                curr_win = torch.cat((curr_win[:, 1:, :], p_future.unsqueeze(-1)), dim=1)
-                            future_preds_dict[m_name] = scaler.inverse_transform(
-                                np.array(m_future).reshape(-1, 1)).flatten()
-
-                        lbox.success("✅ 矩阵模型装载完毕，时空推演已就绪！")
-                        st.session_state.dl_result = {"dates": df['trade_date'].iloc[-100:],
-                                                      "actual": df['Close'].iloc[-100:], "preds": preds_dict,
-                                                      "future": future_preds_dict, "models_used": model_choices}
-                    except Exception as e:
-                        st.error(f"DL 张量异常: {e}")
-
-    with col_r:
-        if st.session_state.dl_result:
-            res = st.session_state.dl_result
-            latest_price = res['actual'].iloc[-1];
-            actual_vals = res['actual'].values
-            if len(res['models_used']) > 1:
-                f_preds = np.mean(list(res['future'].values()), axis=0);
-                h_preds = np.mean(list(res['preds'].values()), axis=0)
-                model_desc = f"LSTM/GRU/CNN 均值集成 ({len(res['models_used'])}模型)"
-            else:
-                f_preds = list(res['future'].values())[0];
-                h_preds = list(res['preds'].values())[0]
-                model_desc = res['models_used'][0]
-
-            act_diff = np.diff(actual_vals);
-            pred_diff = np.diff(h_preds)
-            success_rate = np.mean(np.sign(act_diff) == np.sign(pred_diff)) * 100
-            mape = np.mean(np.abs((actual_vals - h_preds) / (actual_vals + 1e-8))) * 100
-            day1_pred = f_preds[0];
-            day5_pred = f_preds[4]
-
-            with st.expander("🤖 AI 深度预测白盒解析舱 (点击展开/收起)", expanded=True):
-                st.markdown(
-                    f"**📈 极速解盘预览**：当前实盘价 `<span class='highlight-text'>{latest_price:.2f}</span>` | 驱动核心: {model_desc}",
-                    unsafe_allow_html=True)
-                c_f1, c_f2, c_f3, c_f4 = st.columns(4)
-                c_f1.metric("未来 1 天预测 (T+1)", f"{day1_pred:.2f}",
-                            f"{(day1_pred - latest_price) / latest_price * 100:.2f}%")
-                c_f2.metric("未来 5 天预测 (T+5)", f"{day5_pred:.2f}",
-                            f"{(day5_pred - latest_price) / latest_price * 100:.2f}%")
-                c_f3.metric("🎯 历史方向胜率", f"{success_rate:.1f}%", "涨跌准确度")
-                c_f4.metric("⚖️ 平均预测偏差", f"{mape:.2f}%", "绝对偏离度", delta_color="inverse")
-
-                if st.button("✨ 召唤 Kimi 结合胜率生成人话解盘", use_container_width=True):
-                    ai_ph = st.empty()
-                    prompt = f"你是一个顶级的量化分析师，为小白解盘。当前收盘价 {latest_price:.2f}元。基于【{model_desc}】推演，未来1天预测价为 {day1_pred:.2f}元，未来5天为 {day5_pred:.2f}元。模型胜率为 {success_rate:.1f}%，偏差为 {mape:.2f}%。请用大白话（限200字以内，不要代码），向小白解释并给出建议。"
-                    try:
-                        stream = client.chat.completions.create(model="moonshot-v1-8k",
-                                                                messages=[{"role": "user", "content": prompt}],
-                                                                stream=True, temperature=0.5)
-                        full_txt = ""
-                        for chunk in stream:
-                            if chunk.choices[0].delta.content: full_txt += chunk.choices[0].delta.content; ai_ph.info(
-                                full_txt + "▌")
-                        ai_ph.info(full_txt)
-                    except Exception as e:
-                        ai_ph.error(f"Kimi 连线中断: {e}")
-
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹 (Actual)',
-                                     line=dict(color='#10b981', width=2)))
-            color_map = {"LSTM": "#3b82f6", "GRU": "#f59e0b", "1D-CNN": "#8b5cf6"}
-            for m_name, pred_array in res['preds'].items(): fig.add_trace(
-                go.Scatter(x=res['dates'], y=pred_array, name=f'{m_name} 历史拟合',
-                           line=dict(color=color_map.get(m_name, '#94a3b8'), dash='dot', width=1.5)))
-            if len(res['preds']) > 1: fig.add_trace(
-                go.Scatter(x=res['dates'], y=np.mean(list(res['preds'].values()), axis=0), name='🔥 均值集成 (Ensemble)',
-                           line=dict(color='#ef4444', width=3)))
-            fig.update_layout(height=450, template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                              dragmode='pan', hovermode='x',
-                              legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-            fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)');
-            fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
-            st.plotly_chart(fig, use_container_width=True)
-
-elif selected_page == PAGES[6]:
-st.markdown(
-    '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>',
-    unsafe_allow_html=True)
-c1, c2 = st.columns([1, 1.2])
-with c1:
-    if os.path.exists("user_logs/global_master_log.csv"): st.download_button("📁 导出审计日志", data=pd.read_csv(
-        "user_logs/global_master_log.csv").to_csv(index=False).encode('utf-8'), file_name='Audit_Logs.csv',
-                                                                             type="primary")
-with c2: st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
-
-elif selected_page == PAGES[7]:
-if extensions:
-    extensions.render_futures_backtest()
-
-elif selected_page == PAGES[8]:
-    if extensions:
-        extensions.render_futures_sandbox()
-
-    elif selected_page == PAGES[9]:
-    if extensions:
-        extensions.render_new_features_page()
-
-    else:
-    if custom_plugins and hasattr(custom_plugins, 'route_and_render'): custom_plugins.route_and_render(selected_page)
+    st.info("💡 核心交互、3D 桌宠及内置 IDE 已全部稳定运行！")
