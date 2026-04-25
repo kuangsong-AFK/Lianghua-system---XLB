@@ -15,13 +15,11 @@ import uuid
 import math
 from PIL import Image
 
-# 🔥 核心防御：不死鸟拦截盾！绝不让扩展包的语法错误导致全盘白屏！ 🔥
-extensions_err = None
+# 🔥 核心微创：安全导入扩展先锋营 🔥
 try:
     import extensions
 except BaseException as e:
     extensions = None
-    extensions_err = f"{type(e).__name__}: {e}"
 
 try:
     import custom_plugins
@@ -99,7 +97,7 @@ curr_idx = PAGES.index(st.session_state.curr_page)
 anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr_idx < prev_idx else "fogFadeIn")
 
 # ==========================================
-# 3. 宗师级 JS 引擎：防抖 + 原生背景光照探测
+# 3. 极速 JS 引擎：抛弃耗性能的 Observer，改为心跳轮询
 # ==========================================
 scroll_script = "window.parent.scrollTo({top: 0, behavior: 'instant'});" if st.session_state.just_switched else ""
 
@@ -107,16 +105,14 @@ if "core_ui_injected" not in st.session_state:
     components.html(f"""
     <script>
         {scroll_script}
-        let isUpdating = false;
-        let debounceTimer = null;
 
-        const runGlobalEngine = () => {{
-            if(isUpdating) return;
-            isUpdating = true;
-            requestAnimationFrame(() => {{
+        // 🔥 彻底废弃 MutationObserver，改用极低功耗的心跳轮询 (每 500ms 检查一次)，释放 CPU！ 🔥
+        if (!window.parent.__UI_HEARTBEAT_LULU) {{
+            window.parent.__UI_HEARTBEAT_LULU = setInterval(() => {{
                 const doc = window.parent.document;
                 const app = doc.querySelector('.stApp');
 
+                // 1. 精准探测主题模式 (读取底色计算亮度)
                 if (app && doc.body) {{
                     const bgColor = window.getComputedStyle(doc.body).backgroundColor;
                     const rgb = bgColor.match(/\\d+/g);
@@ -129,6 +125,7 @@ if "core_ui_injected" not in st.session_state:
                     }}
                 }}
 
+                // 2. 维持聊天框的文件上传按钮
                 const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
                 const fileInput = doc.querySelector('div[data-testid="stFileUploader"] input[type="file"]');
                 if (chatInputOuter && fileInput) {{
@@ -148,19 +145,8 @@ if "core_ui_injected" not in st.session_state:
                         if(textAreaWrap) textAreaWrap.style.setProperty('padding-left', '40px', 'important');
                     }}
                 }}
-                isUpdating = false;
-            }});
-        }};
-
-        const debouncedRun = () => {{
-            if(debounceTimer) clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(runGlobalEngine, 300); 
-        }};
-
-        if(window.parent.__UI_OBSERVER) {{ window.parent.__UI_OBSERVER.disconnect(); }}
-        debouncedRun();
-        window.parent.__UI_OBSERVER = new MutationObserver(debouncedRun);
-        window.parent.__UI_OBSERVER.observe(window.parent.document.body, {{ childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }});
+            }}, 500); // 500毫秒轮询，人眼无法察觉延迟，但彻底解放性能
+        }}
     </script>
     """, height=0, width=0)
     st.session_state.core_ui_injected = True
@@ -168,7 +154,7 @@ if "core_ui_injected" not in st.session_state:
 if extensions: extensions.summon_global_3d_lulu()
 
 # ==========================================
-# 4. 极致静态 CSS (双主题无缝流转)
+# 4. 纯净流光 CSS (彻底解除文字颜色锁定)
 # ==========================================
 if selected_page == PAGES[1]:
     st.markdown(
@@ -188,52 +174,49 @@ st.markdown("""
     @keyframes waveBlurDownIn { 0% { opacity: 0; margin-top: -60px; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); } }
     @keyframes fogFadeIn { 0% { opacity: 0; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; filter: blur(0px); transform: scale(1); } }
 
-    header[data-testid="stHeader"] { position: fixed !important; top: 0px !important; transform: translateY(0px) !important; opacity: 1 !important; visibility: visible !important; background: transparent !important; pointer-events: none !important; }
-    [data-testid="collapsedControl"], [data-testid="stToolbar"] { pointer-events: auto !important; opacity: 1 !important; visibility: visible !important; display: flex !important; transform: none !important;}
+    header[data-testid="stHeader"] { position: fixed !important; top: 0px !important; background: transparent !important; pointer-events: none !important; }
+    [data-testid="collapsedControl"], [data-testid="stToolbar"] { pointer-events: auto !important; display: flex !important; }
     .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
     [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
 
-    /* 🔥 深色主题渐变背景 🔥 */
+    /* 🔥 默认：深色主题渐变背景 🔥 */
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
-    .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
-    .highlight-text { color: #00ffcc !important; }
-    .sub-text { color: #cbd5e1 !important; }
-    .danger-text { color: #ff4b4b !important; }
 
-    [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; min-height: 100vh !important; }
-    [data-testid="stSidebar"] > div:first-child { background: transparent !important; }
-    div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important;}
-    div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
+    /* 🔥 核心修复：删除霸道的文字颜色覆盖，全面继承 Streamlit 的 var(--text-color) 🔥 */
+    h1, h2, h3, h4, p, span, label, [data-testid="stMetricValue"] > div { color: var(--text-color) !important; transition: color 0.3s; }
 
-    .glass-card { background: rgba(20, 28, 45, 0.65) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
-    .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px; overflow: hidden; }
-    .metric-box p { margin: 0 !important; font-size: 0.9rem; color: #cbd5e1; }
+    .highlight-text { color: #3b82f6 !important; font-weight: bold; }
+    .danger-text { color: #ef4444 !important; font-weight: bold; }
+
+    /* 组件玻璃态适配（跟随主题动态调整透明底色） */
+    .glass-card { background: rgba(30, 41, 59, 0.4) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.3); transition: all 0.3s; }
+    .metric-box { background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px; transition: all 0.3s; }
     .metric-box h2 { margin: 8px 0 0 0 !important; font-size: 1.8rem; line-height: 1.2; }
-    [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); margin-bottom: 20px !important; }
+    [data-testid="stExpander"] { background: rgba(30, 41, 59, 0.5) !important; border: 1px solid rgba(255, 255, 255, 0.05) !important; border-radius: 16px !important; backdrop-filter: blur(10px); margin-bottom: 20px !important; transition: all 0.3s; }
 
-    [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
-    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; display: flex !important; align-items: center !important; }
-    [data-testid="stChatInput"] [data-baseweb="textarea"], [data-testid="stChatInput"] [data-baseweb="textarea"] > div { background-color: transparent !important; border: none !important; box-shadow: none !important; outline: none !important; }
-    [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }
+    /* 侧边栏与输入框适配 */
+    [data-testid="stSidebar"] { background: rgba(15, 23, 42, 0.6) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.05) !important; }
+    [data-testid="stSidebar"] > div:first-child { background: transparent !important; }
+    div[role="radiogroup"] > label { background: rgba(30, 41, 59, 0.3) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important; transition: all 0.2s;}
+    div[role="radiogroup"] > label:has(input:checked) { background: rgba(59, 130, 246, 0.15) !important; border-left: 4px solid #3b82f6 !important; }
+    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.5) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; border-radius: 36px !important; }
+    [data-testid="stChatInput"] textarea { color: var(--text-color) !important; font-size: 16px !important; }
     textarea { font-family: 'Consolas', 'Courier New', monospace !important; }
 
-    /* 🔥 浅色主题专属优雅流动渐变（浅紫蓝薄荷渐变） 🔥 */
-    .stApp[data-custom-theme='light'] { background-image: linear-gradient(132deg, #fdfbfb, #e0c3fc, #8ec5fc, #e2ebf0, #fdfbfb) !important; background-size: 400% 400% !important; animation: fluidFlow 12s ease infinite !important; }
-    .stApp[data-custom-theme='light'] .stMarkdown, .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] h4, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div { color: #1e293b !important; }
-    .stApp[data-custom-theme='light'] .highlight-text { color: #0284c7 !important; }
-    .stApp[data-custom-theme='light'] .sub-text { color: #475569 !important; }
-    .stApp[data-custom-theme='light'] .danger-text { color: #dc2626 !important; }
-    .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.6) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.05) !important; }
-    .stApp[data-custom-theme='light'] .metric-box { background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; }
-    .stApp[data-custom-theme='light'] .metric-box p { color: #475569; }
-    .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.7) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }
-    .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.75) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
-    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.6) !important; border-left: 4px solid transparent !important; }
-    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
-    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08) !important; }
-    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea { color: #1e293b !important; }
+    /* ========================================================= */
+    /* 🌞 浅色（白天）模式：一旦探测到 Light 主题，瞬间自动翻转样式！ */
+    /* ========================================================= */
+    .stApp[data-custom-theme='light'] { background-image: linear-gradient(132deg, #fdfbfb, #e0c3fc, #8ec5fc, #e2ebf0, #fdfbfb) !important; animation: fluidFlow 12s ease infinite !important; }
+    .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.6) !important; border: 1px solid rgba(0, 0, 0, 0.05) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.03) !important; }
+    .stApp[data-custom-theme='light'] .metric-box { background: rgba(2, 132, 199, 0.03) !important; border: 1px solid rgba(2, 132, 199, 0.15) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.7) !important; border: 1px solid rgba(0, 0, 0, 0.05) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.6) !important; border-right: 1px solid rgba(0,0,0,0.05) !important; }
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.6) !important; }
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: rgba(59, 130, 246, 0.1) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.7) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; }
 
-    .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; background: rgba(128,128,128,0.1); }
+    /* 辅助节点标签 */
+    .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; background: rgba(128,128,128,0.05); }
     .agent-status-node.success { border-left-color: #10b981; }
     .agent-status-node.error { border-left-color: #ef4444; }
     .agent-status-node.retry { border-left-color: #f59e0b; }
@@ -334,6 +317,7 @@ def render_smart_charts(df):
                         row_heights=[0.5, 0.15] + [0.35 / max(1, len(sub_groups))] * len(sub_groups))
     x_labels = df['trade_date'].dt.strftime('%Y-%m-%d') if df['trade_date'].dt.time.nunique() <= 1 else df[
         'trade_date'].dt.strftime('%m-%d %H:%M')
+
     fig.add_trace(go.Candlestick(x=x_labels, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
                                  increasing_line_color='#ef4444', decreasing_line_color='#10b981', name='K线'), row=1,
                   col=1)
@@ -347,9 +331,9 @@ def render_smart_charts(df):
         sell_x = sells['trade_date'].dt.strftime(
             '%Y-%m-%d' if df['trade_date'].dt.time.nunique() <= 1 else '%m-%d %H:%M')
         fig.add_trace(go.Scatter(x=buy_x, y=buys['Low'] * 0.998, mode='markers',
-                                 marker=dict(symbol='triangle-up', size=14, color='#3b82f6'), name='买'), row=1, col=1)
+                                 marker=dict(symbol='triangle-up', size=14, color='#ef4444'), name='买'), row=1, col=1)
         fig.add_trace(go.Scatter(x=sell_x, y=sells['High'] * 1.002, mode='markers',
-                                 marker=dict(symbol='triangle-down', size=14, color='#f59e0b'), name='卖'), row=1,
+                                 marker=dict(symbol='triangle-down', size=14, color='#10b981'), name='卖'), row=1,
                       col=1)
     fig.add_trace(go.Bar(x=x_labels, y=df.get('Volume', np.zeros(len(df))),
                          marker_color=np.where(df['Close'] >= df['Open'], '#ef4444', '#10b981'), name='成交量'), row=2,
@@ -362,15 +346,17 @@ def render_smart_charts(df):
                     go.Bar(x=x_labels, y=df[col], marker_color=np.where(df[col] >= 0, '#ef4444', '#10b981'), name=col),
                     row=row_idx, col=1)
             else:
-                fig.add_trace(go.Scatter(x=x_labels, y=df[col], line=dict(width=1.2, color=colors[i % 4]), name=col),
+                fig.add_trace(go.Scatter(x=x_labels, y=df[col], line=dict(width=1.5, color=colors[i % 4]), name=col),
                               row=row_idx, col=1)
         row_idx += 1
+
+    # 让图表背景也变为全透明，融入咱们的毛玻璃卡片
     fig.update_layout(height=500 + len(sub_groups) * 150, template="none", paper_bgcolor='rgba(0,0,0,0)',
                       plot_bgcolor='rgba(0,0,0,0)', xaxis_rangeslider_visible=False, dragmode='pan', hovermode='x',
                       showlegend=False, margin=dict(l=10, r=10, t=10, b=10))
     fig.update_xaxes(type='category', categoryorder='array', categoryarray=x_labels, nticks=8, showgrid=True,
-                     gridwidth=1, gridcolor='rgba(128,128,128,0.2)', tickangle=0)
-    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
+                     gridwidth=1, gridcolor='rgba(128,128,128,0.1)', tickangle=0)
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.1)')
     return fig
 
 
@@ -383,13 +369,9 @@ def format_ts_code(raw):
 # ==========================================
 # 6. 各页面业务逻辑
 # ==========================================
-if extensions_err:
-    st.error(
-        f"🚨 **代码加载防御系统启动** 🚨\n\n检测到 `extensions.py` 文件存在致命错误：\n\n`{extensions_err}`\n\n这通常是因为您**复制粘贴时漏掉了开头/结尾的引号或括号**。请重新点击代码块右上角的“Copy”按钮复制 `extensions.py` 并覆盖！")
-
-elif selected_page == PAGES[0]:
+if selected_page == PAGES[0]:
     st.markdown(
-        '<div class="glass-card"><h1 style="margin-bottom:0; color:var(--text-color);">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
+        '<div class="glass-card"><h1 style="margin-bottom:0;">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
         unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
     with c1:
@@ -406,8 +388,8 @@ elif selected_page == PAGES[0]:
     with c_arch:
         st.markdown("""
         <div class="glass-card">
-            <h3 style="color:var(--text-color); margin-bottom: 15px;">🌟 平台简介 (Platform Intro)</h3>
-            <p style="color:var(--text-color); line-height: 1.8; font-size: 1.05rem;">
+            <h3 style="margin-bottom: 15px;">🌟 平台简介 (Platform Intro)</h3>
+            <p style="line-height: 1.8; font-size: 1.05rem;">
                 欢迎来到 <b>小吕布量化 Pro</b>，这是一个专为现代极客打造的智能投研终端。<br><br>
                 在这里，传统手写代码的繁琐已被彻底颠覆。您可以：<br>
                 • <b>📝 全模态投研</b>：一键无缝上传 PDF/Word 研报或 CSV 矩阵，让大模型直接提取精髓。<br>
@@ -419,13 +401,13 @@ elif selected_page == PAGES[0]:
         """, unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ <b>全栈不死鸟崩溃拦截盾</b><br>✅ <b>完美修复动态 CSS 解析</b><br>✅ 代码沙盒防 NoneType 拦截器<br>✅ LLM 空数据拦截网</div>',
+            '<div class="glass-card"><h4>📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ <b>完美适配明暗双主题无缝翻转</b><br>✅ 取消冗余监听器，<b>极致提速</b><br>✅ <b>全栈代码防爆盾</b>护航<br>✅ 静态资源极速加载</div>',
             unsafe_allow_html=True
         )
 
 elif selected_page == PAGES[1]:
     st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0; color:var(--text-color);">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与全域文档解析模块已就绪，体验沉浸式工作流。</p></div>',
+        '<div class="glass-card"><h3 style="margin-bottom:0;">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与全域文档解析模块已就绪，体验沉浸式工作流。</p></div>',
         unsafe_allow_html=True)
 
     ctrl_col1, ctrl_col2 = st.columns([1, 1])
@@ -557,9 +539,8 @@ elif selected_page == PAGES[2]:
     if extensions: extensions.render_ide_page()
 
 elif selected_page == PAGES[3]:
-    st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">📊 历史回测全量审计与归因分析</h3></div>',
-        unsafe_allow_html=True)
+    st.markdown('<div class="glass-card"><h3 style="margin-bottom:0;">📊 历史回测全量审计与归因分析</h3></div>',
+                unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 3])
     with col_l:
         ts_code = format_ts_code(st.text_input("🎯 回测标的代码", value="000001"))
@@ -580,16 +561,16 @@ elif selected_page == PAGES[3]:
             df = st.session_state.bt_result['df']
             c1, c2, c3, c4 = st.columns(4)
             c1.markdown(
-                f'<div class="metric-box"><p>累计收益</p><h2 style="color:#3b82f6;">{m["total"] * 100:.2f}%</h2></div>',
+                f'<div class="metric-box"><p>累计收益</p><h2 class="highlight-text">{m["total"] * 100:.2f}%</h2></div>',
                 unsafe_allow_html=True)
             c2.markdown(
-                f'<div class="metric-box"><p>年化收益</p><h2 style="color:#3b82f6;">{m["annual"] * 100:.2f}%</h2></div>',
+                f'<div class="metric-box"><p>年化收益</p><h2 class="highlight-text">{m["annual"] * 100:.2f}%</h2></div>',
                 unsafe_allow_html=True)
             c3.markdown(
-                f'<div class="metric-box"><p>最大回撤</p><h2 style="color:#ef4444;">{m["max_dd"] * 100:.2f}%</h2></div>',
+                f'<div class="metric-box"><p>最大回撤</p><h2 class="danger-text">{m["max_dd"] * 100:.2f}%</h2></div>',
                 unsafe_allow_html=True)
             c4.markdown(
-                f'<div class="metric-box"><p>夏普比率</p><h2 style="color:#3b82f6;">{m["sharpe"]:.2f}</h2></div>',
+                f'<div class="metric-box"><p>夏普比率</p><h2 class="highlight-text">{m["sharpe"]:.2f}</h2></div>',
                 unsafe_allow_html=True)
             st.markdown("<div style='clear: both; margin-bottom: 30px;'></div>", unsafe_allow_html=True)
             if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
@@ -598,9 +579,8 @@ elif selected_page == PAGES[3]:
             st.plotly_chart(render_smart_charts(df), use_container_width=True, config={'scrollZoom': True})
 
 elif selected_page == PAGES[4]:
-    st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
-        unsafe_allow_html=True)
+    st.markdown('<div class="glass-card"><h3 style="margin-bottom:0;">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
+                unsafe_allow_html=True)
     c_ctrl, c_chart = st.columns([1, 2.5])
     with c_ctrl:
         live_code = st.text_input("🎯 动态推送标的", value="000001")
@@ -648,7 +628,7 @@ elif selected_page == PAGES[5]:
             st.error("🚨 需安装 torch 和 scikit-learn！")
             st.stop()
     st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>',
+        '<div class="glass-card"><h3 style="margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>',
         unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 2.5])
     with col_l:
@@ -841,9 +821,8 @@ elif selected_page == PAGES[5]:
             st.plotly_chart(fig, use_container_width=True)
 
 elif selected_page == PAGES[6]:
-    st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>',
-        unsafe_allow_html=True)
+    st.markdown('<div class="glass-card"><h3 style="margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>',
+                unsafe_allow_html=True)
     c1, c2 = st.columns([1, 1.2])
     with c1:
         if os.path.exists("user_logs/global_master_log.csv"): st.download_button("📁 导出审计日志", data=pd.read_csv(
