@@ -33,7 +33,7 @@ SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 
 
 def summon_global_3d_lulu():
-    """纯净国内阿里云 NPM 镜像 + 动态时间戳破甲强制渲染 + 绝对凝视"""
+    """全地形无敌装甲版：纯净国内 jsdelivr CDN + 强制缓存刺穿 + 绝对凝视"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     PET_ROSTER = {
@@ -62,7 +62,6 @@ def summon_global_3d_lulu():
         return
 
     pets_json_str = json.dumps(pet_b64)
-    # 🔥 核心：动态时间戳作为 JS 变量的一部分，强行击碎 Streamlit 组件死缓存！ 🔥
     run_id = str(time.time()).replace(".", "")
 
     html_code = f"""
@@ -85,10 +84,9 @@ def summon_global_3d_lulu():
 
         const initLulu = async () => {{
             if (!pWin.THREE || !pWin.THREE.DRACOLoader) {{
-                // 🔥 绝杀修复：直接换用国内阿里淘宝 NPM 的官方镜像，速度直接拉满，绝无卡死可能！ 🔥
-                await loadScript("https://registry.npmmirror.com/three/0.128.0/files/build/three.min.js");
-                await loadScript("https://registry.npmmirror.com/three/0.128.0/files/examples/js/loaders/GLTFLoader.js");
-                await loadScript("https://registry.npmmirror.com/three/0.128.0/files/examples/js/loaders/DRACOLoader.js");
+                await loadScript("https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js");
+                await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js");
+                await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js");
             }}
 
             const script = pDoc.createElement('script');
@@ -99,7 +97,6 @@ def summon_global_3d_lulu():
                     const win = window;
                     const petData = window.__PETS_JSON_DATA__; 
 
-                    // 砸碎旧元素，防止重复挂载导致满屏分身
                     const oldPet = doc.getElementById('lulu-global-pet');
                     if(oldPet) oldPet.remove();
                     const oldMenu = doc.getElementById('lulu-ctx-menu');
@@ -181,10 +178,9 @@ def summon_global_3d_lulu():
                     let mixer = null;
                     let clickableMeshes = [];
 
-                    // 配合使用国内淘宝 NPM 的解码资源路径
                     const loader = new THREE.GLTFLoader();
                     const dracoLoader = new THREE.DRACOLoader();
-                    dracoLoader.setDecoderPath('https://registry.npmmirror.com/three/0.128.0/files/examples/js/libs/draco/gltf/');
+                    dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/draco/gltf/');
                     loader.setDRACOLoader(dracoLoader);
 
                     const switchModel = (b64String, name) => {{
@@ -395,10 +391,6 @@ def summon_global_3d_lulu():
     components.html(html_code, height=0, width=0)
 
 
-# =======================================================
-# 保留 IDE, 回测, 沙盘等功能
-# =======================================================
-
 def safe_exec_fut_strategy(code, df):
     if not code: return df
     try:
@@ -445,7 +437,8 @@ def render_fut_charts(df):
         go.Scatter(x=x_labels, y=df[col], name=col, line=dict(width=1.2, color=colors[i % 4])), row=1, col=1)
 
     if 'Signal' in df.columns:
-        buys, sells = df[df['Signal'] == 1], df[df['Signal'] == -1]
+        buys = df[df['Signal'] == 1]
+        sells = df[df['Signal'] == -1]
         buy_x = buys['trade_date'].dt.strftime('%Y-%m-%d') if df['trade_date'].dt.time.nunique() <= 1 else buys[
             'trade_date'].dt.strftime('%m-%d %H:%M')
         sell_x = sells['trade_date'].dt.strftime('%Y-%m-%d') if df['trade_date'].dt.time.nunique() <= 1 else sells[
@@ -984,28 +977,9 @@ def render_page_dl():
             fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
             st.plotly_chart(fig, use_container_width=True)
 
-elif selected_page == PAGES[6]:
-st.markdown(
-    '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>',
-    unsafe_allow_html=True)
-c1, c2 = st.columns([1, 1.2])
-with c1:
-    if os.path.exists("user_logs/global_master_log.csv"): st.download_button("📁 导出审计日志", data=pd.read_csv(
-        "user_logs/global_master_log.csv").to_csv(index=False).encode('utf-8'), file_name='Audit_Logs.csv',
-                                                                             type="primary")
-with c2: st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
 
-elif selected_page == PAGES[7]:
-if extensions:
-    extensions.render_futures_backtest()
-
-elif selected_page == PAGES[8]:
-    if extensions:
-        extensions.render_futures_sandbox()
-
-    elif selected_page == PAGES[9]:
-    if extensions:
-        extensions.render_new_features_page()
-
-    else:
-    if custom_plugins and hasattr(custom_plugins, 'route_and_render'): custom_plugins.route_and_render(selected_page)
+def render_new_features_page():
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3></div>',
+        unsafe_allow_html=True)
+    st.info("💡 核心交互、3D 桌宠及内置 IDE 已全部稳定运行！")

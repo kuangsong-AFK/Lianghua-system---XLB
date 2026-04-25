@@ -15,15 +15,17 @@ import uuid
 import math
 from PIL import Image
 
-# 🔥 核心微创：仅保留安全导入，去除冗余，防止环境重影 🔥
+# 🔥 核心防御：不死鸟拦截盾！绝不让扩展包的语法错误导致全盘白屏！ 🔥
+extensions_err = None
 try:
     import extensions
-except ImportError:
+except BaseException as e:
     extensions = None
+    extensions_err = f"{type(e).__name__}: {e}"
 
 try:
     import custom_plugins
-except ImportError:
+except BaseException:
     custom_plugins = None
 
 # ==========================================
@@ -191,7 +193,7 @@ st.markdown("""
     .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
     [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
 
-    /* 🔥 默认：深色主题渐变背景 🔥 */
+    /* 🔥 深色主题渐变背景 🔥 */
     .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
     .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
     .highlight-text { color: #00ffcc !important; }
@@ -300,13 +302,11 @@ def run_backtest_metrics(df_source, strategy_code):
     return {"df": df, "metrics": {"total": total_ret, "annual": annual, "max_dd": max_dd, "sharpe": sharpe}}
 
 
-# 🔥 核心优化：放开执行沙盒的模块限制，赋予 AI 更高智商 🔥
 def execute_safely(code, df):
     if not code: return df
     try:
         safe_code = str(code).replace("pandas.np", "np")
         l_vars = {}
-        # 允许 AI 调用更多基础工具包，但依然拦截破坏性库
         exec(safe_code, {"pd": pd, "np": np, "math": math, "datetime": datetime, "time": time}, l_vars)
         func_to_call = next((v for k, v in l_vars.items() if callable(v)), None)
         if not func_to_call: return df
@@ -383,7 +383,11 @@ def format_ts_code(raw):
 # ==========================================
 # 6. 各页面业务逻辑
 # ==========================================
-if selected_page == PAGES[0]:
+if extensions_err:
+    st.error(
+        f"🚨 **代码加载防御系统启动** 🚨\n\n检测到 `extensions.py` 文件存在致命错误：\n\n`{extensions_err}`\n\n这通常是因为您**复制粘贴时漏掉了开头/结尾的引号或括号**。请重新点击代码块右上角的“Copy”按钮复制 `extensions.py` 并覆盖！")
+
+elif selected_page == PAGES[0]:
     st.markdown(
         '<div class="glass-card"><h1 style="margin-bottom:0; color:var(--text-color);">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
         unsafe_allow_html=True)
@@ -415,7 +419,7 @@ if selected_page == PAGES[0]:
         """, unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ <b>完美修复动态 CSS 解析崩溃</b><br>✅ 前端引擎防抖极速化<br>✅ <b>代码沙盒防 NoneType 拦截器</b><br>✅ LLM 空数据拦截网</div>',
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ <b>全栈不死鸟崩溃拦截盾</b><br>✅ <b>完美修复动态 CSS 解析</b><br>✅ 代码沙盒防 NoneType 拦截器<br>✅ LLM 空数据拦截网</div>',
             unsafe_allow_html=True
         )
 
