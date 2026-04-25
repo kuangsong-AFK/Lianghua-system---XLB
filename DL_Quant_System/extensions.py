@@ -36,14 +36,14 @@ def summon_global_3d_lulu():
     """终极异步降维版：彻底告别 Base64！使用 HTTP 静态文件异步传输，绝不卡死主线程"""
 
     # ====================================================================
-    # 🔥 主公注意：现在这里填的是相对 URL 路径！
-    # 这些模型文件必须存放在 DL_Quant_System/static/ 文件夹下！ 🔥
+    # 🔥 绝对路径映射：前面加上 /，确保浏览器直接从服务器根节点抓取！
+    # 请确保文件实际存放在：DL_Quant_System/static/ 文件夹下！ 🔥
     # ====================================================================
     PET_ROSTER = {
-        "🍊 水豚噜噜": "app/static/lulu.glb",
-        "🐧 高雅企鹅": "app/static/penguin.glb",
-        "🐱 hello Kitty": "app/static/kitty.glb",
-        "🐷 猪猪侠": "app/static/pig.glb"
+        "🍊 水豚噜噜": "/app/static/lulu.glb",
+        "🐧 高雅企鹅": "/app/static/penguin.glb",
+        "🐱 hello Kitty": "/app/static/kitty.glb",
+        "🐷 猪猪侠": "/app/static/pig.glb"
     }
 
     # 将短短几十字的字典打包传给前端，再也没有几十兆的垃圾字符串！
@@ -943,6 +943,216 @@ def render_futures_sandbox():
             <p>高频推演</p><h2 style="color: #00ffcc;">等待引擎唤醒...</h2>
         </div>
         """, unsafe_allow_html=True)
+
+
+def render_page_dl():
+    with st.spinner("唤醒深度学习底层张量引擎..."):
+        try:
+            import torch
+            import torch.nn as nn
+            from sklearn.preprocessing import MinMaxScaler
+        except ImportError:
+            st.error("🚨 需安装 torch 和 scikit-learn！")
+            st.stop()
+
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>',
+        unsafe_allow_html=True)
+    col_l, col_r = st.columns([1, 2.5])
+    with col_l:
+        st_code = st.text_input("🎯 训练模型标的", value="000001")
+        span_mapping_dl = {"近1年 (极速)": 1, "近3年 (标准)": 3, "近5年 (深度)": 5}
+        span_choice_dl = st.selectbox("⏳ 训练集时间跨度", list(span_mapping_dl.keys()), index=1)
+        start_year_dl = datetime.now().year - span_mapping_dl[span_choice_dl]
+
+        st.markdown("---")
+        run_mode = st.radio("⚙️ 引擎运行模式", ["🚀 在线动态训练", "📂 导入本地模型"], horizontal=True)
+
+        if "在线动态" in run_mode:
+            model_choices = st.multiselect("🧠 选择预测模型 (支持多选融合)", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"])
+            slen = st.slider("📏 滑窗长度", 5, 60, 20)
+            eps = st.slider("🔄 Epoch 迭代", 10, 50, 30)
+            uploaded_model = None
+            btn_text = "🚀 启动张量训练"
+        else:
+            model_choices = st.multiselect("🧠 指定本地模型架构", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"],
+                                           max_selections=1)
+            slen = st.slider("📏 滑窗长度 (需与本地模型一致)", 5, 60, 20)
+            uploaded_model = st.file_uploader("📥 上传 PyTorch 权重文件 (.pth / .pt)", type=['pth', 'pt'])
+            eps = 0
+            btn_text = "⚡ 挂载模型并推演"
+
+        if st.button(btn_text, type="primary", use_container_width=True):
+            if "导入本地模型" in run_mode and not uploaded_model:
+                st.error("主公，请先上传本地训练好的权重文件！")
+            elif not model_choices:
+                st.error("主公，请至少选择一种预测模型！")
+            else:
+                with st.spinner("神经网络前向传播中..."):
+                    try:
+                        df = fetch_and_clean_data(format_ts_code(st_code), 'qfq', f"{start_year_dl}0101")
+                        scaler = MinMaxScaler()
+                        scaled = scaler.fit_transform(df['Close'].values.reshape(-1, 1))
+                        X, y = [], []
+                        for i in range(slen, len(scaled)):
+                            X.append(scaled[i - slen:i, 0])
+                            y.append(scaled[i, 0])
+                        X_t = torch.tensor(np.array(X), dtype=torch.float32).unsqueeze(-1)
+                        y_t = torch.tensor(np.array(y), dtype=torch.float32)
+
+                        class LSTM_Model(nn.Module):
+                            def __init__(self):
+                                super().__init__()
+                                self.lstm = nn.LSTM(1, 64, 2, batch_first=True)
+                                self.fc = nn.Linear(64, 1)
+
+                            def forward(self, x):
+                                out, _ = self.lstm(x)
+                                return self.fc(out[:, -1, :])
+
+                        class GRU_Model(nn.Module):
+                            def __init__(self):
+                                super().__init__()
+                                self.gru = nn.GRU(1, 64, 2, batch_first=True)
+                                self.fc = nn.Linear(64, 1)
+
+                            def forward(self, x):
+                                out, _ = self.gru(x)
+                                return self.fc(out[:, -1, :])
+
+                        class CNN_1D_Model(nn.Module):
+                            def __init__(self, seq_len):
+                                super().__init__()
+                                self.conv = nn.Conv1d(in_channels=1, out_channels=32, kernel_size=3, padding=1)
+                                self.fc = nn.Linear(32 * seq_len, 1)
+
+                            def forward(self, x):
+                                x = x.permute(0, 2, 1)
+                                x = torch.relu(self.conv(x))
+                                x = x.reshape(x.size(0), -1)
+                                return self.fc(x)
+
+                        preds_dict = {}
+                        future_preds_dict = {}
+                        lbox = st.empty()
+                        pbar = st.progress(0)
+                        last_window_orig = X_t[-1].clone().unsqueeze(0)
+
+                        for m_idx, m_name in enumerate(model_choices):
+                            if m_name == "LSTM":
+                                model = LSTM_Model()
+                            elif m_name == "GRU":
+                                model = GRU_Model()
+                            elif m_name == "1D-CNN":
+                                model = CNN_1D_Model(slen)
+
+                            if "导入本地模型" in run_mode:
+                                lbox.markdown(f"**正在解析并挂载本地 {m_name} 模型权重...**")
+                                try:
+                                    model.load_state_dict(torch.load(uploaded_model, map_location=torch.device('cpu')))
+                                    lbox.success(f"**{m_name}** | 权重校验通过，挂载成功！")
+                                    pbar.progress(1.0)
+                                except Exception as load_e:
+                                    st.warning(f"⚠️ 模型架构不匹配，已切入容灾模式进行极速重训练... ({load_e})")
+                                    opt = torch.optim.Adam(model.parameters(), lr=0.01)
+                                    crit = nn.MSELoss()
+                                    for e in range(10):
+                                        model.train()
+                                        opt.zero_grad()
+                                        loss = crit(model(X_t).squeeze(), y_t)
+                                        loss.backward()
+                                        opt.step()
+                            else:
+                                lbox.markdown(f"**正在在线训练 {m_name} 模型...**")
+                                opt = torch.optim.Adam(model.parameters(), lr=0.01)
+                                crit = nn.MSELoss()
+                                for e in range(eps):
+                                    model.train()
+                                    opt.zero_grad()
+                                    pred = model(X_t)
+                                    loss = crit(pred.squeeze(), y_t)
+                                    loss.backward()
+                                    opt.step()
+                                    pbar.progress((m_idx * eps + e + 1) / (len(model_choices) * eps))
+                                    lbox.markdown(f"**{m_name}** | Epoch {e + 1}/{eps} | Loss: {loss.item():.6f}")
+
+                            model.eval()
+                            test_p = model(X_t[-100:]).detach().numpy()
+                            preds_dict[m_name] = scaler.inverse_transform(test_p).flatten()
+                            curr_win = last_window_orig.clone()
+                            m_future = []
+                            for _ in range(5):
+                                with torch.no_grad():
+                                    p_future = model(curr_win)
+                                m_future.append(p_future.item())
+                                curr_win = torch.cat((curr_win[:, 1:, :], p_future.unsqueeze(-1)), dim=1)
+                            future_preds_dict[m_name] = scaler.inverse_transform(
+                                np.array(m_future).reshape(-1, 1)).flatten()
+
+                        lbox.success("✅ 矩阵模型装载完毕，时空推演已就绪！")
+                        st.session_state.dl_result = {
+                            "dates": df['trade_date'].iloc[-100:], "actual": df['Close'].iloc[-100:],
+                            "preds": preds_dict, "future": future_preds_dict, "models_used": model_choices
+                        }
+                    except Exception as e:
+                        st.error(f"DL 张量异常: {e}")
+
+    with col_r:
+        if st.session_state.dl_result:
+            res = st.session_state.dl_result
+            latest_price = res['actual'].iloc[-1]
+            actual_vals = res['actual'].values
+
+            if len(res['models_used']) > 1:
+                f_preds = np.mean(list(res['future'].values()), axis=0)
+                h_preds = np.mean(list(res['preds'].values()), axis=0)
+                model_desc = f"LSTM/GRU/CNN 均值集成 ({len(res['models_used'])}模型)"
+            else:
+                f_preds = list(res['future'].values())[0]
+                h_preds = list(res['preds'].values())[0]
+                model_desc = res['models_used'][0]
+
+            act_diff = np.diff(actual_vals)
+            pred_diff = np.diff(h_preds)
+            success_rate = np.mean(np.sign(act_diff) == np.sign(pred_diff)) * 100
+            mape = np.mean(np.abs((actual_vals - h_preds) / (actual_vals + 1e-8))) * 100
+
+            day1_pred = f_preds[0]
+            day5_pred = f_preds[4]
+
+            with st.expander("🤖 AI 深度预测白盒解析舱 (点击展开/收起)", expanded=True):
+                st.markdown(
+                    f"**📈 极速解盘预览**：当前实盘价 `<span class='highlight-text'>{latest_price:.2f}</span>` | 驱动核心: {model_desc}",
+                    unsafe_allow_html=True)
+                c_f1, c_f2, c_f3, c_f4 = st.columns(4)
+                c_f1.metric("未来 1 天预测 (T+1)", f"{day1_pred:.2f}",
+                            f"{(day1_pred - latest_price) / latest_price * 100:.2f}%")
+                c_f2.metric("未来 5 天预测 (T+5)", f"{day5_pred:.2f}",
+                            f"{(day5_pred - latest_price) / latest_price * 100:.2f}%")
+                c_f3.metric("🎯 历史方向胜率", f"{success_rate:.1f}%", "涨跌准确度")
+                c_f4.metric("⚖️ 平均预测偏差", f"{mape:.2f}%", "绝对偏离度", delta_color="inverse")
+
+            import plotly.graph_objects as go
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹 (Actual)',
+                                     line=dict(color='#00ffcc', width=2)))
+            color_map = {"LSTM": "#ff00ff", "GRU": "#ffff00", "1D-CNN": "#00bfff"}
+
+            for m_name, pred_array in res['preds'].items():
+                fig.add_trace(go.Scatter(x=res['dates'], y=pred_array, name=f'{m_name} 历史拟合',
+                                         line=dict(color=color_map.get(m_name, '#ffffff'), dash='dot', width=1)))
+
+            if len(res['preds']) > 1:
+                ensemble_pred = np.mean(list(res['preds'].values()), axis=0)
+                fig.add_trace(go.Scatter(x=res['dates'], y=ensemble_pred, name='🔥 均值集成 (Ensemble)',
+                                         line=dict(color='#ff4b4b', width=3)))
+
+            fig.update_layout(height=450, template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                              dragmode='pan', hovermode='x',
+                              legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+            fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
+            fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
+            st.plotly_chart(fig, use_container_width=True)
 
 
 def render_new_features_page():
