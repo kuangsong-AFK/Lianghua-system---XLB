@@ -107,7 +107,6 @@ PAGES = [
     "🧩 扩展插件中心"
 ]
 
-# 🔥 预留接口 2：自动读取新文件里的页面，追加到导航栏 🔥
 if custom_plugins and hasattr(custom_plugins, 'EXTRA_PAGES'):
     PAGES.extend(custom_plugins.EXTRA_PAGES)
 
@@ -140,77 +139,82 @@ anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr
 # ==========================================
 scroll_script = "window.parent.scrollTo({top: 0, behavior: 'instant'});" if st.session_state.just_switched else ""
 
-# 🔥 提速核武 1：内存锁拦截重复注入 + 加入防抖逻辑，解放 CPU 🔥
-if "core_ui_injected" not in st.session_state:
-    components.html(f"""
-    <script>
-        {scroll_script}
-        let isUpdating = false;
-        let debounceTimer = null;
+# 🔥 修复：彻底砸碎内存锁，并加入前端对象安全清理机制 🔥
+components.html(f"""
+<script>
+    {scroll_script}
+    let isUpdating = false;
+    let debounceTimer = null;
 
-        const runGlobalEngine = () => {{
-            if(isUpdating) return;
-            isUpdating = true;
+    const runGlobalEngine = () => {{
+        if(isUpdating) return;
+        isUpdating = true;
 
-            requestAnimationFrame(() => {{
-                const doc = window.parent.document;
-                const app = doc.querySelector('.stApp');
-                if (app) {{
-                    const color = window.getComputedStyle(app).color;
-                    const rgb = color.match(/\\d+/g);
-                    if (rgb && rgb.length >= 3) {{
-                        const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
-                        const themeAttr = brightness < 128 ? 'light' : 'dark';
-                        if (app.getAttribute('data-custom-theme') !== themeAttr) app.setAttribute('data-custom-theme', themeAttr);
-                    }}
+        requestAnimationFrame(() => {{
+            const doc = window.parent.document;
+            const app = doc.querySelector('.stApp');
+            if (app) {{
+                const color = window.getComputedStyle(app).color;
+                const rgb = color.match(/\\d+/g);
+                if (rgb && rgb.length >= 3) {{
+                    const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
+                    const themeAttr = brightness < 128 ? 'light' : 'dark';
+                    if (app.getAttribute('data-custom-theme') !== themeAttr) app.setAttribute('data-custom-theme', themeAttr);
                 }}
+            }}
 
-                const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
-                const fileInput = doc.querySelector('div[data-testid="stFileUploader"] input[type="file"]');
+            const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
+            const fileInput = doc.querySelector('div[data-testid="stFileUploader"] input[type="file"]');
 
-                if (chatInputOuter && fileInput) {{
-                    const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.firstElementChild; 
+            if (chatInputOuter && fileInput) {{
+                const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.firstElementChild; 
 
-                    if (innerPill && !doc.getElementById('fake-attach-btn')) {{
-                        innerPill.style.setProperty('position', 'relative', 'important');
-                        const fakeBtn = doc.createElement('div');
-                        fakeBtn.id = 'fake-attach-btn';
-                        fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
-                        fakeBtn.style.cssText = 'position: absolute !important; left: 16px !important; top: 50% !important; transform: translateY(-50%) !important; z-index: 9999 !important; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;';
-                        fakeBtn.onclick = () => fileInput.click();
-                        fakeBtn.onmouseover = () => {{ fakeBtn.style.opacity = '0.6'; }};
-                        fakeBtn.onmouseout = () => {{ fakeBtn.style.opacity = '1'; }};
-                        innerPill.appendChild(fakeBtn);
+                if (innerPill && !doc.getElementById('fake-attach-btn')) {{
+                    innerPill.style.setProperty('position', 'relative', 'important');
+                    const fakeBtn = doc.createElement('div');
+                    fakeBtn.id = 'fake-attach-btn';
+                    fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
+                    fakeBtn.style.cssText = 'position: absolute !important; left: 16px !important; top: 50% !important; transform: translateY(-50%) !important; z-index: 9999 !important; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;';
+                    fakeBtn.onclick = () => fileInput.click();
+                    fakeBtn.onmouseover = () => {{ fakeBtn.style.opacity = '0.6'; }};
+                    fakeBtn.onmouseout = () => {{ fakeBtn.style.opacity = '1'; }};
+                    innerPill.appendChild(fakeBtn);
 
-                        const textAreaWrap = innerPill.querySelector('[data-baseweb="textarea"]');
-                        if(textAreaWrap) textAreaWrap.style.setProperty('padding-left', '40px', 'important');
-                    }}
+                    const textAreaWrap = innerPill.querySelector('[data-baseweb="textarea"]');
+                    if(textAreaWrap) textAreaWrap.style.setProperty('padding-left', '40px', 'important');
                 }}
-                isUpdating = false;
-            }});
-        }};
+            }}
+            isUpdating = false;
+        }});
+    }};
 
-        // 🔥 防抖机制：限制 UI 频繁刷新 🔥
-        const debouncedRun = () => {{
-            if(debounceTimer) clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(runGlobalEngine, 300); 
-        }};
+    const debouncedRun = () => {{
+        if(debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(runGlobalEngine, 300); 
+    }};
 
-        debouncedRun();
-        const observer = new MutationObserver(debouncedRun);
-        observer.observe(window.parent.document.body, {{ childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }});
-    </script>
-    """, height=0, width=0)
-    st.session_state.core_ui_injected = True
+    if(window.parent.__UI_OBSERVER) {{
+        window.parent.__UI_OBSERVER.disconnect();
+    }}
 
-# 🔥 提速核武 2：3D 噜噜仅加载一次 🔥
-if extensions and "lulu_injected" not in st.session_state:
+    debouncedRun();
+    window.parent.__UI_OBSERVER = new MutationObserver(debouncedRun);
+    window.parent.__UI_OBSERVER.observe(window.parent.document.body, {{ childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }});
+</script>
+""", height=0, width=0)
+
+# 🔥 修复：彻底砸碎内存锁！保证桌宠在任意页面都保持存活 🔥
+if extensions:
     extensions.summon_global_3d_lulu()
-    st.session_state.lulu_injected = True
 
 # ==========================================
 # 4. 极致静态 CSS + 动态动画
 # ==========================================
+if selected_page == PAGES[1]:
+    st.markdown(
+        '<style>div[data-testid="stFileUploader"] { position: absolute !important; top: -9999px !important; opacity: 0 !important; z-index: -9999 !important; pointer-events: none !important; }</style>',
+        unsafe_allow_html=True)
+
 st.markdown("""
 <style>
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
@@ -388,10 +392,9 @@ def render_smart_charts(df):
         x_labels = df['trade_date'].dt.strftime('%m-%d %H:%M')
 
     fig.add_trace(
-        go.Candlestick(
-            x=x_labels, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
-            increasing_line_color='#FD1050', decreasing_line_color='#00FF00', name='K线'
-        ), row=1, col=1
+        go.Candlestick(x=x_labels, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
+                       increasing_line_color='#FD1050', decreasing_line_color='#00FF00', name='K线'),
+        row=1, col=1
     )
 
     colors = ['#FFFF00', '#FF00FF', '#00FFFF', '#FFFFFF']
@@ -439,15 +442,14 @@ def render_smart_charts(df):
         margin=dict(l=10, r=10, t=10, b=10)
     )
     fig.update_xaxes(type='category', categoryorder='array', categoryarray=x_labels, nticks=8, showgrid=True,
-                     gridcolor='rgba(128,128,128,0.2)', tickangle=0)
-    fig.update_yaxes(showgrid=True, gridcolor='rgba(128,128,128,0.2)')
+                     gridwidth=1, gridcolor='rgba(128,128,128,0.2)', tickangle=0)
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
     return fig
 
 
 def format_ts_code(raw):
     raw = str(raw).strip().upper()
-    if len(raw) == 6 and raw.isdigit():
-        return f"{raw}.SH" if raw.startswith(('6', '9')) else f"{raw}.SZ"
+    if len(raw) == 6 and raw.isdigit(): return f"{raw}.SH" if raw.startswith(('6', '9')) else f"{raw}.SZ"
     return raw
 
 
@@ -457,9 +459,7 @@ def format_ts_code(raw):
 if selected_page == PAGES[0]:
     st.markdown(
         '<div class="glass-card"><h1 style="margin-bottom:0; color:var(--text-color);">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
-        unsafe_allow_html=True
-    )
-
+        unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         st.metric("活跃并发沙盒 (UUID)", st.session_state.user_id)
@@ -471,7 +471,6 @@ if selected_page == PAGES[0]:
         st.metric("AI 神经网络", "🟢 融合学习待命")
 
     st.markdown("---")
-
     c_arch, c_point = st.columns([2, 1])
     with c_arch:
         st.markdown("""
@@ -489,20 +488,13 @@ if selected_page == PAGES[0]:
         """, unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心技术升级：**<br>✅ 异步 URL 静态流加载<br>✅ 网页监听防抖动优化<br>✅ 局部 Fragment 零闪烁技术</div>',
-            unsafe_allow_html=True
-        )
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心技术升级：**<br>✅ DRACO 压缩解码器挂载<br>✅ 网页监听防抖动优化<br>✅ 局部 Fragment 零闪烁技术</div>',
+            unsafe_allow_html=True)
 
 elif selected_page == PAGES[1]:
-    # 🔥 修复：仅在 AI 战情室页面隐藏上传框，绝不误伤深度学习页面 🔥
-    st.markdown(
-        '<style>div[data-testid="stFileUploader"] { position: absolute !important; top: -9999px !important; opacity: 0 !important; z-index: -9999 !important; pointer-events: none !important; }</style>',
-        unsafe_allow_html=True)
-
     st.markdown(
         '<div class="glass-card"><h3 style="margin-bottom:0; color:var(--text-color);">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与全域文档解析模块已就绪，体验沉浸式工作流。</p></div>',
-        unsafe_allow_html=True
-    )
+        unsafe_allow_html=True)
 
     ctrl_col1, ctrl_col2 = st.columns([1, 1])
     with ctrl_col1:
@@ -515,13 +507,11 @@ elif selected_page == PAGES[1]:
     chat_container = st.container()
     with chat_container:
         for m in st.session_state.messages:
-            with st.chat_message(m["role"]):
-                st.markdown(m["content"], unsafe_allow_html=True)
+            with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
 
-    uploaded_files = st.file_uploader(
-        "选择文件", accept_multiple_files=True, type=['pdf', 'doc', 'docx', 'csv', 'txt', 'png', 'jpg', 'jpeg'],
-        label_visibility="collapsed"
-    )
+    uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
+                                      type=['pdf', 'doc', 'docx', 'csv', 'txt', 'png', 'jpg', 'jpeg'],
+                                      label_visibility="collapsed")
 
     file_context_text = ""
     if 'uploaded_files' in locals() and uploaded_files:
@@ -550,8 +540,6 @@ elif selected_page == PAGES[1]:
                             file_context_text += f"【PDF 核心片段 {file.name}】:\n{text[:5000]}\n"
                         except Exception as e:
                             st.error(f"PDF 读取异常: {e}")
-                    else:
-                        st.info(f"💡 提示：检测到 PDF 文件，请在 requirements.txt 中添加 PyPDF2。")
                 elif fname_lower.endswith(('.doc', '.docx')):
                     if docx:
                         try:
@@ -561,8 +549,6 @@ elif selected_page == PAGES[1]:
                             file_context_text += f"【Word 核心片段 {file.name}】:\n{text[:5000]}\n"
                         except Exception as e:
                             st.error(f"Word 读取异常: {e}")
-                    else:
-                        st.info(f"💡 提示：检测到 Word 文件，请在 requirements.txt 中添加 python-docx。")
 
     if raw_prompt := st.chat_input("向小吕布量化架构师发送军令..."):
         full_prompt_for_ai = f"以下是您需要重点参考的附件原始数据：\n{file_context_text}\n\n我的指令：{raw_prompt}" if file_context_text else raw_prompt
@@ -585,9 +571,6 @@ elif selected_page == PAGES[1]:
                 5. **代码骨架**：
                 {ticks}python
                 def generate_signals(df):
-                    # 1. 这里手写 pandas 计算各类指标，并赋给 MAIN_ 或 SUB_ 开头的列
-                    # 2. 生成买卖条件
-                    # 3. 赋值 df['Signal']
                     return df
                 {ticks}
                 请直接输出代码及策略白话解析。"""
@@ -595,10 +578,10 @@ elif selected_page == PAGES[1]:
                 messages_to_send = [{"role": "system", "content": sys_p}] + st.session_state.messages[:-1] + [
                     {"role": "user", "content": full_prompt_for_ai}]
 
-                max_retries = 2
-                agent_logs = []
-                last_error = ""
-                full_resp = ""
+                max_retries = 2;
+                agent_logs = [];
+                last_error = "";
+                full_resp = "";
                 msg_box = st.empty()
 
                 for attempt in range(max_retries + 1):
@@ -619,37 +602,26 @@ elif selected_page == PAGES[1]:
                                 msg_box.markdown(full_resp.replace("<think>", "🧠 深度思考中...\n\n").replace("</think>",
                                                                                                              "\n\n---\n") + "▌",
                                                  unsafe_allow_html=True)
-
                         msg_box.markdown(
                             full_resp.replace("<think>", "🧠 深度思考过程：\n").replace("</think>", "\n---\n"),
                             unsafe_allow_html=True)
 
                         code_match = re.search(r"`{3}python\s*(.*?)\s*`{3}", full_resp, re.DOTALL)
                         resp_clean = re.sub(r"<think>.*?</think>", "", full_resp, flags=re.DOTALL)
-
-                        explanation = re.sub(r"`{3}python\s*.*?\s*`{3}", "", resp_clean, flags=re.DOTALL).strip()
-                        explanation = explanation.replace("【策略白话解析】", "").replace("【策略白话解析】:", "").replace(
-                            "【策略白话解析】：", "").strip()
-
-                        if explanation:
-                            st.session_state.strategy_explanation = explanation
-                        else:
-                            st.session_state.strategy_explanation = "该策略完全由硬核代码驱动，未返回额外人话分析。"
+                        explanation = re.sub(r"`{3}python\s*.*?\s*`{3}", "", resp_clean,
+                                             flags=re.DOTALL).strip().replace("【策略白话解析】", "").strip()
+                        st.session_state.strategy_explanation = explanation if explanation else "该策略完全由硬核代码驱动，未返回额外人话分析。"
 
                         if not code_match: break
 
                         extracted_code = code_match.group(1).strip()
                         try:
-                            dummy_df = pd.DataFrame({
-                                'trade_date': pd.date_range('20230101', periods=50),
-                                'Open': np.random.rand(50) * 10, 'High': np.random.rand(50) * 12,
-                                'Low': np.random.rand(50) * 8, 'Close': np.random.rand(50) * 10
-                            })
-                            dummy_df = add_default_indicators(dummy_df)
-                            _ = execute_safely(extracted_code, dummy_df)
-
+                            dummy_df = pd.DataFrame(
+                                {'trade_date': pd.date_range('20230101', periods=50), 'Open': np.random.rand(50) * 10,
+                                 'High': np.random.rand(50) * 12, 'Low': np.random.rand(50) * 8,
+                                 'Close': np.random.rand(50) * 10})
+                            _ = execute_safely(extracted_code, add_default_indicators(dummy_df))
                             st.session_state.generated_code = extracted_code
-
                             agent_logs.append(
                                 f'<div class="agent-status-node success">✅ <b>尝试 {attempt + 1}:</b> 代码通过沙盒预检 -> 策略已安全装载</div>')
                             st.markdown("".join(agent_logs), unsafe_allow_html=True)
@@ -969,6 +941,8 @@ elif selected_page == PAGES[5]:
                         ai_ph.info(full_txt)
                     except Exception as e:
                         ai_ph.error(f"Kimi 连线中断: {e}")
+
+            import plotly.graph_objects as go
 
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹 (Actual)',
