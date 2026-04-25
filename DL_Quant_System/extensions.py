@@ -34,7 +34,7 @@ SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 
 
 def summon_global_3d_lulu():
-    """全地形装甲版：智能双重寻址 + 极致鼠标跟踪 (绝对凝视)"""
+    """全地形装甲版：双解码器防爆 + 绝对凝视鼠标追踪"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     PET_ROSTER = {
@@ -73,7 +73,7 @@ def summon_global_3d_lulu():
 
         const dataStr = document.getElementById('lulu-pet-data').textContent;
         pWin.__PETS_JSON_DATA__ = JSON.parse(dataStr);
-        pWin.__LULU_V10_INIT = true; 
+        pWin.__LULU_V11_INIT = true; 
 
         const loadScript = (src) => new Promise((res) => {{
             const s = pDoc.createElement('script');
@@ -82,9 +82,11 @@ def summon_global_3d_lulu():
 
         const initLulu = async () => {{
             if (!pWin.THREE || !pWin.THREE.DRACOLoader) {{
-                await loadScript("https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js");
-                await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js");
-                await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js");
+                await loadScript("https://unpkg.com/three@0.128.0/build/three.min.js");
+                await loadScript("https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js");
+                // 🔥 更换极速节点，加装 Draco 与 Meshopt 双重解码器，专治压缩模型崩溃 🔥
+                await loadScript("https://unpkg.com/three@0.128.0/examples/js/loaders/DRACOLoader.js");
+                await loadScript("https://unpkg.com/three@0.128.0/examples/js/libs/meshopt_decoder.asm.js");
             }}
 
             const script = pDoc.createElement('script');
@@ -102,9 +104,10 @@ def summon_global_3d_lulu():
 
                     let state = 'IDLE'; 
                     let danceTimer = 0;
-                    let lastActivityTime = Date.now();
-                    let idleActionState = 'NONE'; 
-                    let idleActionTimer = 0;
+
+                    // 眼神追踪核心参数
+                    let targetRotY = 0; 
+                    let targetRotX = 0;
 
                     const petSize = 280; 
                     const overflowLimit = 80; 
@@ -159,11 +162,9 @@ def summon_global_3d_lulu():
                     renderer.outputEncoding = THREE.sRGBEncoding;
 
                     renderer.domElement.oncontextmenu = function(e) {{
-                        e.preventDefault();
-                        e.stopPropagation();
+                        e.preventDefault(); e.stopPropagation();
                         ctxMenu.style.display = 'block';
-                        ctxMenu.style.left = (e.clientX + 10) + 'px';
-                        ctxMenu.style.top = (e.clientY - 10) + 'px';
+                        ctxMenu.style.left = (e.clientX + 10) + 'px'; ctxMenu.style.top = (e.clientY - 10) + 'px';
                         return false;
                     }};
 
@@ -177,18 +178,20 @@ def summon_global_3d_lulu():
 
                     let currentModelObj = null; 
                     let mixer = null;
-                    let targetRotY = 0; 
-                    let targetRotX = 0;
                     let clickableMeshes = [];
 
+                    // 🔥 装载双引擎：Draco + Meshoptimizer 🔥
                     const loader = new THREE.GLTFLoader();
                     const dracoLoader = new THREE.DRACOLoader();
-                    dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/draco/gltf/');
+                    dracoLoader.setDecoderPath('https://unpkg.com/three@0.128.0/examples/js/libs/draco/gltf/');
                     loader.setDRACOLoader(dracoLoader);
+                    if (typeof MeshoptDecoder !== 'undefined') {{
+                        loader.setMeshoptDecoder(MeshoptDecoder);
+                    }}
 
                     const switchModel = (b64String, name) => {{
                         const oldModelRef = currentModelObj;
-                        bubble.innerText = "⏳ 异次元数据解压中..."; bubble.style.opacity = '1';
+                        bubble.innerText = "⏳ 异次元数据解码中..."; bubble.style.opacity = '1';
 
                         loader.load(
                             "data:application/octet-stream;base64," + b64String, 
@@ -225,8 +228,9 @@ def summon_global_3d_lulu():
                             }},
                             undefined,
                             (error) => {{
-                                console.error("模型解析失败，可能压缩损坏：", error);
-                                doSpeak(["主公，【" + name + "】的压缩模型好像损坏了，无法变身！😭"]);
+                                console.error("模型解析失败：", error);
+                                bubble.innerText = "❌ 解析失败！压缩算法过于超前或文件损坏。";
+                                setTimeout(() => {{ bubble.style.opacity = '0'; }}, 5000);
                             }}
                         );
                     }};
@@ -247,22 +251,23 @@ def summon_global_3d_lulu():
                         return raycaster.intersectObjects(clickableMeshes, false).length > 0; 
                     }};
 
-                    // 🔥 核心改变：采用精确的相对角度映射法，眼神绝对凝视鼠标！ 🔥
+                    // 🔥 绝对眼神追踪逻辑 🔥
                     const updateLookAt = (clientX, clientY) => {{
-                        lastActivityTime = Date.now();
-                        if (state === 'IDLE' && idleActionState === 'NONE') {{
-                            // 计算模型中心点在屏幕上的实际位置
+                        if (state === 'IDLE') {{
+                            // 计算桌宠在屏幕上的中心物理坐标
                             const rect = renderer.domElement.getBoundingClientRect();
                             const petCenterX = rect.left + rect.width / 2;
                             const petCenterY = rect.top + rect.height / 2;
 
-                            // 计算鼠标相对于模型中心点的偏差距离
+                            // 计算鼠标相对于桌宠的像素偏移量
                             const dx = clientX - petCenterX;
                             const dy = clientY - petCenterY;
 
-                            // 映射距离为精确的旋转角度 (限制最大扭头幅度：左右约85度，上下约45度)
-                            targetRotY = Math.max(-1.5, Math.min(1.5, (dx / win.innerWidth) * 2.5));
-                            targetRotX = Math.max(-0.8, Math.min(0.8, (dy / win.innerHeight) * 2.0));
+                            // 精确计算视角比例 (根据屏幕宽高进行柔和映射，防止把脖子扭断)
+                            // 左右最大扭头幅度约 65度 (1.1 弧度)
+                            targetRotY = Math.max(-1.1, Math.min(1.1, (dx / (win.innerWidth / 2)) * 1.5));
+                            // 上下最大仰头/低头幅度约 45度 (0.8 弧度)
+                            targetRotX = Math.max(-0.8, Math.min(0.8, (dy / (win.innerHeight / 2)) * 1.2));
                         }}
                     }};
 
@@ -272,22 +277,6 @@ def summon_global_3d_lulu():
                         const delta = clock.getDelta();
                         const time = clock.getElapsedTime();
                         if (mixer) mixer.update(delta);
-                        const now = Date.now();
-
-                        if (state === 'IDLE' && idleActionState === 'NONE') {{
-                            if (now - lastActivityTime > 30000) {{ 
-                                // 🔥 彻底移除了 LOOK_AROUND 的随机摇头逻辑，确保其只盯鼠标 🔥
-                                const actions = ['HOP', 'SPEAK'];
-                                const act = actions[Math.floor(Math.random() * actions.length)];
-                                idleActionState = act; idleActionTimer = 2.5; lastActivityTime = now; 
-                                if (act === 'SPEAK') {{
-                                    bubble.innerText = "主公，右键可以给我换衣服哦~";
-                                    bubble.style.opacity = '1';
-                                    setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
-                                    idleActionState = 'NONE'; 
-                                }}
-                            }}
-                        }}
 
                         if (currentModelObj) {{
                             if (state === 'STRUGGLING') {{
@@ -300,15 +289,11 @@ def summon_global_3d_lulu():
                                 currentModelObj.rotation.y += 0.2; currentModelObj.rotation.x = 0; currentModelObj.rotation.z = 0; currentModelObj.position.x = 0;
                                 danceTimer -= delta;
                                 if (danceTimer <= 0) {{ state = 'IDLE'; currentModelObj.position.y = -1.2; }}
-                            }} else if (idleActionState === 'HOP') {{
-                                currentModelObj.position.y = -1.2 + Math.abs(Math.sin(time * 15)) * 0.3;
-                                currentModelObj.rotation.x = 0; currentModelObj.rotation.y = 0;
-                                idleActionTimer -= delta;
-                                if (idleActionTimer <= 0) {{ idleActionState = 'NONE'; currentModelObj.position.y = -1.2; }}
                             }} else {{
-                                // 平滑过滤：纯粹的跟随鼠标旋转，并保留呼吸微动
-                                currentModelObj.position.y = -1.2 + Math.sin(time * 2) * 0.02;
-                                currentModelObj.position.x = 0; currentModelObj.rotation.z = 0;
+                                // 🔥 彻底废除乱看动画，执行绝对的鼠标凝视，带一点平滑的阻尼感 🔥
+                                currentModelObj.position.y = -1.2 + Math.sin(time * 2) * 0.01; // 仅保留极其微弱的呼吸起伏
+                                currentModelObj.position.x = 0; 
+                                currentModelObj.rotation.z = 0;
                                 currentModelObj.rotation.y += (targetRotY - currentModelObj.rotation.y) * 0.15;
                                 currentModelObj.rotation.x += (targetRotX - currentModelObj.rotation.x) * 0.15;
                             }}
@@ -327,7 +312,7 @@ def summon_global_3d_lulu():
                     }};
 
                     const doDance = () => {{
-                        state = 'DANCING'; danceTimer = 3.0; lastActivityTime = Date.now();
+                        state = 'DANCING'; danceTimer = 3.0;
                         bubble.innerText = "好耶！开心转圈圈！💃🕺"; bubble.style.opacity = '1';
                         setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
                     }};
@@ -348,7 +333,7 @@ def summon_global_3d_lulu():
                             const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
                             if (moveDist > 20) {{ 
                                 if (!isDragging) {{
-                                    isDragging = true; isPossibleClick = false; state = 'STRUGGLING'; idleActionState = 'NONE';
+                                    isDragging = true; isPossibleClick = false; state = 'STRUGGLING'; 
                                     petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; 
                                 }}
                                 let newLeft = startL + curX - initX; let newTop = startT + curY - initY;
@@ -369,7 +354,7 @@ def summon_global_3d_lulu():
 
                     const endInteraction = (e) => {{
                         if (!isHolding) return;
-                        isHolding = false; petBox.style.transition = 'transform 0.2s'; petBox.style.cursor = 'grab'; petBox.style.transform = 'scale(1)'; lastActivityTime = Date.now();
+                        isHolding = false; petBox.style.transition = 'transform 0.2s'; petBox.style.cursor = 'grab'; petBox.style.transform = 'scale(1)';
                         if (isDragging) {{ isDragging = false; if (state !== 'DANCING') state = 'IDLE'; return; }}
                         if (isPossibleClick) {{
                             const currentTime = new Date().getTime(); const tapLength = currentTime - lastTapTime; clearTimeout(clickTimeout); 
@@ -397,7 +382,7 @@ def summon_global_3d_lulu():
                             const curX = getX(e); const curY = getY(e); const moveDist = Math.sqrt(Math.pow(curX - initX, 2) + Math.pow(curY - initY, 2));
                             if (moveDist > 20) {{ 
                                 if (!isDragging) {{
-                                    isDragging = true; isPossibleClick = false; state = 'STRUGGLING'; idleActionState = 'NONE';
+                                    isDragging = true; isPossibleClick = false; state = 'STRUGGLING';
                                     petBox.style.cursor = 'grabbing'; petBox.style.transform = 'scale(1.05)'; petBox.style.transition = 'none'; 
                                 }}
                                 let newLeft = startL + curX - initX; let newTop = startT + curY - initY;
