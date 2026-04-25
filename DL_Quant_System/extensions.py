@@ -12,6 +12,7 @@ import re
 import json
 import pandas as pd
 import numpy as np
+from datetime import datetime  # 🔥 绝杀修复：补上这个缺失的灵魂模块，彻底消灭 NameError 崩溃！ 🔥
 
 try:
     from streamlit import fragment as st_fragment
@@ -32,7 +33,7 @@ SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 
 
 def summon_global_3d_lulu():
-    """全地形无敌装甲版：纯净国内 jsdelivr CDN + 强制缓存刺穿 + 绝对凝视"""
+    """全自动免配置版：强制重载缓存，采用 jsdelivr 极速 CDN"""
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     PET_ROSTER = {
@@ -48,7 +49,6 @@ def summon_global_3d_lulu():
             path_static = os.path.join(current_dir, "static", filename)
             path_root = os.path.join(current_dir, filename)
 
-            # 🔥 免配路径提取：直接暴力查找各个目录，无需主公手动配置文件夹 🔥
             if os.path.exists(path_static):
                 with open(path_static, "rb") as f:
                     pet_b64[name] = base64.b64encode(f.read()).decode("utf-8")
@@ -63,7 +63,6 @@ def summon_global_3d_lulu():
 
     pets_json_str = json.dumps(pet_b64)
 
-    # 🔥 加入动态时间戳刺穿 Streamlit 缓存机制，确保修改代码后必运行 🔥
     html_code = f"""
     <script id="lulu-pet-data" type="application/json">{pets_json_str}</script>
 
@@ -81,7 +80,6 @@ def summon_global_3d_lulu():
 
         const initLulu = async () => {{
             if (!pWin.THREE || !pWin.THREE.DRACOLoader) {{
-                // 🔥 使用 jsdelivr 的全球企业级 CDN，速度最快最稳 🔥
                 await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js");
                 await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js");
                 await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js");
@@ -95,7 +93,6 @@ def summon_global_3d_lulu():
                     const win = window;
                     const petData = window.__PETS_JSON_DATA__; 
 
-                    // 每次运行都先清除前一个留下的旧模型，防止“叠罗汉”
                     const oldPet = doc.getElementById('lulu-global-pet');
                     if(oldPet) oldPet.remove();
                     const oldMenu = doc.getElementById('lulu-ctx-menu');
@@ -390,10 +387,6 @@ def summon_global_3d_lulu():
     components.html(html_code, height=0, width=0)
 
 
-# =======================================================
-# 保留 IDE, 回测, 沙盘等功能 (带防爆盾)
-# =======================================================
-
 def safe_exec_fut_strategy(code, df):
     if not code: return df
     try:
@@ -442,9 +435,10 @@ def render_fut_charts(df):
     if 'Signal' in df.columns:
         buys = df[df['Signal'] == 1]
         sells = df[df['Signal'] == -1]
-        buy_x = buys['trade_date'].dt.strftime('%Y-%m-%d' if df['trade_date'].dt.time.nunique() <= 1 else '%m-%d %H:%M')
-        sell_x = sells['trade_date'].dt.strftime(
-            '%Y-%m-%d' if df['trade_date'].dt.time.nunique() <= 1 else '%m-%d %H:%M')
+        buy_x = buys['trade_date'].dt.strftime('%Y-%m-%d') if df['trade_date'].dt.time.nunique() <= 1 else buys[
+            'trade_date'].dt.strftime('%m-%d %H:%M')
+        sell_x = sells['trade_date'].dt.strftime('%Y-%m-%d') if df['trade_date'].dt.time.nunique() <= 1 else sells[
+            'trade_date'].dt.strftime('%m-%d %H:%M')
         fig.add_trace(go.Scatter(x=buy_x, y=buys['Low'] * 0.998, mode='markers',
                                  marker=dict(symbol='triangle-up', size=14, color='#3b82f6'), name='买'), row=1, col=1)
         fig.add_trace(go.Scatter(x=sell_x, y=sells['High'] * 1.002, mode='markers',
@@ -781,226 +775,8 @@ def render_futures_sandbox():
             unsafe_allow_html=True)
 
 
-def render_page_dl():
-    with st.spinner("唤醒深度学习底层张量引擎..."):
-        try:
-            import torch
-            import torch.nn as nn
-            from sklearn.preprocessing import MinMaxScaler
-        except ImportError:
-            st.error("🚨 需安装 torch 和 scikit-learn！")
-            st.stop()
+def render_new_features_page():
     st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>',
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧩 扩展插件中心</h3></div>',
         unsafe_allow_html=True)
-    col_l, col_r = st.columns([1, 2.5])
-    with col_l:
-        st_code = st.text_input("🎯 训练模型标的", value="000001")
-        span_mapping_dl = {"近1年 (极速)": 1, "近3年 (标准)": 3, "近5年 (深度)": 5}
-        span_choice_dl = st.selectbox("⏳ 训练集时间跨度", list(span_mapping_dl.keys()), index=1)
-        start_year_dl = datetime.now().year - span_mapping_dl[span_choice_dl]
-        st.markdown("---")
-        run_mode = st.radio("⚙️ 引擎运行模式", ["🚀 在线动态训练", "📂 导入本地模型"], horizontal=True)
-        if "在线动态" in run_mode:
-            model_choices = st.multiselect("🧠 选择预测模型 (支持多选融合)", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"])
-            slen = st.slider("📏 滑窗长度", 5, 60, 20)
-            eps = st.slider("🔄 Epoch 迭代", 10, 50, 30)
-            uploaded_model = None;
-            btn_text = "🚀 启动张量训练"
-        else:
-            model_choices = st.multiselect("🧠 指定本地模型架构", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"],
-                                           max_selections=1)
-            slen = st.slider("📏 滑窗长度 (需与本地模型一致)", 5, 60, 20)
-            uploaded_model = st.file_uploader("📥 上传 PyTorch 权重文件 (.pth / .pt)", type=['pth', 'pt'])
-            eps = 0;
-            btn_text = "⚡ 挂载模型并推演"
-
-        if st.button(btn_text, type="primary", use_container_width=True):
-            if "导入本地模型" in run_mode and not uploaded_model:
-                st.error("主公，请先上传本地训练好的权重文件！")
-            elif not model_choices:
-                st.error("主公，请至少选择一种预测模型！")
-            else:
-                with st.spinner("神经网络前向传播中..."):
-                    try:
-                        df = fetch_and_clean_data(format_ts_code(st_code), 'qfq', f"{start_year_dl}0101")
-                        scaler = MinMaxScaler()
-                        scaled = scaler.fit_transform(df['Close'].values.reshape(-1, 1))
-                        X, y = [], []
-                        for i in range(slen, len(scaled)): X.append(scaled[i - slen:i, 0]); y.append(scaled[i, 0])
-                        X_t = torch.tensor(np.array(X), dtype=torch.float32).unsqueeze(-1)
-                        y_t = torch.tensor(np.array(y), dtype=torch.float32)
-
-                        class LSTM_Model(nn.Module):
-                            def __init__(self):
-                                super().__init__();
-                                self.lstm = nn.LSTM(1, 64, 2, batch_first=True);
-                                self.fc = nn.Linear(64, 1)
-
-                            def forward(self, x): out, _ = self.lstm(x); return self.fc(out[:, -1, :])
-
-                        class GRU_Model(nn.Module):
-                            def __init__(self):
-                                super().__init__();
-                                self.gru = nn.GRU(1, 64, 2, batch_first=True);
-                                self.fc = nn.Linear(64, 1)
-
-                            def forward(self, x): out, _ = self.gru(x); return self.fc(out[:, -1, :])
-
-                        class CNN_1D_Model(nn.Module):
-                            def __init__(self, seq_len):
-                                super().__init__();
-                                self.conv = nn.Conv1d(in_channels=1, out_channels=32, kernel_size=3, padding=1);
-                                self.fc = nn.Linear(32 * seq_len, 1)
-
-                            def forward(self, x): x = x.permute(0, 2, 1); x = torch.relu(self.conv(x)); x = x.reshape(
-                                x.size(0), -1); return self.fc(x)
-
-                        preds_dict, future_preds_dict = {}, {}
-                        lbox = st.empty();
-                        pbar = st.progress(0);
-                        last_window_orig = X_t[-1].clone().unsqueeze(0)
-
-                        for m_idx, m_name in enumerate(model_choices):
-                            if m_name == "LSTM":
-                                model = LSTM_Model()
-                            elif m_name == "GRU":
-                                model = GRU_Model()
-                            elif m_name == "1D-CNN":
-                                model = CNN_1D_Model(slen)
-
-                            if "导入本地模型" in run_mode:
-                                lbox.markdown(f"**正在解析并挂载本地 {m_name} 模型权重...**")
-                                try:
-                                    model.load_state_dict(torch.load(uploaded_model, map_location=torch.device('cpu')))
-                                    lbox.success(f"**{m_name}** | 权重校验通过，挂载成功！");
-                                    pbar.progress(1.0)
-                                except Exception as load_e:
-                                    st.warning(f"⚠️ 模型架构不匹配，极速重训练... ({load_e})")
-                                    opt = torch.optim.Adam(model.parameters(), lr=0.01);
-                                    crit = nn.MSELoss()
-                                    for e in range(10): model.train(); opt.zero_grad(); loss = crit(
-                                        model(X_t).squeeze(), y_t); loss.backward(); opt.step()
-                            else:
-                                lbox.markdown(f"**正在在线训练 {m_name} 模型...**")
-                                opt = torch.optim.Adam(model.parameters(), lr=0.01);
-                                crit = nn.MSELoss()
-                                for e in range(eps):
-                                    model.train();
-                                    opt.zero_grad();
-                                    pred = model(X_t);
-                                    loss = crit(pred.squeeze(), y_t);
-                                    loss.backward();
-                                    opt.step()
-                                    pbar.progress((m_idx * eps + e + 1) / (len(model_choices) * eps))
-                                    lbox.markdown(f"**{m_name}** | Epoch {e + 1}/{eps} | Loss: {loss.item():.6f}")
-
-                            model.eval()
-                            test_p = model(X_t[-100:]).detach().numpy()
-                            preds_dict[m_name] = scaler.inverse_transform(test_p).flatten()
-                            curr_win = last_window_orig.clone()
-                            m_future = []
-                            for _ in range(5):
-                                with torch.no_grad(): p_future = model(curr_win)
-                                m_future.append(p_future.item())
-                                curr_win = torch.cat((curr_win[:, 1:, :], p_future.unsqueeze(-1)), dim=1)
-                            future_preds_dict[m_name] = scaler.inverse_transform(
-                                np.array(m_future).reshape(-1, 1)).flatten()
-
-                        lbox.success("✅ 矩阵模型装载完毕，时空推演已就绪！")
-                        st.session_state.dl_result = {"dates": df['trade_date'].iloc[-100:],
-                                                      "actual": df['Close'].iloc[-100:], "preds": preds_dict,
-                                                      "future": future_preds_dict, "models_used": model_choices}
-                    except Exception as e:
-                        st.error(f"DL 张量异常: {e}")
-
-    with col_r:
-        if st.session_state.dl_result:
-            res = st.session_state.dl_result
-            latest_price = res['actual'].iloc[-1];
-            actual_vals = res['actual'].values
-            if len(res['models_used']) > 1:
-                f_preds = np.mean(list(res['future'].values()), axis=0);
-                h_preds = np.mean(list(res['preds'].values()), axis=0)
-                model_desc = f"LSTM/GRU/CNN 均值集成 ({len(res['models_used'])}模型)"
-            else:
-                f_preds = list(res['future'].values())[0];
-                h_preds = list(res['preds'].values())[0]
-                model_desc = res['models_used'][0]
-
-            act_diff = np.diff(actual_vals);
-            pred_diff = np.diff(h_preds)
-            success_rate = np.mean(np.sign(act_diff) == np.sign(pred_diff)) * 100
-            mape = np.mean(np.abs((actual_vals - h_preds) / (actual_vals + 1e-8))) * 100
-            day1_pred = f_preds[0];
-            day5_pred = f_preds[4]
-
-            with st.expander("🤖 AI 深度预测白盒解析舱 (点击展开/收起)", expanded=True):
-                st.markdown(
-                    f"**📈 极速解盘预览**：当前实盘价 `<span class='highlight-text'>{latest_price:.2f}</span>` | 驱动核心: {model_desc}",
-                    unsafe_allow_html=True)
-                c_f1, c_f2, c_f3, c_f4 = st.columns(4)
-                c_f1.metric("未来 1 天预测 (T+1)", f"{day1_pred:.2f}",
-                            f"{(day1_pred - latest_price) / latest_price * 100:.2f}%")
-                c_f2.metric("未来 5 天预测 (T+5)", f"{day5_pred:.2f}",
-                            f"{(day5_pred - latest_price) / latest_price * 100:.2f}%")
-                c_f3.metric("🎯 历史方向胜率", f"{success_rate:.1f}%", "涨跌准确度")
-                c_f4.metric("⚖️ 平均预测偏差", f"{mape:.2f}%", "绝对偏离度", delta_color="inverse")
-
-                if st.button("✨ 召唤 Kimi 结合胜率生成人话解盘", use_container_width=True):
-                    ai_ph = st.empty()
-                    prompt = f"你是一个顶级的量化分析师，为小白解盘。当前收盘价 {latest_price:.2f}元。基于【{model_desc}】推演，未来1天预测价为 {day1_pred:.2f}元，未来5天为 {day5_pred:.2f}元。模型胜率为 {success_rate:.1f}%，偏差为 {mape:.2f}%。请用大白话（限200字以内，不要代码），向小白解释并给出建议。"
-                    try:
-                        stream = client.chat.completions.create(model="moonshot-v1-8k",
-                                                                messages=[{"role": "user", "content": prompt}],
-                                                                stream=True, temperature=0.5)
-                        full_txt = ""
-                        for chunk in stream:
-                            if chunk.choices[0].delta.content: full_txt += chunk.choices[0].delta.content; ai_ph.info(
-                                full_txt + "▌")
-                        ai_ph.info(full_txt)
-                    except Exception as e:
-                        ai_ph.error(f"Kimi 连线中断: {e}")
-
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹 (Actual)',
-                                     line=dict(color='#10b981', width=2)))
-            color_map = {"LSTM": "#3b82f6", "GRU": "#f59e0b", "1D-CNN": "#8b5cf6"}
-            for m_name, pred_array in res['preds'].items(): fig.add_trace(
-                go.Scatter(x=res['dates'], y=pred_array, name=f'{m_name} 历史拟合',
-                           line=dict(color=color_map.get(m_name, '#94a3b8'), dash='dot', width=1.5)))
-            if len(res['preds']) > 1: fig.add_trace(
-                go.Scatter(x=res['dates'], y=np.mean(list(res['preds'].values()), axis=0), name='🔥 均值集成 (Ensemble)',
-                           line=dict(color='#ef4444', width=3)))
-            fig.update_layout(height=450, template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                              dragmode='pan', hovermode='x',
-                              legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-            fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)');
-            fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
-            st.plotly_chart(fig, use_container_width=True)
-
-elif selected_page == PAGES[6]:
-st.markdown(
-    '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>',
-    unsafe_allow_html=True)
-c1, c2 = st.columns([1, 1.2])
-with c1:
-    if os.path.exists("user_logs/global_master_log.csv"): st.download_button("📁 导出审计日志", data=pd.read_csv(
-        "user_logs/global_master_log.csv").to_csv(index=False).encode('utf-8'), file_name='Audit_Logs.csv',
-                                                                             type="primary")
-with c2: st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
-
-elif selected_page == PAGES[7]:
-if extensions:
-    extensions.render_futures_backtest()
-
-elif selected_page == PAGES[8]:
-    if extensions:
-        extensions.render_futures_sandbox()
-
-    elif selected_page == PAGES[9]:
-    if extensions:
-        extensions.render_new_features_page()
-
-    else:
-    if custom_plugins and hasattr(custom_plugins, 'route_and_render'): custom_plugins.route_and_render(selected_page)
+    st.info("💡 核心交互、3D 桌宠及内置 IDE 已全部稳定运行！")
