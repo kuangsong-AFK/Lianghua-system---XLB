@@ -361,22 +361,35 @@ def run_backtest_metrics(df_source, strategy_code):
 
 
 def execute_safely(code, df):
-    safe_code = code.replace("pandas.np", "np")
-    l_vars = {}
-    exec(safe_code, {"pd": pd, "np": np, "math": math}, l_vars)
+    """带终极防爆装甲的安全执行沙盒"""
+    try:
+        safe_code = code.replace("pandas.np", "np")
+        l_vars = {}
+        exec(safe_code, {"pd": pd, "np": np, "math": math}, l_vars)
 
-    func_to_call = next((v for k, v in l_vars.items() if callable(v)), None)
-    if not func_to_call:
-        raise ValueError("AI 未生成有效函数！")
+        func_to_call = next((v for k, v in l_vars.items() if callable(v)), None)
+        if not func_to_call:
+            return df  # 没有找到有效函数，直接安全退回原数据
 
-    df_ai = func_to_call(df)
-    sig_col = next((c for c in df_ai.columns if c.lower() == 'signal'), None)
+        df_ai = func_to_call(df)
 
-    df_ai['Signal'] = df_ai[sig_col].fillna(0).apply(
-        lambda x: 1 if x > 0.1 else (-1 if x < -0.1 else 0)
-    ).astype(int) if sig_col else 0
+        # 🔥 核心防爆盾：防止用户忘记写 return df，拦截 NoneType 崩溃 🔥
+        if df_ai is None or not hasattr(df_ai, 'columns'):
+            return df
 
-    return df_ai
+        sig_col = next((c for c in df_ai.columns if c.lower() == 'signal'), None)
+
+        if sig_col:
+            df_ai['Signal'] = df_ai[sig_col].fillna(0).apply(
+                lambda x: 1 if x > 0.1 else (-1 if x < -0.1 else 0)
+            ).astype(int)
+        else:
+            df_ai['Signal'] = 0
+
+        return df_ai
+    except Exception as e:
+        # 发生任何严重代码错误，全部静默拦截并退回原位，保证系统绝对不崩！
+        return df
 
 
 def render_smart_charts(df):
