@@ -4,7 +4,6 @@
 # ==========================================
 import streamlit as st
 import streamlit.components.v1 as components
-import base64
 import os
 import time
 import traceback
@@ -13,7 +12,6 @@ import re
 import json
 import pandas as pd
 import numpy as np
-from datetime import datetime
 
 # 🔥 提速核武 3：安全兼容版 Fragment 装饰器，实现沙盘无闪烁局部刷新 🔥
 try:
@@ -22,10 +20,8 @@ except ImportError:
     try:
         from streamlit import experimental_fragment as st_fragment
     except ImportError:
-        # 如果用户的 Streamlit 版本太低，则降级为普通函数，确保代码绝不报错
         st_fragment = lambda f: f
 
-# 引入开源神兵 AkShare
 try:
     import akshare as ak
 
@@ -37,34 +33,21 @@ SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 
 
 def summon_global_3d_lulu():
-    """终极动态版：全自动适应字典、JSON 数据岛技术、支持 Draco 压缩模型"""
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    """终极异步降维版：彻底告别 Base64！使用 HTTP 静态文件异步传输，绝不卡死主线程"""
 
     # ====================================================================
-    # 🔥 主公的花名册：自动匹配您的截图 🔥
+    # 🔥 主公注意：现在这里填的是相对 URL 路径！
+    # 这些模型文件必须存放在 DL_Quant_System/static/ 文件夹下！ 🔥
     # ====================================================================
     PET_ROSTER = {
-        "🍊 水豚噜噜": "lulu.glb",
-        "🐧 高雅企鹅": "penguin.glb",
-        "🐱 hello Kitty": "kitty.glb",
-        "🐷 猪猪侠": "pig.glb"
+        "🍊 水豚噜噜": "app/static/lulu.glb",
+        "🐧 高雅企鹅": "app/static/penguin.glb",
+        "🐱 hello Kitty": "app/static/kitty.glb",
+        "🐷 猪猪侠": "app/static/pig.glb"
     }
 
-    pet_b64 = {}
-    with st.spinner("正在为雷达加装多维宇宙识别系统..."):
-        for name, filename in PET_ROSTER.items():
-            p = os.path.join(current_dir, filename)
-            if os.path.exists(p):
-                with open(p, "rb") as f:
-                    pet_b64[name] = base64.b64encode(f.read()).decode("utf-8")
-            else:
-                pet_b64[name] = ""
-
-    if not any(pet_b64.values()):
-        return
-
-    # 将字典打包成 JSON，通过“数据岛”技术传递
-    pets_json_str = json.dumps(pet_b64)
+    # 将短短几十字的字典打包传给前端，再也没有几十兆的垃圾字符串！
+    pets_json_str = json.dumps(PET_ROSTER)
 
     html_code = f"""
     <script id="lulu-pet-data" type="application/json">{pets_json_str}</script>
@@ -73,12 +56,12 @@ def summon_global_3d_lulu():
         const pWin = window.parent;
         const pDoc = pWin.document;
 
-        // 获取数据岛中的字典并挂载到父级窗口
+        // 获取轻量级 URL 字典
         const dataStr = document.getElementById('lulu-pet-data').textContent;
         pWin.__PETS_JSON_DATA__ = JSON.parse(dataStr);
 
-        // 强行覆盖执行标记，确保刷新网页必定重新生成菜单
-        pWin.__LULU_V6_INIT = true;
+        // 强行覆盖执行标记
+        pWin.__LULU_V8_INIT = true;
 
         const loadScript = (src) => new Promise((res) => {{
             const s = pDoc.createElement('script');
@@ -89,7 +72,6 @@ def summon_global_3d_lulu():
             if (!pWin.THREE || !pWin.THREE.DRACOLoader) {{
                 await loadScript("https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js");
                 await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js");
-                // 🔥 新增：加配 DRACO 解码器引擎，专门解析被主公压缩过的高级模型 🔥
                 await loadScript("https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js");
             }}
 
@@ -99,7 +81,7 @@ def summon_global_3d_lulu():
                     const THREE = window.THREE;
                     const doc = document;
                     const win = window;
-                    const petData = window.__PETS_JSON_DATA__; 
+                    const petUrls = window.__PETS_JSON_DATA__; 
 
                     const oldPet = doc.getElementById('lulu-global-pet');
                     if(oldPet) oldPet.remove();
@@ -136,7 +118,7 @@ def summon_global_3d_lulu():
                     menuTitle.style.cssText = "padding: 6px 12px; color: #8b9bb4; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 4px; pointer-events: none;";
                     ctxMenu.appendChild(menuTitle);
 
-                    Object.keys(petData).forEach(petName => {{
+                    Object.keys(petUrls).forEach(petName => {{
                         const item = doc.createElement('div');
                         item.innerText = petName;
                         item.style.cssText = "padding: 8px 12px; cursor: pointer; border-radius: 6px; transition: 0.2s; margin-bottom: 2px;";
@@ -146,11 +128,7 @@ def summon_global_3d_lulu():
                         item.onclick = (e) => {{
                             e.stopPropagation();
                             ctxMenu.style.display = 'none';
-                            if(petData[petName] !== "") {{
-                                switchModel(petData[petName], petName);
-                            }} else {{
-                                doSpeak(["主公，【" + petName + "】的模型文件还没放入军营哦！"]);
-                            }}
+                            switchModel(petUrls[petName], petName);
                         }};
                         ctxMenu.appendChild(item);
                     }});
@@ -160,7 +138,7 @@ def summon_global_3d_lulu():
                     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
                     camera.position.set(0, 0.8, 5.5); 
 
-                    const renderer = new THREE.WebGLRenderer({{ alpha: true, antialias: win.innerWidth > 768 }});
+                    const renderer = new THREE.WebGLRenderer({{ alpha: true, antialias: true }});
                     renderer.setSize(petSize, petSize);
                     renderer.setPixelRatio(win.devicePixelRatio ? Math.min(win.devicePixelRatio, 2) : 1);
                     renderer.outputEncoding = THREE.sRGBEncoding;
@@ -189,21 +167,23 @@ def summon_global_3d_lulu():
                     let targetRotX = 0;
                     let clickableMeshes = [];
 
-                    // 🔥 挂载 DRACO 超级解码器，解析被主公压缩过的高级模型 🔥
+                    // 🔥 挂载 DRACO 超级解码器 🔥
                     const loader = new THREE.GLTFLoader();
                     const dracoLoader = new THREE.DRACOLoader();
                     dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.4.1/');
                     loader.setDRACOLoader(dracoLoader);
 
-                    const switchModel = (b64String, name) => {{
-                        // 在加载新模型前，先保留旧模型的引用，以防新模型加载失败
+                    // 🔥 彻底更改为基于 URL 的异步加载机制 🔥
+                    const switchModel = (modelUrl, name) => {{
                         const oldModelRef = currentModelObj;
-                        const oldMeshesRef = clickableMeshes;
 
+                        bubble.innerText = "⏳ 正在从异次元异步下载模型...";
+                        bubble.style.opacity = '1';
+
+                        // 这里传入的是 HTTP 链接 (例如 /app/static/lulu.glb)，不再是庞大的 Base64 字符串
                         loader.load(
-                            "data:application/octet-stream;base64," + b64String, 
+                            modelUrl, 
                             (gltf) => {{
-                                // 只有当新模型确认解压成功后，才销毁旧模型
                                 if(oldModelRef) {{
                                     scene.remove(oldModelRef);
                                 }}
@@ -229,21 +209,29 @@ def summon_global_3d_lulu():
                                     mixer = new THREE.AnimationMixer(currentModelObj);
                                     mixer.clipAction(gltf.animations[0]).play();
                                 }}
-                                if(name) doSpeak(["变身完成！我是" + name + " 😎"]);
+
+                                setTimeout(() => {{ bubble.style.opacity = '0'; }}, 500);
+                                if(name) {{
+                                    setTimeout(() => {{
+                                        bubble.innerText = "变身完成！我是" + name;
+                                        bubble.style.opacity = '1';
+                                        setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
+                                    }}, 600);
+                                }}
                             }},
                             undefined,
                             (error) => {{
-                                // 🔥 容灾机制：如果模型压缩坏了，就不切了，直接报错并保留原模型 🔥
-                                console.error("模型解析失败，可能压缩损坏：", error);
-                                doSpeak(["主公，【" + name + "】的模型好像压缩损坏了，无法变身！😭"]);
+                                console.error("加载失败，请检查 static 目录下是否有该文件：", error);
+                                bubble.innerText = "❌ 传输失败，请确保该模型存放在 static 目录下！";
+                                setTimeout(() => {{ bubble.style.opacity = '0'; }}, 4000);
                             }}
                         );
                     }};
 
-                    // 首次启动
-                    const initialPetKey = Object.keys(petData).find(k => petData[k] !== "");
+                    // 首次启动，加载字典里第一个有对应名字的模型
+                    const initialPetKey = Object.keys(petUrls)[0];
                     if(initialPetKey) {{
-                        switchModel(petData[initialPetKey], null);
+                        switchModel(petUrls[initialPetKey], null);
                     }}
 
                     // -------------------- 交互逻辑与射线检测 --------------------
@@ -284,7 +272,9 @@ def summon_global_3d_lulu():
                                 const act = actions[Math.floor(Math.random() * actions.length)];
                                 idleActionState = act; idleActionTimer = 2.5; lastActivityTime = now; 
                                 if (act === 'SPEAK') {{
-                                    doSpeak(["主公，您睡着了吗？🦦", "盯盘好累喔，发呆中...", "呼噜噜...💤"]);
+                                    bubble.innerText = "主公，右键可以给我换衣服哦~";
+                                    bubble.style.opacity = '1';
+                                    setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
                                     idleActionState = 'NONE'; 
                                 }}
                             }}
@@ -323,12 +313,6 @@ def summon_global_3d_lulu():
                     let isDragging = false, initX, initY, startL, startT, isPossibleClick = false, isHolding = false, clickTimeout = null, lastTapTime = 0;
                     const getX = (e) => e.touches ? e.touches[0].clientX : e.clientX;
                     const getY = (e) => e.touches ? e.touches[0].clientY : e.clientY;
-
-                    const doSpeak = (customTexts) => {{
-                        const ts = customTexts || ["主公，我在这呢！🥰", "量化大赚！吃橘子！🍊", "右键可以给我换衣服哦~", "今天赚了多少呀？💸"];
-                        bubble.innerText = ts[Math.floor(Math.random() * ts.length)]; bubble.style.opacity = '1';
-                        setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
-                    }};
 
                     const doDance = () => {{
                         state = 'DANCING'; danceTimer = 3.0; lastActivityTime = Date.now();
@@ -380,7 +364,13 @@ def summon_global_3d_lulu():
                         if (isDragging) {{ isDragging = false; if (state !== 'DANCING') state = 'IDLE'; return; }}
                         if (isPossibleClick) {{
                             const currentTime = new Date().getTime(); const tapLength = currentTime - lastTapTime; clearTimeout(clickTimeout); 
-                            if (tapLength < 350 && tapLength > 0) {{ doDance(); }} else {{ clickTimeout = setTimeout(() => {{ doSpeak(); }}, 300); }}
+                            if (tapLength < 350 && tapLength > 0) {{ doDance(); }} else {{ 
+                                clickTimeout = setTimeout(() => {{
+                                    bubble.innerText = "右键可以给我换衣服哦~";
+                                    bubble.style.opacity = '1';
+                                    setTimeout(() => {{ bubble.style.opacity = '0'; }}, 3000);
+                                }}, 300); 
+                            }}
                             lastTapTime = currentTime;
                         }}
                     }};
