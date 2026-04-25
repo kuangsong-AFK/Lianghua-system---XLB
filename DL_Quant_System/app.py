@@ -97,148 +97,146 @@ curr_idx = PAGES.index(st.session_state.curr_page)
 anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr_idx < prev_idx else "fogFadeIn")
 
 # ==========================================
-# 3. 宗师级 JS 引擎：防抖 + 原生底层变量光照探测
+# 3. 宗师级 JS 引擎：防抖 + 原生背景光照探测
 # ==========================================
 scroll_script = "window.parent.scrollTo({top: 0, behavior: 'instant'});" if st.session_state.just_switched else ""
 
-# 🔥 加入 time.time() 作为缓存刺穿器，保证这段 JS 每次重载必运行！ 🔥
-components.html(f"""
-<script>
-    {scroll_script}
-    let isUpdating = false;
-    let debounceTimer = null;
+if "core_ui_injected" not in st.session_state:
+    components.html(f"""
+    <script>
+        {scroll_script}
+        let isUpdating = false;
+        let debounceTimer = null;
 
-    const runGlobalEngine = () => {{
-        if(isUpdating) return;
-        isUpdating = true;
-        requestAnimationFrame(() => {{
-            const doc = window.parent.document;
-            const app = doc.querySelector('.stApp');
+        const runGlobalEngine = () => {{
+            if(isUpdating) return;
+            isUpdating = true;
+            requestAnimationFrame(() => {{
+                const doc = window.parent.document;
+                const app = doc.querySelector('.stApp');
 
-            // 🔥 绝杀修复：直接刺探 Streamlit 原始的 CSS 变量，免疫一切覆盖！ 🔥
-            if (app) {{
-                const root = doc.documentElement;
-                const bgColor = window.getComputedStyle(root).getPropertyValue('--background-color').trim();
-                let isLight = false;
-                if (bgColor) {{
-                    let hex = bgColor.replace('#', '');
-                    if(hex.length === 3) hex = hex.split('').map(x=>x+x).join('');
-                    if(hex.length === 6) {{
-                        const r = parseInt(hex.substr(0,2), 16);
-                        const g = parseInt(hex.substr(2,2), 16);
-                        const b = parseInt(hex.substr(4,2), 16);
-                        // 亮度大于 128 就是浅色模式
-                        isLight = ((r*299 + g*587 + b*114) / 1000) > 128;
+                if (app && doc.body) {{
+                    const bgColor = window.getComputedStyle(doc.body).backgroundColor;
+                    const rgb = bgColor.match(/\\d+/g);
+                    if (rgb && rgb.length >= 3) {{
+                        const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
+                        const themeAttr = brightness > 128 ? 'light' : 'dark';
+                        if (app.getAttribute('data-custom-theme') !== themeAttr) {{
+                            app.setAttribute('data-custom-theme', themeAttr);
+                        }}
                     }}
                 }}
-                const targetTheme = isLight ? 'light' : 'dark';
-                if (app.getAttribute('data-custom-theme') !== targetTheme) {{
-                    app.setAttribute('data-custom-theme', targetTheme);
+
+                const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
+                const fileInput = doc.querySelector('div[data-testid="stFileUploader"] input[type="file"]');
+                if (chatInputOuter && fileInput) {{
+                    const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.firstElementChild; 
+                    if (innerPill && !doc.getElementById('fake-attach-btn')) {{
+                        innerPill.style.setProperty('position', 'relative', 'important');
+                        const fakeBtn = doc.createElement('div');
+                        fakeBtn.id = 'fake-attach-btn';
+                        fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
+                        fakeBtn.style.cssText = 'position: absolute !important; left: 16px !important; top: 50% !important; transform: translateY(-50%) !important; z-index: 9999 !important; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;';
+                        fakeBtn.onclick = () => fileInput.click();
+                        fakeBtn.onmouseover = () => {{ fakeBtn.style.opacity = '0.6'; }};
+                        fakeBtn.onmouseout = () => {{ fakeBtn.style.opacity = '1'; }};
+                        innerPill.appendChild(fakeBtn);
+
+                        const textAreaWrap = innerPill.querySelector('[data-baseweb="textarea"]');
+                        if(textAreaWrap) textAreaWrap.style.setProperty('padding-left', '40px', 'important');
+                    }}
                 }}
-            }}
+                isUpdating = false;
+            }});
+        }};
 
-            const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
-            const fileInput = doc.querySelector('div[data-testid="stFileUploader"] input[type="file"]');
-            if (chatInputOuter && fileInput) {{
-                const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.firstElementChild; 
-                if (innerPill && !doc.getElementById('fake-attach-btn')) {{
-                    innerPill.style.setProperty('position', 'relative', 'important');
-                    const fakeBtn = doc.createElement('div');
-                    fakeBtn.id = 'fake-attach-btn';
-                    fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
-                    fakeBtn.style.cssText = 'position: absolute !important; left: 16px !important; top: 50% !important; transform: translateY(-50%) !important; z-index: 9999 !important; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;';
-                    fakeBtn.onclick = () => fileInput.click();
-                    fakeBtn.onmouseover = () => {{ fakeBtn.style.opacity = '0.6'; }};
-                    fakeBtn.onmouseout = () => {{ fakeBtn.style.opacity = '1'; }};
-                    innerPill.appendChild(fakeBtn);
+        const debouncedRun = () => {{
+            if(debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(runGlobalEngine, 300); 
+        }};
 
-                    const textAreaWrap = innerPill.querySelector('[data-baseweb="textarea"]');
-                    if(textAreaWrap) textAreaWrap.style.setProperty('padding-left', '40px', 'important');
-                }}
-            }}
-            isUpdating = false;
-        }});
-    }};
-
-    const debouncedRun = () => {{
-        if(debounceTimer) clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(runGlobalEngine, 300); 
-    }};
-
-    if(window.parent.__UI_OBSERVER) {{ window.parent.__UI_OBSERVER.disconnect(); }}
-    debouncedRun();
-    window.parent.__UI_OBSERVER = new MutationObserver(debouncedRun);
-    window.parent.__UI_OBSERVER.observe(window.parent.document.body, {{ childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }});
-</script>
-""", height=0, width=0)
+        if(window.parent.__UI_OBSERVER) {{ window.parent.__UI_OBSERVER.disconnect(); }}
+        debouncedRun();
+        window.parent.__UI_OBSERVER = new MutationObserver(debouncedRun);
+        window.parent.__UI_OBSERVER.observe(window.parent.document.body, {{ childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }});
+    </script>
+    """, height=0, width=0)
+    st.session_state.core_ui_injected = True
 
 if extensions: extensions.summon_global_3d_lulu()
 
 # ==========================================
-# 4. 极致静态 CSS (双主题无缝流转)
+# 4. 极致静态 CSS (双主题无缝流转，彻底解决大括号语法冲突)
 # ==========================================
 if selected_page == PAGES[1]:
     st.markdown(
         '<style>div[data-testid="stFileUploader"] { position: absolute !important; top: -9999px !important; opacity: 0 !important; z-index: -9999 !important; pointer-events: none !important; }</style>',
         unsafe_allow_html=True)
 
+# 动效变量使用 f-string 隔离注入
 st.markdown(f"""
 <style>
-    @keyframes fluidFlow {{ 0% {{ background-position: 0% 50%; }} 25% {{ background-position: 50% 100%; }} 50% {{ background-position: 100% 50%; }} 75% {{ background-position: 50% 0%; }} 100% {{ background-position: 0% 50%; }} }}
-    @keyframes waveBlurUpIn {{ 0% {{ opacity: 0; margin-top: 60px; filter: blur(15px); transform: scale(0.98); }} 100% {{ opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); }} }}
-    @keyframes waveBlurDownIn {{ 0% {{ opacity: 0; margin-top: -60px; filter: blur(15px); transform: scale(0.98); }} 100% {{ opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); }} }}
-    @keyframes fogFadeIn {{ 0% {{ opacity: 0; filter: blur(15px); transform: scale(0.98); }} 100% {{ opacity: 1; filter: blur(0px); transform: scale(1); }} }}
-
     .block-container {{ animation: {anim_name} 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; background: transparent !important; padding-top: 4.5rem !important; padding-bottom: 120px !important; }}
-    header[data-testid="stHeader"] {{ position: fixed !important; top: 0px !important; transform: translateY(0px) !important; opacity: 1 !important; visibility: visible !important; background: transparent !important; pointer-events: none !important; }}
-    [data-testid="collapsedControl"], [data-testid="stToolbar"] {{ pointer-events: auto !important; opacity: 1 !important; visibility: visible !important; display: flex !important; transform: none !important;}}
-    .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg {{ display: none !important; pointer-events: none !important; }}
-    [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div {{ background: transparent !important; border: none !important; }}
+</style>
+""", unsafe_allow_html=True)
+
+# 静态 CSS 使用常规字符串，彻底杜绝 {} 被 Python 误认的 BUG！
+st.markdown("""
+<style>
+    @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
+    @keyframes waveBlurUpIn { 0% { opacity: 0; margin-top: 60px; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); } }
+    @keyframes waveBlurDownIn { 0% { opacity: 0; margin-top: -60px; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); } }
+    @keyframes fogFadeIn { 0% { opacity: 0; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; filter: blur(0px); transform: scale(1); } }
+
+    header[data-testid="stHeader"] { position: fixed !important; top: 0px !important; transform: translateY(0px) !important; opacity: 1 !important; visibility: visible !important; background: transparent !important; pointer-events: none !important; }
+    [data-testid="collapsedControl"], [data-testid="stToolbar"] { pointer-events: auto !important; opacity: 1 !important; visibility: visible !important; display: flex !important; transform: none !important;}
+    .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
+    [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
 
     /* 🔥 默认：深色主题渐变背景 🔥 */
-    .stApp {{ background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }}
-    .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div {{ color: #e2e8f0 !important; }}
-    .highlight-text {{ color: #00ffcc !important; }}
-    .sub-text {{ color: #cbd5e1 !important; }}
-    .danger-text {{ color: #ff4b4b !important; }}
+    .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
+    .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
+    .highlight-text { color: #00ffcc !important; }
+    .sub-text { color: #cbd5e1 !important; }
+    .danger-text { color: #ff4b4b !important; }
 
-    [data-testid="stSidebar"] {{ background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; min-height: 100vh !important; }}
-    [data-testid="stSidebar"] > div:first-child {{ background: transparent !important; }}
-    div[role="radiogroup"] > label {{ background: rgba(15, 20, 30, 0.4) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important;}}
-    div[role="radiogroup"] > label:has(input:checked) {{ background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }}
+    [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; min-height: 100vh !important; }
+    [data-testid="stSidebar"] > div:first-child { background: transparent !important; }
+    div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important;}
+    div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
 
-    .glass-card {{ background: rgba(20, 28, 45, 0.65) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }}
-    .metric-box {{ background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px; overflow: hidden; }}
-    .metric-box p {{ margin: 0 !important; font-size: 0.9rem; color: #cbd5e1; }}
-    .metric-box h2 {{ margin: 8px 0 0 0 !important; font-size: 1.8rem; line-height: 1.2; }}
-    [data-testid="stExpander"] {{ background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); margin-bottom: 20px !important; }}
+    .glass-card { background: rgba(20, 28, 45, 0.65) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
+    .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px; overflow: hidden; }
+    .metric-box p { margin: 0 !important; font-size: 0.9rem; color: #cbd5e1; }
+    .metric-box h2 { margin: 8px 0 0 0 !important; font-size: 1.8rem; line-height: 1.2; }
+    [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); margin-bottom: 20px !important; }
 
-    [data-testid="stChatInput"] {{ background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }}
-    [data-testid="stChatInput"] > div:first-child {{ background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; display: flex !important; align-items: center !important; }}
-    [data-testid="stChatInput"] [data-baseweb="textarea"], [data-testid="stChatInput"] [data-baseweb="textarea"] > div {{ background-color: transparent !important; border: none !important; box-shadow: none !important; outline: none !important; }}
-    [data-testid="stChatInput"] textarea {{ color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }}
-    textarea {{ font-family: 'Consolas', 'Courier New', monospace !important; }}
+    [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
+    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; display: flex !important; align-items: center !important; }
+    [data-testid="stChatInput"] [data-baseweb="textarea"], [data-testid="stChatInput"] [data-baseweb="textarea"] > div { background-color: transparent !important; border: none !important; box-shadow: none !important; outline: none !important; }
+    [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }
+    textarea { font-family: 'Consolas', 'Courier New', monospace !important; }
 
     /* 🔥 绝杀修复：浅色主题专属优雅流动渐变（浅紫蓝薄荷渐变） 🔥 */
-    .stApp[data-custom-theme='light'] {{ background-image: linear-gradient(132deg, #fdfbfb, #e0c3fc, #8ec5fc, #e2ebf0, #fdfbfb) !important; background-size: 400% 400% !important; animation: fluidFlow 12s ease infinite !important; }}
-    .stApp[data-custom-theme='light'] .stMarkdown, .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] h4, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div {{ color: #1e293b !important; }}
-    .stApp[data-custom-theme='light'] .highlight-text {{ color: #0284c7 !important; }}
-    .stApp[data-custom-theme='light'] .sub-text {{ color: #475569 !important; }}
-    .stApp[data-custom-theme='light'] .danger-text {{ color: #dc2626 !important; }}
-    .stApp[data-custom-theme='light'] .glass-card {{ background: rgba(255, 255, 255, 0.6) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.05) !important; }}
-    .stApp[data-custom-theme='light'] .metric-box {{ background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; }}
-    .stApp[data-custom-theme='light'] .metric-box p {{ color: #475569; }}
-    .stApp[data-custom-theme='light'] [data-testid="stExpander"] {{ background: rgba(255, 255, 255, 0.7) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }}
-    .stApp[data-custom-theme='light'] [data-testid="stSidebar"] {{ background: rgba(248, 250, 252, 0.75) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }}
-    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label {{ background: rgba(241, 245, 249, 0.6) !important; border-left: 4px solid transparent !important; }}
-    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) {{ background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }}
-    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child {{ background-color: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08) !important; }}
-    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea {{ color: #1e293b !important; }}
+    .stApp[data-custom-theme='light'] { background-image: linear-gradient(132deg, #fdfbfb, #e0c3fc, #8ec5fc, #e2ebf0, #fdfbfb) !important; background-size: 400% 400% !important; animation: fluidFlow 12s ease infinite !important; }
+    .stApp[data-custom-theme='light'] .stMarkdown, .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] h4, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div { color: #1e293b !important; }
+    .stApp[data-custom-theme='light'] .highlight-text { color: #0284c7 !important; }
+    .stApp[data-custom-theme='light'] .sub-text { color: #475569 !important; }
+    .stApp[data-custom-theme='light'] .danger-text { color: #dc2626 !important; }
+    .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.6) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.05) !important; }
+    .stApp[data-custom-theme='light'] .metric-box { background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; }
+    .stApp[data-custom-theme='light'] .metric-box p { color: #475569; }
+    .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.7) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.75) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.6) !important; border-left: 4px solid transparent !important; }
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea { color: #1e293b !important; }
 
-    .agent-status-node {padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; background: rgba(128,128,128,0.1); }
-    .agent-status-node.success {border - left - color: #10b981; }
-    .agent-status-node.error {border - left - color: #ef4444; }
-    .agent-status-node.retry {border - left - color: #f59e0b; }
+    .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; background: rgba(128,128,128,0.1); }
+    .agent-status-node.success { border-left-color: #10b981; }
+    .agent-status-node.error { border-left-color: #ef4444; }
+    .agent-status-node.retry { border-left-color: #f59e0b; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -304,7 +302,6 @@ def run_backtest_metrics(df_source, strategy_code):
     return {"df": df, "metrics": {"total": total_ret, "annual": annual, "max_dd": max_dd, "sharpe": sharpe}}
 
 
-# 🔥 核心防爆盾：专门针对 NoneType 拦截，保全主系统运行 🔥
 def execute_safely(code, df):
     if not code: return df
     try:
@@ -418,7 +415,7 @@ if selected_page == PAGES[0]:
         """, unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ <b>完美适配明亮/暗黑渐变主题</b><br>✅ 前端引擎防抖极速化<br>✅ <b>代码沙盒全域防爆盾</b><br>✅ <b>缓存强制刺穿机制</b></div>',
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ <b>完美修复动态 CSS 解析崩溃</b><br>✅ 前端引擎防抖极速化<br>✅ <b>代码沙盒防 NoneType 拦截器</b><br>✅ LLM 空数据拦截网</div>',
             unsafe_allow_html=True
         )
 
@@ -501,7 +498,7 @@ elif selected_page == PAGES[1]:
                     if attempt > 0:
                         agent_logs.append(
                             f'<div class="agent-status-node retry">🔄 <b>尝试 {attempt}:</b> 沙盒拦截异常 (<code>{last_error}</code>) -> Agent 发起重构</div>')
-                        safe_resp = full_resp if full_resp and full_resp.strip() else "(API 前一次流响应为空)"
+                        safe_resp = full_resp if full_resp and full_resp.strip() else "(API 前一次流响应为空，因引发沙盒报错被退回)"
                         messages_to_send.extend([{"role": "assistant", "content": safe_resp}, {"role": "user",
                                                                                                "content": f"代码报错：`{last_error}`，请严格遵循模板修复。"}])
                     try:
