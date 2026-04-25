@@ -15,7 +15,7 @@ import math
 from PIL import Image
 
 # ==========================================
-# 0. 安全挂载扩展包
+# 0. 安全挂载扩展包 (不死鸟防爆盾)
 # ==========================================
 extensions_err = None
 try:
@@ -125,9 +125,10 @@ if "curr_page" not in st.session_state: st.session_state.curr_page = PAGES[0]
 with st.sidebar:
     st.markdown("### 🎓 小吕布量化 Pro")
 
-    # 🔥 安全调用 3D 桌宠：安置在侧边栏内，不跨域，绝不白屏 🔥
+    # 🔥 核心防爆盾：版本探测器，防止您忘了更新 extensions 导致报错！ 🔥
     if extensions:
-        extensions.summon_sidebar_3d_lulu()
+        if hasattr(extensions, 'summon_sidebar_3d_lulu'):
+            extensions.summon_sidebar_3d_lulu()
 
     st.markdown("---")
     selected_page = st.radio("导航菜单", PAGES, label_visibility="collapsed")
@@ -280,7 +281,7 @@ def format_ts_code(raw):
 if selected_page == PAGES[0]:
     if extensions_err:
         st.error(
-            f"🚨 **代码加载防御系统启动** 🚨\n\n检测到 `extensions.py` 文件存在致命错误：\n\n`{extensions_err}`\n\n请检查您 GitHub 仓库的语法！")
+            f"🚨 **扩展加载异常 (已屏蔽白屏)** 🚨\n\n检测到 `extensions.py` 内部报错：\n\n`{extensions_err}`\n\n请检查您 GitHub 上的文件代码是否正确复制，或者是否有缺失的库。")
 
     st.markdown(
         '<div class="glass-card"><h1 style="margin-bottom:0;">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview Dashboard</p></div>',
@@ -293,7 +294,7 @@ if selected_page == PAGES[0]:
     with c3:
         st.metric("大模型底层通信", "🟢 Moonshot-v1 正常")
     with c4:
-        st.metric("扩展引擎状态", "🔴 未连接" if extensions_err else "🟢 已安全挂载")
+        st.metric("扩展引擎状态", "🔴 存在错误" if extensions_err else "🟢 已安全挂载")
 
     st.markdown("---")
     st.markdown("""
@@ -477,7 +478,7 @@ elif selected_page == PAGES[4]:
                 with met_ph.container():
                     c = st.columns(3)
                     c[0].metric("Tick现价", f"{sub['Close'].iloc[-1]:.2f}")
-                    c[1].metric("高频信号", "🟢 买" if sig_val == 1 else "🔴 卖" if sig_val == -1 else "⚪ 观")
+                    c[1].metric("高频信号", "🟢 买" if sig_val == 1 else "🔴 卖" if sig_val == -1 else "⚪ 观望")
                 cht_ph.plotly_chart(render_smart_charts(sub), use_container_width=True)
                 time.sleep(freq)
 

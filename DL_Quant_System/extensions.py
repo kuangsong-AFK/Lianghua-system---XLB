@@ -12,7 +12,7 @@ import re
 import json
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime  # 🔥 这是上一版漏掉的救命稻草！ 🔥
 
 try:
     from streamlit import fragment as st_fragment
@@ -63,7 +63,6 @@ def summon_sidebar_3d_lulu():
 
     pets_json_str = json.dumps(pet_b64)
 
-    # 🔥 核心改动：把 3D 画布老老实实关在这个 component 内部渲染，绝对安全！ 🔥
     html_code = f"""
     <script id="lulu-pet-data" type="application/json">{pets_json_str}</script>
     <div id="safe-pet-container" style="width: 100%; height: 300px; position: relative;"></div>
@@ -279,7 +278,7 @@ def render_fut_charts(df):
 
 def render_ide_page():
     st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0;">💻 极客量化 IDE (代码沙盒编译器)</h3><p class="sub-text">您可以直接修改 AI 生成的策略，或者在此手动硬编码！支持一键沙盒运行测试，防止实盘崩溃。</p></div>',
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">💻 极客量化 IDE (代码沙盒编译器)</h3><p class="sub-text">您可以直接修改 AI 生成的策略，或者在此手动硬编码！支持一键沙盒运行测试，防止实盘崩溃。</p></div>',
         unsafe_allow_html=True)
     default_code = """def generate_signals(df):\n    df['MAIN_MA5'] = df['Close'].rolling(window=5).mean()\n    df['MAIN_MA20'] = df['Close'].rolling(window=20).mean()\n    df['Signal'] = np.where(df['MAIN_MA5'] > df['MAIN_MA20'], 1, -1)\n    return df"""
     boll_code = """def generate_signals(df):\n    df['MAIN_BOLL_MID'] = df['Close'].rolling(window=20).mean()\n    std = df['Close'].rolling(window=20).std()\n    df['MAIN_BOLL_UP'] = df['MAIN_BOLL_MID'] + 2 * std\n    df['MAIN_BOLL_DN'] = df['MAIN_BOLL_MID'] - 2 * std\n    df['Signal'] = 0\n    df.loc[df['Close'] > df['MAIN_BOLL_UP'], 'Signal'] = 1\n    df.loc[df['Close'] < df['MAIN_BOLL_DN'], 'Signal'] = -1\n    return df"""
@@ -454,7 +453,7 @@ def render_futures_backtest():
                         exp1 = df['Close'].ewm(span=12, adjust=False).mean()
                         exp2 = df['Close'].ewm(span=26, adjust=False).mean()
                         df['SUB1_MACD_DIFF'] = exp1 - exp2
-                        df['SUB1_MACD_DEA'] = exp1 - exp2  # 简化计算，防止报错
+                        df['SUB1_MACD_DEA'] = df['SUB1_MACD_DIFF'].ewm(span=9, adjust=False).mean()
                         df['SUB1_MACD_HIST'] = 2 * (df['SUB1_MACD_DIFF'] - df['SUB1_MACD_DEA'])
 
                         if st.session_state.get('generated_code'):
@@ -507,10 +506,11 @@ def render_futures_backtest():
             c4.markdown(
                 f'<div class="metric-box"><p>最高保证金占用</p><h2 class="highlight-text">¥ {m["max_margin"]:,.0f}</h2></div>',
                 unsafe_allow_html=True)
+            st.markdown("<div style='clear: both; margin-bottom: 30px;'></div>", unsafe_allow_html=True)
             st.plotly_chart(render_fut_charts(df), use_container_width=True, config={'scrollZoom': True})
         elif not st.session_state.fut_bt_run:
             st.markdown(
-                """<div class="metric-box" style="height: 250px; display: flex; flex-direction: column; justify-content: center; align-items: center;"><p>等待主公下达指令</p><h2 style="color: #cbd5e1;">点击 [开始穿透回测] 进行推演</h2></div>""",
+                """<div class="metric-box" style="height: 250px; display: flex; flex-direction: column; justify-content: center; align-items: center;"><p>等待主公下达指令</p><h2 style="color: #cbd5e1;">点击 [开始穿透回测] 进行推演</h2><p class="sub-text" style="margin-top: 10px;">AkShare 引擎已接管，自动突破高频数据封锁！</p></div>""",
                 unsafe_allow_html=True)
 
 
