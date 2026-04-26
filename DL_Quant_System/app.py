@@ -85,6 +85,11 @@ with st.sidebar:
     st.markdown("---")
     selected_page = st.radio("导航菜单", PAGES, label_visibility="collapsed")
 
+    # 🔥 修复 Bug 2: 3D 桌宠合法挂载于侧边栏，不再越界流窜
+    if extensions:
+        st.markdown("---")
+        extensions.summon_global_3d_lulu()
+
 if selected_page != st.session_state.curr_page:
     st.session_state.prev_page = st.session_state.curr_page
     st.session_state.curr_page = selected_page
@@ -97,90 +102,20 @@ curr_idx = PAGES.index(st.session_state.curr_page)
 anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr_idx < prev_idx else "fogFadeIn")
 
 # ==========================================
-# 3. 宗师级 JS 引擎：防抖 + 原生背景光照探测
-# ==========================================
-scroll_script = "window.parent.scrollTo({top: 0, behavior: 'instant'});" if st.session_state.just_switched else ""
-
-if "core_ui_injected" not in st.session_state:
-    components.html(f"""
-    <script>
-        {scroll_script}
-        let isUpdating = false;
-        let debounceTimer = null;
-
-        const runGlobalEngine = () => {{
-            if(isUpdating) return;
-            isUpdating = true;
-            requestAnimationFrame(() => {{
-                const doc = window.parent.document;
-                const app = doc.querySelector('.stApp');
-
-                if (app && doc.body) {{
-                    const bgColor = window.getComputedStyle(doc.body).backgroundColor;
-                    const rgb = bgColor.match(/\\d+/g);
-                    if (rgb && rgb.length >= 3) {{
-                        const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
-                        const themeAttr = brightness > 128 ? 'light' : 'dark';
-                        if (app.getAttribute('data-custom-theme') !== themeAttr) {{
-                            app.setAttribute('data-custom-theme', themeAttr);
-                        }}
-                    }}
-                }}
-
-                const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
-                const fileInput = doc.querySelector('div[data-testid="stFileUploader"] input[type="file"]');
-                if (chatInputOuter && fileInput) {{
-                    const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.firstElementChild; 
-                    if (innerPill && !doc.getElementById('fake-attach-btn')) {{
-                        innerPill.style.setProperty('position', 'relative', 'important');
-                        const fakeBtn = doc.createElement('div');
-                        fakeBtn.id = 'fake-attach-btn';
-                        fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
-                        fakeBtn.style.cssText = 'position: absolute !important; left: 16px !important; top: 50% !important; transform: translateY(-50%) !important; z-index: 9999 !important; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;';
-                        fakeBtn.onclick = () => fileInput.click();
-                        fakeBtn.onmouseover = () => {{ fakeBtn.style.opacity = '0.6'; }};
-                        fakeBtn.onmouseout = () => {{ fakeBtn.style.opacity = '1'; }};
-                        innerPill.appendChild(fakeBtn);
-
-                        const textAreaWrap = innerPill.querySelector('[data-baseweb="textarea"]');
-                        if(textAreaWrap) textAreaWrap.style.setProperty('padding-left', '40px', 'important');
-                    }}
-                }}
-                isUpdating = false;
-            }});
-        }};
-
-        const debouncedRun = () => {{
-            if(debounceTimer) clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(runGlobalEngine, 300); 
-        }};
-
-        if(window.parent.__UI_OBSERVER) {{ window.parent.__UI_OBSERVER.disconnect(); }}
-        debouncedRun();
-        window.parent.__UI_OBSERVER = new MutationObserver(debouncedRun);
-        window.parent.__UI_OBSERVER.observe(window.parent.document.body, {{ childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }});
-    </script>
-    """, height=0, width=0)
-    st.session_state.core_ui_injected = True
-
-if extensions: extensions.summon_global_3d_lulu()
-
-# ==========================================
-# 4. 极致静态 CSS (双主题无缝流转，彻底解决大括号语法冲突)
+# 3. 极致静态 CSS (修复了跨域白屏与文字掩盖 BUG)
 # ==========================================
 if selected_page == PAGES[1]:
     st.markdown(
         '<style>div[data-testid="stFileUploader"] { position: absolute !important; top: -9999px !important; opacity: 0 !important; z-index: -9999 !important; pointer-events: none !important; }</style>',
         unsafe_allow_html=True)
 
-# 动效变量使用 f-string 隔离注入
 st.markdown(f"""
 <style>
     .block-container {{ animation: {anim_name} 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; background: transparent !important; padding-top: 4.5rem !important; padding-bottom: 120px !important; }}
 </style>
 """, unsafe_allow_html=True)
 
-# 静态 CSS 使用常规字符串，彻底杜绝 {} 被 Python 误认的 BUG！
+# 🔥 修复 Bug 1 & 4: 移除跨域 JS，使用 CSS 媒体查询自适应主题，且尊重 var(--text-color)
 st.markdown("""
 <style>
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
@@ -193,45 +128,33 @@ st.markdown("""
     .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
     [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
 
-    /* 🔥 默认：深色主题渐变背景 🔥 */
-    .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
-    .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
+    /* 全局文字自适应，绝不死锁白字 */
+    .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div { color: var(--text-color) !important; }
     .highlight-text { color: #00ffcc !important; }
-    .sub-text { color: #cbd5e1 !important; }
+    .sub-text { color: #8b9bb4 !important; }
     .danger-text { color: #ff4b4b !important; }
 
-    [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; min-height: 100vh !important; }
-    [data-testid="stSidebar"] > div:first-child { background: transparent !important; }
-    div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important;}
-    div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
-
+    /* 深色主题默认流光 */
+    .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
+    [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; }
     .glass-card { background: rgba(20, 28, 45, 0.65) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
     .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px; overflow: hidden; }
-    .metric-box p { margin: 0 !important; font-size: 0.9rem; color: #cbd5e1; }
-    .metric-box h2 { margin: 8px 0 0 0 !important; font-size: 1.8rem; line-height: 1.2; }
-    [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); margin-bottom: 20px !important; }
+
+    /* CSS 原生媒体查询探测浅色主题 (代替崩溃的 JS 探测) */
+    @media (prefers-color-scheme: light) {
+        .stApp { background-image: linear-gradient(132deg, #fdfbfb, #e0c3fc, #8ec5fc, #e2ebf0, #fdfbfb) !important; background-size: 400% 400% !important; animation: fluidFlow 12s ease infinite !important; }
+        .highlight-text { color: #0284c7 !important; }
+        .sub-text { color: #475569 !important; }
+        .danger-text { color: #dc2626 !important; }
+        .glass-card { background: rgba(255, 255, 255, 0.6) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.05) !important; }
+        .metric-box { background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; }
+        [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.75) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
+    }
 
     [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
-    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; display: flex !important; align-items: center !important; }
-    [data-testid="stChatInput"] [data-baseweb="textarea"], [data-testid="stChatInput"] [data-baseweb="textarea"] > div { background-color: transparent !important; border: none !important; box-shadow: none !important; outline: none !important; }
-    [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }
+    [data-testid="stChatInput"] > div:first-child { backdrop-filter: blur(25px) !important; border-radius: 36px !important; padding: 5px 15px !important; }
+    [data-testid="stChatInput"] textarea { color: var(--text-color) !important; font-size: 16px !important; }
     textarea { font-family: 'Consolas', 'Courier New', monospace !important; }
-
-    /* 🔥 绝杀修复：浅色主题专属优雅流动渐变（浅紫蓝薄荷渐变） 🔥 */
-    .stApp[data-custom-theme='light'] { background-image: linear-gradient(132deg, #fdfbfb, #e0c3fc, #8ec5fc, #e2ebf0, #fdfbfb) !important; background-size: 400% 400% !important; animation: fluidFlow 12s ease infinite !important; }
-    .stApp[data-custom-theme='light'] .stMarkdown, .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] h4, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div { color: #1e293b !important; }
-    .stApp[data-custom-theme='light'] .highlight-text { color: #0284c7 !important; }
-    .stApp[data-custom-theme='light'] .sub-text { color: #475569 !important; }
-    .stApp[data-custom-theme='light'] .danger-text { color: #dc2626 !important; }
-    .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.6) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.05) !important; }
-    .stApp[data-custom-theme='light'] .metric-box { background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; }
-    .stApp[data-custom-theme='light'] .metric-box p { color: #475569; }
-    .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.7) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }
-    .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.75) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
-    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.6) !important; border-left: 4px solid transparent !important; }
-    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
-    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08) !important; }
-    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea { color: #1e293b !important; }
 
     .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; background: rgba(128,128,128,0.1); }
     .agent-status-node.success { border-left-color: #10b981; }
@@ -242,7 +165,7 @@ st.markdown("""
 
 
 # ==========================================
-# 5. 高速缓存装甲：分离复杂计算
+# 4. 高速缓存装甲：分离复杂计算
 # ==========================================
 def add_default_indicators(df):
     if 'Close' in df.columns:
@@ -307,7 +230,8 @@ def execute_safely(code, df):
     try:
         safe_code = str(code).replace("pandas.np", "np")
         l_vars = {}
-        exec(safe_code, {"pd": pd, "np": np, "math": math}, l_vars)
+        # 🔥 修复 Bug 3: 注入缺失的 time 和 datetime 粮草，杜绝沙盒报错
+        exec(safe_code, {"pd": pd, "np": np, "math": math, "time": time, "datetime": datetime}, l_vars)
         func_to_call = next((v for k, v in l_vars.items() if callable(v)), None)
         if not func_to_call: return df
         df_ai = func_to_call(df.copy())
@@ -381,7 +305,7 @@ def format_ts_code(raw):
 
 
 # ==========================================
-# 6. 各页面业务逻辑
+# 5. 各页面业务逻辑
 # ==========================================
 if selected_page == PAGES[0]:
     st.markdown(
@@ -415,7 +339,7 @@ if selected_page == PAGES[0]:
         """, unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ <b>完美修复动态 CSS 解析崩溃</b><br>✅ 前端引擎防抖极速化<br>✅ <b>代码沙盒防 NoneType 拦截器</b><br>✅ LLM 空数据拦截网</div>',
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ <b>完美修复动态 CSS 解析崩溃</b><br>✅ 消除全局 DOM 跨域污染<br>✅ <b>代码沙盒防 NoneType 拦截器</b><br>✅ 彻底修复高频沙盘线程死锁</div>',
             unsafe_allow_html=True
         )
 
@@ -486,7 +410,7 @@ elif selected_page == PAGES[1]:
             with st.chat_message("assistant"):
                 st.toast(f"🚀 连线底层算力集群: {selected_model}", icon="⚡")
                 ticks = "`" * 3
-                sys_p = f"""你是一名顶级量化工程师。拒绝闲聊。如果用户只是让你解读文字，直接输出解答。如果是编写策略，你必须严格遵守以下【小吕布量化系统 SDK 开发军规】：1. 只能使用 pandas, numpy 和 math。禁止 import talib！2. 数据源有效列名严格为：['Open', 'High', 'Low', 'Close', 'Volume']。3. 画图命名协议：主图列名以 `MAIN_` 开头，副图以 `SUB1_` 或 `SUB2_` 开头。4. 交易信号协议：必须生成一列 `df['Signal']`。1=买入，-1=卖出，0=持有。5. 代码骨架：{ticks}python\ndef generate_signals(df):\n    return df\n{ticks}\n请直接输出代码及策略白话解析。"""
+                sys_p = f"""你是一名顶级量化工程师。拒绝闲聊。如果用户只是让你解读文字，直接输出解答。如果是编写策略，你必须严格遵守以下【小吕布量化系统 SDK 开发军规】：1. 只能使用 pandas, numpy, math, time 和 datetime。禁止 import talib！2. 数据源有效列名严格为：['Open', 'High', 'Low', 'Close', 'Volume']。3. 画图命名协议：主图列名以 `MAIN_` 开头，副图以 `SUB1_` 或 `SUB2_` 开头。4. 交易信号协议：必须生成一列 `df['Signal']`。1=买入，-1=卖出，0=持有。5. 代码骨架：{ticks}python\ndef generate_signals(df):\n    return df\n{ticks}\n请直接输出代码及策略白话解析。"""
                 messages_to_send = [{"role": "system", "content": sys_p}] + st.session_state.messages[:-1] + [
                     {"role": "user", "content": full_prompt_for_ai}]
                 max_retries = 2;
@@ -601,19 +525,30 @@ elif selected_page == PAGES[4]:
     with c_ctrl:
         live_code = st.text_input("🎯 动态推送标的", value="000001")
         freq = st.slider("⏱️ 刷新间隔 (秒)", 0.1, 2.0, 0.5)
-        st.button("▶️ 开启高频推演", on_click=lambda: st.session_state.update({"is_live_trading": True}),
-                  type="primary")
-        st.button("⏹️ 强行停止", on_click=lambda: st.session_state.update({"is_live_trading": False}))
+
+        # 🔥 修复 Bug 5: 重写状态机控制逻辑，彻底抛弃死循环
+        if st.button("▶️ 开启高频推演", type="primary"):
+            st.session_state.is_live_trading = True
+            st.session_state.live_tick_idx = 20
+        if st.button("⏹️ 强行停止"):
+            st.session_state.is_live_trading = False
+
     with c_chart:
         if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
             with st.expander("💡 当前军令：策略白话解析", expanded=False): st.markdown(
                 st.session_state.strategy_explanation)
-        met_ph = st.empty();
+        met_ph = st.empty()
         cht_ph = st.empty()
+
+        # 🔥 修复 Bug 5: 利用 st.rerun() 释放线程霸权，保证按钮随时可点
         if st.session_state.is_live_trading:
+            if "live_tick_idx" not in st.session_state:
+                st.session_state.live_tick_idx = 20
+
             stream = fetch_and_clean_data(format_ts_code(live_code), 'qfq', '20230101').tail(120).reset_index(drop=True)
-            for i in range(20, len(stream)):
-                if not st.session_state.is_live_trading: break
+            i = st.session_state.live_tick_idx
+
+            if i < len(stream):
                 sub = stream.iloc[:i].copy()
                 try:
                     if st.session_state.generated_code:
@@ -628,11 +563,21 @@ elif selected_page == PAGES[4]:
                         c[1].metric("高频信号", "🟢 买" if sig_val == 1 else "🔴 卖" if sig_val == -1 else "⚪ 观望")
                         c[2].metric("并发收益", f"{(sub['Close'].pct_change().iloc[-1] * 100):.2f}%")
                     cht_ph.plotly_chart(render_smart_charts(sub), use_container_width=True)
+
+                    st.session_state.live_tick_idx += 1
+                    time.sleep(freq)  # 控制刷新率
+                    st.rerun()  # 强制前端重绘并释放线程
                 except Exception as e:
-                    st.error(f"高频熔断: {e}");
-                    st.session_state.is_live_trading = False;
-                    break
-                time.sleep(freq)
+                    st.error(f"高频熔断: {e}")
+                    st.session_state.is_live_trading = False
+            else:
+                st.session_state.is_live_trading = False
+                st.info("数据流已推演完毕！")
+        else:
+            cht_ph.markdown(
+                """<div class="metric-box" style="height: 380px; display: flex; flex-direction: column; justify-content: center; align-items: center;"><p>等待唤醒高频引擎</p></div>""",
+                unsafe_allow_html=True)
+
 
 elif selected_page == PAGES[5]:
     with st.spinner("唤醒深度学习底层张量引擎..."):
