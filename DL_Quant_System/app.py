@@ -85,10 +85,6 @@ with st.sidebar:
     st.markdown("---")
     selected_page = st.radio("导航菜单", PAGES, label_visibility="collapsed")
 
-    if extensions:
-        st.markdown("---")
-        extensions.summon_global_3d_lulu()
-
 if selected_page != st.session_state.curr_page:
     st.session_state.prev_page = st.session_state.curr_page
     st.session_state.curr_page = selected_page
@@ -101,13 +97,91 @@ curr_idx = PAGES.index(st.session_state.curr_page)
 anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr_idx < prev_idx else "fogFadeIn")
 
 # ==========================================
-# 3. 原生 JS 木马心跳：完美跟随右上角菜单切换 (绝对不跨域)
+# 3. 宗师级 JS 引擎：原生 CSS 变量心跳探测 (绝杀白屏BUG)
 # ==========================================
-js_inject = r"""<img src="x" onerror="if(!window.__THEME_TRACKER){window.__THEME_TRACKER=true;const checkTheme=()=>{const app=document.querySelector('.stApp');if(!app)return;const bg=window.getComputedStyle(document.body).backgroundColor;const match=bg.match(/\d+/g);if(match&&match.length>=3){const brightness=(parseInt(match[0])*299+parseInt(match[1])*587+parseInt(match[2])*114)/1000;const theme=brightness>128?'light':'dark';if(app.getAttribute('data-custom-theme')!==theme){app.setAttribute('data-custom-theme',theme);}}};setInterval(checkTheme,500);checkTheme();}" style="display:none;">"""
-st.markdown(js_inject, unsafe_allow_html=True)
+scroll_script = "window.parent.scrollTo({top: 0, behavior: 'instant'});" if st.session_state.just_switched else ""
+
+if "core_ui_injected" not in st.session_state:
+    components.html(f"""
+    <script>
+        {scroll_script}
+        let isUpdating = false;
+        let debounceTimer = null;
+
+        const runGlobalEngine = () => {{
+            if(isUpdating) return;
+            isUpdating = true;
+            requestAnimationFrame(() => {{
+                try {{
+                    const doc = window.parent.document;
+                    const app = doc.querySelector('.stApp');
+
+                    if (app && doc.body) {{
+                        // 🔥 核心逻辑变更：不读背景色！直接创建隐形探针，读取 Streamlit 原生背景变量
+                        const dummy = doc.createElement('div');
+                        dummy.style.color = 'var(--background-color)';
+                        dummy.style.visibility = 'hidden';
+                        dummy.style.position = 'absolute';
+                        doc.body.appendChild(dummy);
+
+                        const compColor = window.getComputedStyle(dummy).color;
+                        const rgb = compColor.match(/\\d+/g);
+                        doc.body.removeChild(dummy);
+
+                        if (rgb && rgb.length >= 3) {{
+                            const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
+                            // 如果原生背景变亮，说明切换到了 Light 模式
+                            const themeAttr = brightness > 128 ? 'light' : 'dark';
+                            if (app.getAttribute('data-custom-theme') !== themeAttr) {{
+                                app.setAttribute('data-custom-theme', themeAttr);
+                            }}
+                        }}
+                    }}
+
+                    // 保留主公的附件回形针 UI 强化
+                    const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
+                    const fileInput = doc.querySelector('div[data-testid="stFileUploader"] input[type="file"]');
+                    if (chatInputOuter && fileInput) {{
+                        const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.firstElementChild; 
+                        if (innerPill && !doc.getElementById('fake-attach-btn')) {{
+                            innerPill.style.setProperty('position', 'relative', 'important');
+                            const fakeBtn = doc.createElement('div');
+                            fakeBtn.id = 'fake-attach-btn';
+                            fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
+                            fakeBtn.style.cssText = 'position: absolute !important; left: 16px !important; top: 50% !important; transform: translateY(-50%) !important; z-index: 9999 !important; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;';
+                            fakeBtn.onclick = () => fileInput.click();
+                            fakeBtn.onmouseover = () => {{ fakeBtn.style.opacity = '0.6'; }};
+                            fakeBtn.onmouseout = () => {{ fakeBtn.style.opacity = '1'; }};
+                            innerPill.appendChild(fakeBtn);
+
+                            const textAreaWrap = innerPill.querySelector('[data-baseweb="textarea"]');
+                            if(textAreaWrap) textAreaWrap.style.setProperty('padding-left', '40px', 'important');
+                        }}
+                    }}
+                }} catch (e) {{
+                    console.warn("UI Engine:", e);
+                }}
+                isUpdating = false;
+            }});
+        }};
+
+        const debouncedRun = () => {{
+            if(debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(runGlobalEngine, 300); 
+        }};
+
+        if(window.parent.__UI_OBSERVER) {{ window.parent.__UI_OBSERVER.disconnect(); }}
+        debouncedRun();
+        window.parent.__UI_OBSERVER = new MutationObserver(debouncedRun);
+        window.parent.__UI_OBSERVER.observe(window.parent.document.body, {{ childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }});
+    </script>
+    """, height=0, width=0)
+    st.session_state.core_ui_injected = True
+
+if extensions: extensions.summon_global_3d_lulu()
 
 # ==========================================
-# 4. 极致静态 CSS (双主题无缝流转，绑定 data-custom-theme)
+# 4. 极致静态 CSS (双主题无缝流转)
 # ==========================================
 if selected_page == PAGES[1]:
     st.markdown(
@@ -122,72 +196,61 @@ st.markdown(f"""
 
 st.markdown("""
 <style>
-    /* === 基础动效与防白屏核心 === */
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
     @keyframes waveBlurUpIn { 0% { opacity: 0; margin-top: 60px; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); } }
     @keyframes waveBlurDownIn { 0% { opacity: 0; margin-top: -60px; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); } }
     @keyframes fogFadeIn { 0% { opacity: 0; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; filter: blur(0px); transform: scale(1); } }
 
-    header[data-testid="stHeader"], [data-testid="stAppViewContainer"] > section:first-child, [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
-    textarea { font-family: 'Consolas', 'Courier New', monospace !important; }
-    [data-testid="stChatInput"] [data-baseweb="textarea"] { background-color: transparent !important; }
+    header[data-testid="stHeader"] { position: fixed !important; top: 0px !important; transform: translateY(0px) !important; opacity: 1 !important; visibility: visible !important; background: transparent !important; pointer-events: none !important; }
+    [data-testid="collapsedControl"], [data-testid="stToolbar"] { pointer-events: auto !important; opacity: 1 !important; visibility: visible !important; display: flex !important; transform: none !important;}
+    .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
+    [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
 
-    /* ========================================================= */
-    /* 🌙 深色默认样式 (赛博流光，当木马探测到黑色背景时生效) */
-    /* ========================================================= */
-    .stApp, [data-testid="stAppViewContainer"] {
-        background-color: #02040a !important;
-        background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important;
-        background-size: 600% 600% !important;
-        animation: fluidFlow 18s ease-in-out infinite !important;
-    }
-    .stMarkdown, p, h1, h2, h3, h4, label, span, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
+    /* 🔥 默认：深色主题渐变背景 🔥 */
+    .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
+    .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
     .highlight-text { color: #00ffcc !important; }
     .sub-text { color: #cbd5e1 !important; }
     .danger-text { color: #ff4b4b !important; }
 
-    [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.85) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; min-height: 100vh !important; }
+    [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; min-height: 100vh !important; }
     [data-testid="stSidebar"] > div:first-child { background: transparent !important; }
-    .glass-card { background: rgba(20, 28, 45, 0.75) !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6) !important; border-radius: 20px; padding: 25px; margin-bottom: 20px;}
-    .metric-box { background: rgba(0, 255, 204, 0.05) !important; border: 1px solid rgba(0, 255, 204, 0.2) !important; border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px;}
-    .metric-box p { color: #cbd5e1 !important; margin: 0 !important; font-size: 0.9rem; }
-    .metric-box h2 { color: #e2e8f0 !important; margin: 8px 0 0 0 !important; font-size: 1.8rem; line-height: 1.2; }
     div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important;}
     div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
 
+    .glass-card { background: rgba(20, 28, 45, 0.65) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
+    .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px; overflow: hidden; }
+    .metric-box p { margin: 0 !important; font-size: 0.9rem; color: #cbd5e1; }
+    .metric-box h2 { margin: 8px 0 0 0 !important; font-size: 1.8rem; line-height: 1.2; }
+    [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); margin-bottom: 20px !important; }
+
     [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
-    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.85) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important; padding: 5px 15px !important; }
-    [data-testid="stChatInput"] textarea { color: #e2e8f0 !important; font-size: 16px !important; }
-    [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; margin-bottom: 20px !important; }
+    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; display: flex !important; align-items: center !important; }
+    [data-testid="stChatInput"] [data-baseweb="textarea"], [data-testid="stChatInput"] [data-baseweb="textarea"] > div { background-color: transparent !important; border: none !important; box-shadow: none !important; outline: none !important; }
+    [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }
+    textarea { font-family: 'Consolas', 'Courier New', monospace !important; }
+
+    /* 🔥 绝杀修复：浅色主题专属优雅流动渐变（被唤醒后强制接管） 🔥 */
+    .stApp[data-custom-theme='light'] { background-image: linear-gradient(132deg, #fdfbfb, #e0c3fc, #8ec5fc, #e2ebf0, #fdfbfb) !important; background-size: 400% 400% !important; animation: fluidFlow 12s ease infinite !important; }
+    .stApp[data-custom-theme='light'] .stMarkdown, .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] h4, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div { color: #1e293b !important; }
+    .stApp[data-custom-theme='light'] .highlight-text { color: #0284c7 !important; }
+    .stApp[data-custom-theme='light'] .sub-text { color: #475569 !important; }
+    .stApp[data-custom-theme='light'] .danger-text { color: #dc2626 !important; }
+    .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.6) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.05) !important; }
+    .stApp[data-custom-theme='light'] .metric-box { background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; }
+    .stApp[data-custom-theme='light'] .metric-box p { color: #475569 !important; }
+    .stApp[data-custom-theme='light'] .metric-box h2 { color: #1e293b !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.7) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.75) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.6) !important; border-left: 4px solid transparent !important; }
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea { color: #1e293b !important; }
 
     .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; background: rgba(128,128,128,0.1); }
     .agent-status-node.success { border-left-color: #10b981; }
     .agent-status-node.error { border-left-color: #ef4444; }
     .agent-status-node.retry { border-left-color: #f59e0b; }
-
-    /* ========================================================= */
-    /* ☀️ 浅色主题强力注入 (当木马探测到菜单切 Light 时生效) */
-    /* ========================================================= */
-    .stApp[data-custom-theme='light'], .stApp[data-custom-theme='light'] [data-testid="stAppViewContainer"] {
-        background-color: #fdfbfb !important;
-        background-image: linear-gradient(132deg, #fdfbfb, #e0c3fc, #8ec5fc, #e2ebf0, #fdfbfb) !important;
-    }
-    .stApp[data-custom-theme='light'] .stMarkdown, .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] h4, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] span, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div { color: #1e293b !important; }
-    .stApp[data-custom-theme='light'] .highlight-text { color: #0284c7 !important; }
-    .stApp[data-custom-theme='light'] .sub-text { color: #475569 !important; }
-    .stApp[data-custom-theme='light'] .danger-text { color: #dc2626 !important; }
-
-    .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.85) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
-    .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.05) !important; }
-    .stApp[data-custom-theme='light'] .metric-box { background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; }
-    .stApp[data-custom-theme='light'] .metric-box p { color: #475569 !important; }
-    .stApp[data-custom-theme='light'] .metric-box h2 { color: #1e293b !important; }
-    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.6) !important; border-left: 4px solid transparent !important; }
-    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
-
-    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.95) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1) !important; }
-    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea { color: #1e293b !important; }
-    .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.8) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -336,7 +399,7 @@ def format_ts_code(raw):
 # ==========================================
 if selected_page == PAGES[0]:
     st.markdown(
-        '<div class="glass-card"><h1 style="margin-bottom:0;">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
+        '<div class="glass-card"><h1 style="margin-bottom:0; color:var(--text-color);">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
         unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
     with c1:
@@ -353,8 +416,8 @@ if selected_page == PAGES[0]:
     with c_arch:
         st.markdown("""
         <div class="glass-card">
-            <h3 style="margin-bottom: 15px;">🌟 平台简介 (Platform Intro)</h3>
-            <p style="line-height: 1.8; font-size: 1.05rem;">
+            <h3 style="color:var(--text-color); margin-bottom: 15px;">🌟 平台简介 (Platform Intro)</h3>
+            <p style="color:var(--text-color); line-height: 1.8; font-size: 1.05rem;">
                 欢迎来到 <b>小吕布量化 Pro</b>，这是一个专为现代极客打造的智能投研终端。<br><br>
                 在这里，传统手写代码的繁琐已被彻底颠覆。您可以：<br>
                 • <b>📝 全模态投研</b>：一键无缝上传 PDF/Word 研报或 CSV 矩阵，让大模型直接提取精髓。<br>
@@ -366,13 +429,13 @@ if selected_page == PAGES[0]:
         """, unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4>📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ <b>完美修复动态 CSS 解析崩溃</b><br>✅ 前端引擎防抖极速化<br>✅ <b>代码沙盒防 NoneType 拦截器</b><br>✅ LLM 空数据拦截网<br>✨ <b>原生木马背景渗透技术</b></div>',
+            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ <b>彻底抹杀 Toggle，自动监听主题切换</b><br>✅ 原生 CSS 变量深潜探测<br>✅ <b>代码沙盒防 NoneType 拦截器</b><br>✅ 附件上传回形针无缝嵌入</div>',
             unsafe_allow_html=True
         )
 
 elif selected_page == PAGES[1]:
     st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0;">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与全域文档解析模块已就绪，体验沉浸式工作流。</p></div>',
+        '<div class="glass-card"><h3 style="margin-bottom:0; color:var(--text-color);">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与全域文档解析模块已就绪，体验沉浸式工作流。</p></div>',
         unsafe_allow_html=True)
 
     ctrl_col1, ctrl_col2 = st.columns([1, 1])
@@ -505,7 +568,7 @@ elif selected_page == PAGES[2]:
 
 elif selected_page == PAGES[3]:
     st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0;">📊 历史回测全量审计与归因分析</h3></div>',
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">📊 历史回测全量审计与归因分析</h3></div>',
         unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 3])
     with col_l:
@@ -546,7 +609,7 @@ elif selected_page == PAGES[3]:
 
 elif selected_page == PAGES[4]:
     st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0;">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
         unsafe_allow_html=True)
     c_ctrl, c_chart = st.columns([1, 2.5])
     with c_ctrl:
@@ -595,7 +658,7 @@ elif selected_page == PAGES[5]:
             st.error("🚨 需安装 torch 和 scikit-learn！")
             st.stop()
     st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>',
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>',
         unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 2.5])
     with col_l:
