@@ -97,83 +97,56 @@ curr_idx = PAGES.index(st.session_state.curr_page)
 anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr_idx < prev_idx else "fogFadeIn")
 
 # ==========================================
-# 3. 宗师级 JS 引擎：原生 CSS 变量心跳探测 (绝杀白屏BUG)
+# 3. 🔥 终极 JS 探针：监听原生文字亮度判定主题
 # ==========================================
-scroll_script = "window.parent.scrollTo({top: 0, behavior: 'instant'});" if st.session_state.just_switched else ""
-
 if "core_ui_injected" not in st.session_state:
-    components.html(f"""
+    components.html("""
     <script>
-        {scroll_script}
-        let isUpdating = false;
-        let debounceTimer = null;
+        const updateTheme = () => {
+            const doc = window.parent.document;
+            const app = doc.querySelector('.stApp');
+            if (!app || !doc.body) return;
 
-        const runGlobalEngine = () => {{
-            if(isUpdating) return;
-            isUpdating = true;
-            requestAnimationFrame(() => {{
-                try {{
-                    const doc = window.parent.document;
-                    const app = doc.querySelector('.stApp');
+            // 🔥 绝杀：不读被弄透明的背景，读 Streamlit 原生文字颜色
+            const probe = doc.createElement('div');
+            probe.style.color = 'var(--text-color)';
+            probe.style.display = 'none';
+            doc.body.appendChild(probe);
 
-                    if (app && doc.body) {{
-                        // 🔥 核心逻辑变更：不读背景色！直接创建隐形探针，读取 Streamlit 原生背景变量
-                        const dummy = doc.createElement('div');
-                        dummy.style.color = 'var(--background-color)';
-                        dummy.style.visibility = 'hidden';
-                        dummy.style.position = 'absolute';
-                        doc.body.appendChild(dummy);
+            const compColor = window.getComputedStyle(probe).color;
+            doc.body.removeChild(probe);
 
-                        const compColor = window.getComputedStyle(dummy).color;
-                        const rgb = compColor.match(/\\d+/g);
-                        doc.body.removeChild(dummy);
+            const rgb = compColor.match(/\\d+/g);
+            if (rgb && rgb.length >= 3) {
+                // 计算原生文字的亮度
+                const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
+                // 白字/亮字 -> 说明在深色模式；黑字/暗字 -> 说明在浅色模式
+                const themeAttr = brightness > 128 ? 'dark' : 'light';
+                if (app.getAttribute('data-custom-theme') !== themeAttr) {
+                    app.setAttribute('data-custom-theme', themeAttr);
+                }
+            }
 
-                        if (rgb && rgb.length >= 3) {{
-                            const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
-                            // 如果原生背景变亮，说明切换到了 Light 模式
-                            const themeAttr = brightness > 128 ? 'light' : 'dark';
-                            if (app.getAttribute('data-custom-theme') !== themeAttr) {{
-                                app.setAttribute('data-custom-theme', themeAttr);
-                            }}
-                        }}
-                    }}
-
-                    // 保留主公的附件回形针 UI 强化
-                    const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
-                    const fileInput = doc.querySelector('div[data-testid="stFileUploader"] input[type="file"]');
-                    if (chatInputOuter && fileInput) {{
-                        const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.firstElementChild; 
-                        if (innerPill && !doc.getElementById('fake-attach-btn')) {{
-                            innerPill.style.setProperty('position', 'relative', 'important');
-                            const fakeBtn = doc.createElement('div');
-                            fakeBtn.id = 'fake-attach-btn';
-                            fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
-                            fakeBtn.style.cssText = 'position: absolute !important; left: 16px !important; top: 50% !important; transform: translateY(-50%) !important; z-index: 9999 !important; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;';
-                            fakeBtn.onclick = () => fileInput.click();
-                            fakeBtn.onmouseover = () => {{ fakeBtn.style.opacity = '0.6'; }};
-                            fakeBtn.onmouseout = () => {{ fakeBtn.style.opacity = '1'; }};
-                            innerPill.appendChild(fakeBtn);
-
-                            const textAreaWrap = innerPill.querySelector('[data-baseweb="textarea"]');
-                            if(textAreaWrap) textAreaWrap.style.setProperty('padding-left', '40px', 'important');
-                        }}
-                    }}
-                }} catch (e) {{
-                    console.warn("UI Engine:", e);
-                }}
-                isUpdating = false;
-            }});
-        }};
-
-        const debouncedRun = () => {{
-            if(debounceTimer) clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(runGlobalEngine, 300); 
-        }};
-
-        if(window.parent.__UI_OBSERVER) {{ window.parent.__UI_OBSERVER.disconnect(); }}
-        debouncedRun();
-        window.parent.__UI_OBSERVER = new MutationObserver(debouncedRun);
-        window.parent.__UI_OBSERVER.observe(window.parent.document.body, {{ childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style'] }});
+            // 附件回形针 UI 强化
+            const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
+            const fileInput = doc.querySelector('div[data-testid="stFileUploader"] input[type="file"]');
+            if (chatInputOuter && fileInput) {
+                const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.firstElementChild; 
+                if (innerPill && !doc.getElementById('fake-attach-btn')) {
+                    innerPill.style.setProperty('position', 'relative', 'important');
+                    const fakeBtn = doc.createElement('div');
+                    fakeBtn.id = 'fake-attach-btn';
+                    fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
+                    fakeBtn.style.cssText = 'position: absolute !important; left: 16px !important; top: 50% !important; transform: translateY(-50%) !important; z-index: 9999 !important; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;';
+                    fakeBtn.onclick = () => fileInput.click();
+                    innerPill.appendChild(fakeBtn);
+                    const textAreaWrap = innerPill.querySelector('[data-baseweb="textarea"]');
+                    if(textAreaWrap) textAreaWrap.style.setProperty('padding-left', '40px', 'important');
+                }
+            }
+        };
+        setInterval(updateTheme, 500);
+        updateTheme();
     </script>
     """, height=0, width=0)
     st.session_state.core_ui_injected = True
@@ -181,7 +154,7 @@ if "core_ui_injected" not in st.session_state:
 if extensions: extensions.summon_global_3d_lulu()
 
 # ==========================================
-# 4. 极致静态 CSS (双主题无缝流转)
+# 4. 极致静态 CSS (双主题分离注入)
 # ==========================================
 if selected_page == PAGES[1]:
     st.markdown(
@@ -196,61 +169,63 @@ st.markdown(f"""
 
 st.markdown("""
 <style>
+    /* ================= 公共基础属性 ================= */
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
     @keyframes waveBlurUpIn { 0% { opacity: 0; margin-top: 60px; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); } }
     @keyframes waveBlurDownIn { 0% { opacity: 0; margin-top: -60px; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); } }
     @keyframes fogFadeIn { 0% { opacity: 0; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; filter: blur(0px); transform: scale(1); } }
 
-    header[data-testid="stHeader"] { position: fixed !important; top: 0px !important; transform: translateY(0px) !important; opacity: 1 !important; visibility: visible !important; background: transparent !important; pointer-events: none !important; }
-    [data-testid="collapsedControl"], [data-testid="stToolbar"] { pointer-events: auto !important; opacity: 1 !important; visibility: visible !important; display: flex !important; transform: none !important;}
-    .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
-    [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
-
-    /* 🔥 默认：深色主题渐变背景 🔥 */
-    .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
-    .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
-    .highlight-text { color: #00ffcc !important; }
-    .sub-text { color: #cbd5e1 !important; }
-    .danger-text { color: #ff4b4b !important; }
-
-    [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; min-height: 100vh !important; }
-    [data-testid="stSidebar"] > div:first-child { background: transparent !important; }
-    div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important;}
-    div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
-
-    .glass-card { background: rgba(20, 28, 45, 0.65) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
-    .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px; overflow: hidden; }
-    .metric-box p { margin: 0 !important; font-size: 0.9rem; color: #cbd5e1; }
-    .metric-box h2 { margin: 8px 0 0 0 !important; font-size: 1.8rem; line-height: 1.2; }
-    [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); margin-bottom: 20px !important; }
-
-    [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
-    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; display: flex !important; align-items: center !important; }
-    [data-testid="stChatInput"] [data-baseweb="textarea"], [data-testid="stChatInput"] [data-baseweb="textarea"] > div { background-color: transparent !important; border: none !important; box-shadow: none !important; outline: none !important; }
-    [data-testid="stChatInput"] textarea { color: #ffffff !important; font-size: 16px !important; line-height: 1.5 !important; }
+    header[data-testid="stHeader"], [data-testid="stAppViewContainer"] > section:first-child, [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
     textarea { font-family: 'Consolas', 'Courier New', monospace !important; }
+    [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
+    [data-testid="stChatInput"] [data-baseweb="textarea"] { background-color: transparent !important; }
 
-    /* 🔥 绝杀修复：浅色主题专属优雅流动渐变（被唤醒后强制接管） 🔥 */
-    .stApp[data-custom-theme='light'] { background-image: linear-gradient(132deg, #fdfbfb, #e0c3fc, #8ec5fc, #e2ebf0, #fdfbfb) !important; background-size: 400% 400% !important; animation: fluidFlow 12s ease infinite !important; }
+    /* ================= 🌙 深色主题 (Dark) ================= */
+    .stApp[data-custom-theme='dark'], .stApp[data-custom-theme='dark'] [data-testid="stAppViewContainer"] {
+        background-color: #02040a !important;
+        background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important;
+        background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; 
+    }
+    .stApp[data-custom-theme='dark'] .stMarkdown, .stApp[data-custom-theme='dark'] p, .stApp[data-custom-theme='dark'] h1, .stApp[data-custom-theme='dark'] h2, .stApp[data-custom-theme='dark'] h3, .stApp[data-custom-theme='dark'] h4, .stApp[data-custom-theme='dark'] label, .stApp[data-custom-theme='dark'] [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
+    .stApp[data-custom-theme='dark'] .highlight-text { color: #00ffcc !important; }
+    .stApp[data-custom-theme='dark'] .sub-text { color: #cbd5e1 !important; }
+    .stApp[data-custom-theme='dark'] .danger-text { color: #ff4b4b !important; }
+
+    .stApp[data-custom-theme='dark'] [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.85) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; }
+    .stApp[data-custom-theme='dark'] .glass-card { background: rgba(20, 28, 45, 0.75) !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6) !important; border-radius: 20px; padding: 25px; margin-bottom: 20px;}
+    .stApp[data-custom-theme='dark'] .metric-box { background: rgba(0, 255, 204, 0.05) !important; border: 1px solid rgba(0, 255, 204, 0.2) !important; border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px;}
+    .stApp[data-custom-theme='dark'] .metric-box p { color: #cbd5e1 !important; margin: 0 !important; font-size: 0.9rem; }
+    .stApp[data-custom-theme='dark'] .metric-box h2 { color: #e2e8f0 !important; margin: 8px 0 0 0 !important; font-size: 1.8rem; line-height: 1.2; }
+
+    .stApp[data-custom-theme='dark'] div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important;}
+    .stApp[data-custom-theme='dark'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
+    .stApp[data-custom-theme='dark'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.85) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important; padding: 5px 15px !important; }
+    .stApp[data-custom-theme='dark'] [data-testid="stChatInput"] textarea { color: #e2e8f0 !important; }
+    .stApp[data-custom-theme='dark'] [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; margin-bottom: 20px !important; }
+
+
+    /* ================= ☀️ 浅色主题 (Light) ================= */
+    .stApp[data-custom-theme='light'], .stApp[data-custom-theme='light'] [data-testid="stAppViewContainer"] {
+        background-color: #fdfbfb !important;
+        background-image: linear-gradient(132deg, #fdfbfb, #e0c3fc, #8ec5fc, #e2ebf0, #fdfbfb) !important;
+        background-size: 400% 400% !important; animation: fluidFlow 12s ease infinite !important; 
+    }
     .stApp[data-custom-theme='light'] .stMarkdown, .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] h4, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div { color: #1e293b !important; }
     .stApp[data-custom-theme='light'] .highlight-text { color: #0284c7 !important; }
     .stApp[data-custom-theme='light'] .sub-text { color: #475569 !important; }
     .stApp[data-custom-theme='light'] .danger-text { color: #dc2626 !important; }
-    .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.6) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.05) !important; }
-    .stApp[data-custom-theme='light'] .metric-box { background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; }
-    .stApp[data-custom-theme='light'] .metric-box p { color: #475569 !important; }
-    .stApp[data-custom-theme='light'] .metric-box h2 { color: #1e293b !important; }
-    .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.7) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }
-    .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.75) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
-    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.6) !important; border-left: 4px solid transparent !important; }
-    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
-    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08) !important; }
-    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea { color: #1e293b !important; }
 
-    .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; background: rgba(128,128,128,0.1); }
-    .agent-status-node.success { border-left-color: #10b981; }
-    .agent-status-node.error { border-left-color: #ef4444; }
-    .agent-status-node.retry { border-left-color: #f59e0b; }
+    .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.85) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
+    .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.05) !important; border-radius: 20px; padding: 25px; margin-bottom: 20px;}
+    .stApp[data-custom-theme='light'] .metric-box { background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px;}
+    .stApp[data-custom-theme='light'] .metric-box p { color: #475569 !important; margin: 0 !important; font-size: 0.9rem; }
+    .stApp[data-custom-theme='light'] .metric-box h2 { color: #1e293b !important; margin: 8px 0 0 0 !important; font-size: 1.8rem; line-height: 1.2; }
+
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.6) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important;}
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.95) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; border-radius: 36px !important; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1) !important; padding: 5px 15px !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea { color: #1e293b !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.8) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; border-radius: 16px !important; margin-bottom: 20px !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -399,7 +374,7 @@ def format_ts_code(raw):
 # ==========================================
 if selected_page == PAGES[0]:
     st.markdown(
-        '<div class="glass-card"><h1 style="margin-bottom:0; color:var(--text-color);">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
+        '<div class="glass-card"><h1 style="margin-bottom:0;">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
         unsafe_allow_html=True)
     c1, c2, c3, c4 = st.columns(4)
     with c1:
@@ -410,14 +385,13 @@ if selected_page == PAGES[0]:
         st.metric("大模型底层通信", "🟢 Moonshot-v1 正常")
     with c4:
         st.metric("AI 神经网络", "🟢 融合学习待命")
-
     st.markdown("---")
     c_arch, c_point = st.columns([2, 1])
     with c_arch:
         st.markdown("""
         <div class="glass-card">
-            <h3 style="color:var(--text-color); margin-bottom: 15px;">🌟 平台简介 (Platform Intro)</h3>
-            <p style="color:var(--text-color); line-height: 1.8; font-size: 1.05rem;">
+            <h3 style="margin-bottom: 15px;">🌟 平台简介 (Platform Intro)</h3>
+            <p style="line-height: 1.8; font-size: 1.05rem;">
                 欢迎来到 <b>小吕布量化 Pro</b>，这是一个专为现代极客打造的智能投研终端。<br><br>
                 在这里，传统手写代码的繁琐已被彻底颠覆。您可以：<br>
                 • <b>📝 全模态投研</b>：一键无缝上传 PDF/Word 研报或 CSV 矩阵，让大模型直接提取精髓。<br>
@@ -429,15 +403,14 @@ if selected_page == PAGES[0]:
         """, unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ <b>彻底抹杀 Toggle，自动监听主题切换</b><br>✅ 原生 CSS 变量深潜探测<br>✅ <b>代码沙盒防 NoneType 拦截器</b><br>✅ 附件上传回形针无缝嵌入</div>',
+            '<div class="glass-card"><h4>📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ <b>完美适配原生深/浅主题切换</b><br>✅ 粉碎隐形墙，释放屏幕顶部空间<br>✅ <b>代码沙盒防 NoneType 拦截器</b><br>✅ 附件上传回形针无缝嵌入</div>',
             unsafe_allow_html=True
         )
 
 elif selected_page == PAGES[1]:
     st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0; color:var(--text-color);">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与全域文档解析模块已就绪，体验沉浸式工作流。</p></div>',
+        '<div class="glass-card"><h3 style="margin-bottom:0;">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与全域文档解析模块已就绪，体验沉浸式工作流。</p></div>',
         unsafe_allow_html=True)
-
     ctrl_col1, ctrl_col2 = st.columns([1, 1])
     with ctrl_col1:
         selected_model = st.selectbox("🧠 选择大模型算力通道", ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
@@ -500,21 +473,18 @@ elif selected_page == PAGES[1]:
             with st.chat_message("assistant"):
                 st.toast(f"🚀 连线底层算力集群: {selected_model}", icon="⚡")
                 ticks = "`" * 3
-                sys_p = f"""你是一名顶级量化工程师。拒绝闲聊。如果用户只是让你解读文字，直接输出解答。如果是编写策略，你必须严格遵守以下【小吕布量化系统 SDK 开发军规】：1. 只能使用 pandas, numpy, math, time 和 datetime。禁止 import talib！2. 数据源有效列名严格为：['Open', 'High', 'Low', 'Close', 'Volume']。3. 画图命名协议：主图列名以 `MAIN_` 开头，副图以 `SUB1_` 或 `SUB2_` 开头。4. 交易信号协议：必须生成一列 `df['Signal']`。1=买入，-1=卖出，0=持有。5. 代码骨架：{ticks}python\ndef generate_signals(df):\n    return df\n{ticks}\n请直接输出代码及策略白话解析。"""
+                sys_p = f"""你是一名顶级量化工程师。拒绝闲聊。如果是编写策略，你必须严格遵守：1. 只能使用 pandas, numpy, math, time 和 datetime。2. 数据源列名严格为：['Open', 'High', 'Low', 'Close', 'Volume']。3. 主图列名以 `MAIN_` 开头，副图以 `SUB1_` 开头。4. 必须生成一列 `df['Signal']` (1=买, -1=卖, 0=持有)。5. 代码骨架：{ticks}python\ndef generate_signals(df):\n    return df\n{ticks}"""
                 messages_to_send = [{"role": "system", "content": sys_p}] + st.session_state.messages[:-1] + [
                     {"role": "user", "content": full_prompt_for_ai}]
-                max_retries = 2;
-                agent_logs = [];
-                last_error = "";
-                full_resp = "";
+                max_retries, agent_logs, last_error, full_resp = 2, [], "", ""
                 msg_box = st.empty()
                 for attempt in range(max_retries + 1):
                     if attempt > 0:
                         agent_logs.append(
-                            f'<div class="agent-status-node retry">🔄 <b>尝试 {attempt}:</b> 沙盒拦截异常 (<code>{last_error}</code>) -> Agent 发起重构</div>')
-                        safe_resp = full_resp if full_resp and full_resp.strip() else "(API 前一次流响应为空，因引发沙盒报错被退回)"
-                        messages_to_send.extend([{"role": "assistant", "content": safe_resp}, {"role": "user",
-                                                                                               "content": f"代码报错：`{last_error}`，请严格遵循模板修复。"}])
+                            f'<div class="agent-status-node retry">🔄 <b>尝试 {attempt}:</b> 沙盒拦截异常 (<code>{last_error}</code>) -> 发起重构</div>')
+                        safe_resp = full_resp if full_resp.strip() else "(前一次流响应为空)"
+                        messages_to_send.extend([{"role": "assistant", "content": safe_resp},
+                                                 {"role": "user", "content": f"报错：`{last_error}`，修复代码。"}])
                     try:
                         valid_messages = [m for m in messages_to_send if m.get("content") and str(m["content"]).strip()]
                         stream = client.chat.completions.create(model=selected_model, messages=valid_messages,
@@ -545,20 +515,19 @@ elif selected_page == PAGES[1]:
                             _ = execute_safely(extracted_code, add_default_indicators(dummy_df))
                             st.session_state.generated_code = extracted_code
                             agent_logs.append(
-                                f'<div class="agent-status-node success">✅ <b>尝试 {attempt + 1}:</b> 代码通过沙盒预检 -> 策略已安全装载</div>')
+                                f'<div class="agent-status-node success">✅ <b>尝试 {attempt + 1}:</b> 代码通过沙盒预检 -> 策略装载完毕</div>')
                             st.markdown("".join(agent_logs), unsafe_allow_html=True)
                             break
                         except Exception as e:
                             last_error = str(e)
-                            if attempt == max_retries:
-                                agent_logs.append(
-                                    f'<div class="agent-status-node error">❌ <b>最终结果:</b> 失败，最终报错: <code>{last_error}</code></div>')
-                                st.markdown("".join(agent_logs), unsafe_allow_html=True)
+                            if attempt == max_retries: agent_logs.append(
+                                f'<div class="agent-status-node error">❌ <b>最终结果:</b> 失败报错: <code>{last_error}</code></div>'); st.markdown(
+                                "".join(agent_logs), unsafe_allow_html=True)
                     except Exception as e:
-                        st.error(f"链路断开: {e}")
-                        full_resp += f"\n\n❌ [异常阻断: 通信失败或超载 - {e}]"
+                        st.error(f"链路断开: {e}");
+                        full_resp += f"\n\n❌ [异常阻断: 通信失败 - {e}]";
                         break
-                if not full_resp or not full_resp.strip(): full_resp = "❌ 大模型网络中断或未返回任何数据，请重试。"
+                if not full_resp.strip(): full_resp = "❌ 未返回数据"
                 if agent_logs: full_resp += "\n\n" + "".join(agent_logs)
                 st.session_state.messages.append({"role": "assistant", "content": full_resp})
         st.rerun()
@@ -567,17 +536,16 @@ elif selected_page == PAGES[2]:
     if extensions: extensions.render_ide_page()
 
 elif selected_page == PAGES[3]:
-    st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">📊 历史回测全量审计与归因分析</h3></div>',
-        unsafe_allow_html=True)
+    st.markdown('<div class="glass-card"><h3 style="margin-bottom:0;">📊 历史回测全量审计与归因分析</h3></div>',
+                unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 3])
     with col_l:
         ts_code = format_ts_code(st.text_input("🎯 回测标的代码", value="000001"))
-        span_mapping = {"近1年": 1, "近3年": 3, "近5年": 5, "近10年 (极限穿越)": 10}
+        span_mapping = {"近1年": 1, "近3年": 3, "近5年": 5, "近10年": 10}
         span_choice = st.selectbox("⏳ 回测时间跨度", list(span_mapping.keys()), index=1)
         start_year = datetime.now().year - span_mapping[span_choice]
         adj_p = st.selectbox("⚖️ 复权模式", ["qfq", "hfq", "None"]).split(" ")[0]
-        if st.button("🚀 启动全量归因回测", use_container_width=True, type="primary"):
+        if st.button("🚀 启动全量回测", use_container_width=True, type="primary"):
             with st.spinner("数据挂载中..."):
                 try:
                     df_raw = fetch_and_clean_data(ts_code, adj_p if adj_p != "None" else None, f"{start_year}0101")
@@ -601,16 +569,14 @@ elif selected_page == PAGES[3]:
             c4.markdown(
                 f'<div class="metric-box"><p>夏普比率</p><h2 style="color:#3b82f6;">{m["sharpe"]:.2f}</h2></div>',
                 unsafe_allow_html=True)
-            st.markdown("<div style='clear: both; margin-bottom: 30px;'></div>", unsafe_allow_html=True)
             if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
-                with st.expander("💡 展开：AI 策略白话解析", expanded=False): st.markdown(
+                with st.expander("💡 展开：AI 策略解析", expanded=False): st.markdown(
                     st.session_state.strategy_explanation)
-            st.plotly_chart(render_smart_charts(df), use_container_width=True, config={'scrollZoom': True})
+            st.plotly_chart(render_smart_charts(df), use_container_width=True)
 
 elif selected_page == PAGES[4]:
-    st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
-        unsafe_allow_html=True)
+    st.markdown('<div class="glass-card"><h3 style="margin-bottom:0;">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
+                unsafe_allow_html=True)
     c_ctrl, c_chart = st.columns([1, 2.5])
     with c_ctrl:
         live_code = st.text_input("🎯 动态推送标的", value="000001")
@@ -619,9 +585,6 @@ elif selected_page == PAGES[4]:
                   type="primary")
         st.button("⏹️ 强行停止", on_click=lambda: st.session_state.update({"is_live_trading": False}))
     with c_chart:
-        if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
-            with st.expander("💡 当前军令：策略白话解析", expanded=False): st.markdown(
-                st.session_state.strategy_explanation)
         met_ph = st.empty();
         cht_ph = st.empty()
         if st.session_state.is_live_trading:
@@ -651,216 +614,157 @@ elif selected_page == PAGES[4]:
 elif selected_page == PAGES[5]:
     with st.spinner("唤醒深度学习底层张量引擎..."):
         try:
-            import torch
-            import torch.nn as nn
-            from sklearn.preprocessing import MinMaxScaler
+            import torch; import torch.nn as nn; from sklearn.preprocessing import MinMaxScaler
         except ImportError:
-            st.error("🚨 需安装 torch 和 scikit-learn！")
-            st.stop()
-    st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>',
-        unsafe_allow_html=True)
+            st.error("🚨 需安装 torch 和 scikit-learn！"); st.stop()
+    st.markdown('<div class="glass-card"><h3 style="margin-bottom:0;">🧠 深度神经网络时序建模矩阵</h3></div>',
+                unsafe_allow_html=True)
     col_l, col_r = st.columns([1, 2.5])
     with col_l:
         st_code = st.text_input("🎯 训练模型标的", value="000001")
-        span_mapping_dl = {"近1年 (极速)": 1, "近3年 (标准)": 3, "近5年 (深度)": 5}
-        span_choice_dl = st.selectbox("⏳ 训练集时间跨度", list(span_mapping_dl.keys()), index=1)
-        start_year_dl = datetime.now().year - span_mapping_dl[span_choice_dl]
-        st.markdown("---")
-        run_mode = st.radio("⚙️ 引擎运行模式", ["🚀 在线动态训练", "📂 导入本地模型"], horizontal=True)
-        if "在线动态" in run_mode:
-            model_choices = st.multiselect("🧠 选择预测模型 (支持多选融合)", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"])
-            slen = st.slider("📏 滑窗长度", 5, 60, 20)
+        span_choice_dl = st.selectbox("⏳ 训练集时间跨度", ["近1年", "近3年", "近5年"], index=1)
+        start_year_dl = datetime.now().year - (
+            1 if span_choice_dl == "近1年" else 3 if span_choice_dl == "近3年" else 5)
+        run_mode = st.radio("⚙️ 运行模式", ["🚀 在线训练", "📂 导入本地模型"], horizontal=True)
+        if "在线训练" in run_mode:
+            model_choices = st.multiselect("🧠 预测模型", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"])
+            slen = st.slider("📏 滑窗长度", 5, 60, 20);
             eps = st.slider("🔄 Epoch 迭代", 10, 50, 30)
-            uploaded_model = None;
-            btn_text = "🚀 启动张量训练"
+            btn_text = "🚀 启动张量训练";
+            uploaded_model = None
         else:
-            model_choices = st.multiselect("🧠 指定本地模型架构", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"],
-                                           max_selections=1)
-            slen = st.slider("📏 滑窗长度 (需与本地模型一致)", 5, 60, 20)
-            uploaded_model = st.file_uploader("📥 上传 PyTorch 权重文件 (.pth / .pt)", type=['pth', 'pt'])
-            eps = 0;
-            btn_text = "⚡ 挂载模型并推演"
+            model_choices = st.multiselect("🧠 指定架构", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"], max_selections=1)
+            slen = st.slider("📏 滑窗长 (需与本地一致)", 5, 60, 20);
+            uploaded_model = st.file_uploader("📥 上传权重", type=['pth', 'pt'])
+            btn_text = "⚡ 挂载并推演";
+            eps = 0
 
         if st.button(btn_text, type="primary", use_container_width=True):
-            if "导入本地模型" in run_mode and not uploaded_model:
-                st.error("主公，请先上传本地训练好的权重文件！")
+            if "导入本地" in run_mode and not uploaded_model:
+                st.error("请上传本地权重！")
             elif not model_choices:
-                st.error("主公，请至少选择一种预测模型！")
+                st.error("请至少选择一种模型！")
             else:
                 with st.spinner("神经网络前向传播中..."):
                     try:
                         df = fetch_and_clean_data(format_ts_code(st_code), 'qfq', f"{start_year_dl}0101")
-                        scaler = MinMaxScaler()
+                        scaler = MinMaxScaler();
                         scaled = scaler.fit_transform(df['Close'].values.reshape(-1, 1))
                         X, y = [], []
                         for i in range(slen, len(scaled)): X.append(scaled[i - slen:i, 0]); y.append(scaled[i, 0])
-                        X_t = torch.tensor(np.array(X), dtype=torch.float32).unsqueeze(-1)
-                        y_t = torch.tensor(np.array(y), dtype=torch.float32)
+                        X_t, y_t = torch.tensor(np.array(X), dtype=torch.float32).unsqueeze(-1), torch.tensor(
+                            np.array(y), dtype=torch.float32)
 
 
                         class LSTM_Model(nn.Module):
-                            def __init__(self):
-                                super().__init__();
-                                self.lstm = nn.LSTM(1, 64, 2, batch_first=True);
-                                self.fc = nn.Linear(64, 1)
+                            def __init__(self): super().__init__(); self.lstm = nn.LSTM(1, 64, 2,
+                                                                                        batch_first=True); self.fc = nn.Linear(
+                                64, 1)
 
                             def forward(self, x): out, _ = self.lstm(x); return self.fc(out[:, -1, :])
 
 
                         class GRU_Model(nn.Module):
-                            def __init__(self):
-                                super().__init__();
-                                self.gru = nn.GRU(1, 64, 2, batch_first=True);
-                                self.fc = nn.Linear(64, 1)
+                            def __init__(self): super().__init__(); self.gru = nn.GRU(1, 64, 2,
+                                                                                      batch_first=True); self.fc = nn.Linear(
+                                64, 1)
 
                             def forward(self, x): out, _ = self.gru(x); return self.fc(out[:, -1, :])
 
 
                         class CNN_1D_Model(nn.Module):
-                            def __init__(self, seq_len):
-                                super().__init__();
-                                self.conv = nn.Conv1d(in_channels=1, out_channels=32, kernel_size=3, padding=1);
-                                self.fc = nn.Linear(32 * seq_len, 1)
+                            def __init__(self, s): super().__init__(); self.conv = nn.Conv1d(1, 32, 3,
+                                                                                             padding=1); self.fc = nn.Linear(
+                                32 * s, 1)
 
-                            def forward(self, x): x = x.permute(0, 2, 1); x = torch.relu(self.conv(x)); x = x.reshape(
-                                x.size(0), -1); return self.fc(x)
+                            def forward(self, x): x = x.permute(0, 2, 1); x = torch.relu(self.conv(x)); return self.fc(
+                                x.reshape(x.size(0), -1))
 
 
                         preds_dict, future_preds_dict = {}, {}
                         lbox = st.empty();
                         pbar = st.progress(0);
-                        last_window_orig = X_t[-1].clone().unsqueeze(0)
+                        last_win = X_t[-1].clone().unsqueeze(0)
 
                         for m_idx, m_name in enumerate(model_choices):
-                            if m_name == "LSTM":
-                                model = LSTM_Model()
-                            elif m_name == "GRU":
-                                model = GRU_Model()
-                            elif m_name == "1D-CNN":
-                                model = CNN_1D_Model(slen)
-
-                            if "导入本地模型" in run_mode:
-                                lbox.markdown(f"**正在解析并挂载本地 {m_name} 模型权重...**")
+                            model = LSTM_Model() if m_name == "LSTM" else GRU_Model() if m_name == "GRU" else CNN_1D_Model(
+                                slen)
+                            if "导入本地" in run_mode:
+                                lbox.markdown(f"**挂载 {m_name}...**")
                                 try:
-                                    model.load_state_dict(torch.load(uploaded_model, map_location=torch.device('cpu')))
-                                    lbox.success(f"**{m_name}** | 权重校验通过，挂载成功！");
-                                    pbar.progress(1.0)
-                                except Exception as load_e:
-                                    st.warning(f"⚠️ 模型架构不匹配，极速重训练... ({load_e})")
+                                    model.load_state_dict(
+                                        torch.load(uploaded_model, map_location='cpu')); pbar.progress(1.0)
+                                except:
                                     opt = torch.optim.Adam(model.parameters(), lr=0.01);
                                     crit = nn.MSELoss()
                                     for e in range(10): model.train(); opt.zero_grad(); loss = crit(
                                         model(X_t).squeeze(), y_t); loss.backward(); opt.step()
                             else:
-                                lbox.markdown(f"**正在在线训练 {m_name} 模型...**")
                                 opt = torch.optim.Adam(model.parameters(), lr=0.01);
                                 crit = nn.MSELoss()
                                 for e in range(eps):
                                     model.train();
                                     opt.zero_grad();
-                                    pred = model(X_t);
-                                    loss = crit(pred.squeeze(), y_t);
+                                    loss = crit(model(X_t).squeeze(), y_t);
                                     loss.backward();
                                     opt.step()
                                     pbar.progress((m_idx * eps + e + 1) / (len(model_choices) * eps))
-                                    lbox.markdown(f"**{m_name}** | Epoch {e + 1}/{eps} | Loss: {loss.item():.6f}")
 
                             model.eval()
-                            test_p = model(X_t[-100:]).detach().numpy()
-                            preds_dict[m_name] = scaler.inverse_transform(test_p).flatten()
-                            curr_win = last_window_orig.clone()
-                            m_future = []
+                            preds_dict[m_name] = scaler.inverse_transform(model(X_t[-100:]).detach().numpy()).flatten()
+                            curr_w, m_fut = last_win.clone(), []
                             for _ in range(5):
-                                with torch.no_grad(): p_future = model(curr_win)
-                                m_future.append(p_future.item())
-                                curr_win = torch.cat((curr_win[:, 1:, :], p_future.unsqueeze(-1)), dim=1)
+                                with torch.no_grad(): pf = model(curr_w); m_fut.append(pf.item())
+                                curr_w = torch.cat((curr_w[:, 1:, :], pf.unsqueeze(-1)), dim=1)
                             future_preds_dict[m_name] = scaler.inverse_transform(
-                                np.array(m_future).reshape(-1, 1)).flatten()
+                                np.array(m_fut).reshape(-1, 1)).flatten()
 
-                        lbox.success("✅ 矩阵模型装载完毕，时空推演已就绪！")
+                        lbox.success("✅ 时空推演就绪！")
                         st.session_state.dl_result = {"dates": df['trade_date'].iloc[-100:],
                                                       "actual": df['Close'].iloc[-100:], "preds": preds_dict,
                                                       "future": future_preds_dict, "models_used": model_choices}
                     except Exception as e:
-                        st.error(f"DL 张量异常: {e}")
+                        st.error(f"异常: {e}")
 
     with col_r:
         if st.session_state.dl_result:
             res = st.session_state.dl_result
-            latest_price = res['actual'].iloc[-1];
-            actual_vals = res['actual'].values
-            if len(res['models_used']) > 1:
-                f_preds = np.mean(list(res['future'].values()), axis=0);
-                h_preds = np.mean(list(res['preds'].values()), axis=0)
-                model_desc = f"LSTM/GRU/CNN 均值集成 ({len(res['models_used'])}模型)"
-            else:
-                f_preds = list(res['future'].values())[0];
-                h_preds = list(res['preds'].values())[0]
-                model_desc = res['models_used'][0]
+            lat_p = res['actual'].iloc[-1];
+            act_v = res['actual'].values
+            f_p = np.mean(list(res['future'].values()), axis=0) if len(res['models_used']) > 1 else \
+            list(res['future'].values())[0]
+            h_p = np.mean(list(res['preds'].values()), axis=0) if len(res['models_used']) > 1 else \
+            list(res['preds'].values())[0]
+            succ = np.mean(np.sign(np.diff(act_v)) == np.sign(np.diff(h_p))) * 100
+            mape = np.mean(np.abs((act_v - h_p) / (act_v + 1e-8))) * 100
 
-            act_diff = np.diff(actual_vals);
-            pred_diff = np.diff(h_preds)
-            success_rate = np.mean(np.sign(act_diff) == np.sign(pred_diff)) * 100
-            mape = np.mean(np.abs((actual_vals - h_preds) / (actual_vals + 1e-8))) * 100
-            day1_pred = f_preds[0];
-            day5_pred = f_preds[4]
-
-            with st.expander("🤖 AI 深度预测白盒解析舱 (点击展开/收起)", expanded=True):
-                st.markdown(
-                    f"**📈 极速解盘预览**：当前实盘价 `<span class='highlight-text'>{latest_price:.2f}</span>` | 驱动核心: {model_desc}",
-                    unsafe_allow_html=True)
+            with st.expander("🤖 AI 深度预测", expanded=True):
                 c_f1, c_f2, c_f3, c_f4 = st.columns(4)
-                c_f1.metric("未来 1 天预测 (T+1)", f"{day1_pred:.2f}",
-                            f"{(day1_pred - latest_price) / latest_price * 100:.2f}%")
-                c_f2.metric("未来 5 天预测 (T+5)", f"{day5_pred:.2f}",
-                            f"{(day5_pred - latest_price) / latest_price * 100:.2f}%")
-                c_f3.metric("🎯 历史方向胜率", f"{success_rate:.1f}%", "涨跌准确度")
-                c_f4.metric("⚖️ 平均预测偏差", f"{mape:.2f}%", "绝对偏离度", delta_color="inverse")
-
-                if st.button("✨ 召唤 Kimi 结合胜率生成人话解盘", use_container_width=True):
-                    ai_ph = st.empty()
-                    prompt = f"你是一个顶级的量化分析师，为小白解盘。当前收盘价 {latest_price:.2f}元。基于【{model_desc}】推演，未来1天预测价为 {day1_pred:.2f}元，未来5天为 {day5_pred:.2f}元。模型胜率为 {success_rate:.1f}%，偏差为 {mape:.2f}%。请用大白话（限200字以内，不要代码），向小白解释并给出建议。"
-                    try:
-                        stream = client.chat.completions.create(model="moonshot-v1-8k",
-                                                                messages=[{"role": "user", "content": prompt}],
-                                                                stream=True, temperature=0.5)
-                        full_txt = ""
-                        for chunk in stream:
-                            if chunk.choices[0].delta.content: full_txt += chunk.choices[0].delta.content; ai_ph.info(
-                                full_txt + "▌")
-                        ai_ph.info(full_txt)
-                    except Exception as e:
-                        ai_ph.error(f"Kimi 连线中断: {e}")
+                c_f1.metric("未来 1 天预测", f"{f_p[0]:.2f}", f"{(f_p[0] - lat_p) / lat_p * 100:.2f}%")
+                c_f2.metric("未来 5 天预测", f"{f_p[4]:.2f}", f"{(f_p[4] - lat_p) / lat_p * 100:.2f}%")
+                c_f3.metric("历史胜率", f"{succ:.1f}%")
+                c_f4.metric("平均偏差", f"{mape:.2f}%", delta_color="inverse")
 
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹 (Actual)',
-                                     line=dict(color='#10b981', width=2)))
-            color_map = {"LSTM": "#3b82f6", "GRU": "#f59e0b", "1D-CNN": "#8b5cf6"}
-            for m_name, pred_array in res['preds'].items(): fig.add_trace(
-                go.Scatter(x=res['dates'], y=pred_array, name=f'{m_name} 历史拟合',
-                           line=dict(color=color_map.get(m_name, '#94a3b8'), dash='dot', width=1.5)))
+            fig.add_trace(
+                go.Scatter(x=res['dates'], y=res['actual'], name='Actual', line=dict(color='#10b981', width=2)))
+            colors = {"LSTM": "#3b82f6", "GRU": "#f59e0b", "1D-CNN": "#8b5cf6"}
+            for mn, pa in res['preds'].items(): fig.add_trace(go.Scatter(x=res['dates'], y=pa, name=mn,
+                                                                         line=dict(color=colors.get(mn, '#94a3b8'),
+                                                                                   dash='dot', width=1.5)))
             if len(res['preds']) > 1: fig.add_trace(
-                go.Scatter(x=res['dates'], y=np.mean(list(res['preds'].values()), axis=0), name='🔥 均值集成 (Ensemble)',
-                           line=dict(color='#ef4444', width=3)))
+                go.Scatter(x=res['dates'], y=h_p, name='均值集成', line=dict(color='#ef4444', width=3)))
             fig.update_layout(height=450, template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                              dragmode='pan', hovermode='x',
                               legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-            fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)');
-            fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
             st.plotly_chart(fig, use_container_width=True)
 
 elif selected_page == PAGES[6]:
-    st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>',
-        unsafe_allow_html=True)
-    c1, c2 = st.columns([1, 1.2])
-    with c1:
-        if os.path.exists("user_logs/global_master_log.csv"): st.download_button("📁 导出审计日志", data=pd.read_csv(
-            "user_logs/global_master_log.csv").to_csv(index=False).encode('utf-8'), file_name='Audit_Logs.csv',
-                                                                                 type="primary")
-    with c2:
-        st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
+    st.markdown('<div class="glass-card"><h3 style="margin-bottom:0;">🛡️ 实验数据采集与审计</h3></div>',
+                unsafe_allow_html=True)
+    if os.path.exists("user_logs/global_master_log.csv"): st.download_button("📁 导出审计日志", data=pd.read_csv(
+        "user_logs/global_master_log.csv").to_csv(index=False).encode('utf-8'), file_name='Audit_Logs.csv',
+                                                                             type="primary")
+    st.text_area("终端", value="\n".join(st.session_state.sys_logs), height=350)
 
 elif selected_page == PAGES[7]:
     if extensions: extensions.render_futures_backtest()
