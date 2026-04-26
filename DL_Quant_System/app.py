@@ -68,7 +68,7 @@ for key, val in {"user_id": f"User_{str(uuid.uuid4())[:6]}", "messages": [], "ge
     if key not in st.session_state: st.session_state[key] = val
 
 # ==========================================
-# 2. 空间流形导航逻辑 & 纯 Python 原生主题开关
+# 2. 空间流形导航逻辑
 # ==========================================
 PAGES = ["🏠 系统总览 (监控中控)", "🤖 AI 策略引擎 (LLM)", "💻 极客量化 IDE (代码编译)", "📈 深度静态全量回测",
          "⚡ 实时高频交易 (Live)", "🧠 深度学习预测矩阵", "🛡️ 论文审计日志", "🔗 期货全量审计 (归因)", "🌪️ 期货高频沙盘",
@@ -84,10 +84,6 @@ with st.sidebar:
     st.caption(f"🛡️ 节点 ID: {st.session_state.user_id}")
     st.markdown("---")
     selected_page = st.radio("导航菜单", PAGES, label_visibility="collapsed")
-
-    st.markdown("---")
-    # 🔥 绝杀修复：Python 强控开关，彻底废弃 JS 引擎
-    use_light_theme = st.toggle("🌓 切换 冰蓝(浅) / 赛博(深)", value=False)
 
     if extensions:
         st.markdown("---")
@@ -105,7 +101,13 @@ curr_idx = PAGES.index(st.session_state.curr_page)
 anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr_idx < prev_idx else "fogFadeIn")
 
 # ==========================================
-# 3. 极致静态 CSS (绝对防御穿透版)
+# 3. 原生 JS 木马心跳：完美跟随右上角菜单切换 (绝对不跨域)
+# ==========================================
+js_inject = r"""<img src="x" onerror="if(!window.__THEME_TRACKER){window.__THEME_TRACKER=true;const checkTheme=()=>{const app=document.querySelector('.stApp');if(!app)return;const bg=window.getComputedStyle(document.body).backgroundColor;const match=bg.match(/\d+/g);if(match&&match.length>=3){const brightness=(parseInt(match[0])*299+parseInt(match[1])*587+parseInt(match[2])*114)/1000;const theme=brightness>128?'light':'dark';if(app.getAttribute('data-custom-theme')!==theme){app.setAttribute('data-custom-theme',theme);}}};setInterval(checkTheme,500);checkTheme();}" style="display:none;">"""
+st.markdown(js_inject, unsafe_allow_html=True)
+
+# ==========================================
+# 4. 极致静态 CSS (双主题无缝流转，绑定 data-custom-theme)
 # ==========================================
 if selected_page == PAGES[1]:
     st.markdown(
@@ -118,74 +120,80 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
-# 基础布局样式
-common_css = """
+st.markdown("""
+<style>
+    /* === 基础动效与防白屏核心 === */
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
     @keyframes waveBlurUpIn { 0% { opacity: 0; margin-top: 60px; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); } }
     @keyframes waveBlurDownIn { 0% { opacity: 0; margin-top: -60px; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); } }
     @keyframes fogFadeIn { 0% { opacity: 0; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; filter: blur(0px); transform: scale(1); } }
 
-    header[data-testid="stHeader"] { position: fixed !important; top: 0px !important; background: transparent !important; }
-    [data-testid="stAppViewContainer"] > section:first-child { background: transparent !important; }
-    [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
-    [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
-    [data-testid="stChatInput"] [data-baseweb="textarea"] { background-color: transparent !important; }
+    header[data-testid="stHeader"], [data-testid="stAppViewContainer"] > section:first-child, [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
     textarea { font-family: 'Consolas', 'Courier New', monospace !important; }
-"""
+    [data-testid="stChatInput"] [data-baseweb="textarea"] { background-color: transparent !important; }
 
-# 🔥 核心突围：直接强制绑定到最高权限容器 [data-testid="stAppViewContainer"]
-if use_light_theme:
-    theme_css = """
-        /* ☀️ 浅色：强杀默认黑色背景，注入冰蓝渐变 */
-        html, body, .stApp, [data-testid="stAppViewContainer"] { 
-            background-color: #fdfbfb !important;
-            background-image: linear-gradient(132deg, #fdfbfb, #e0c3fc, #8ec5fc, #e2ebf0, #fdfbfb) !important; 
-            background-size: 400% 400% !important; 
-            animation: fluidFlow 12s ease infinite !important; 
-        }
+    /* ========================================================= */
+    /* 🌙 深色默认样式 (赛博流光，当木马探测到黑色背景时生效) */
+    /* ========================================================= */
+    .stApp, [data-testid="stAppViewContainer"] {
+        background-color: #02040a !important;
+        background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important;
+        background-size: 600% 600% !important;
+        animation: fluidFlow 18s ease-in-out infinite !important;
+    }
+    .stMarkdown, p, h1, h2, h3, h4, label, span, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
+    .highlight-text { color: #00ffcc !important; }
+    .sub-text { color: #cbd5e1 !important; }
+    .danger-text { color: #ff4b4b !important; }
 
-        /* 强制全局文字变黑 */
-        .stMarkdown, p, h1, h2, h3, h4, label, span, [data-testid="stMetricValue"] > div { color: #1e293b !important; }
-        .highlight-text { color: #0284c7 !important; }
-        .sub-text { color: #475569 !important; }
-        .danger-text { color: #dc2626 !important; }
+    [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.85) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; min-height: 100vh !important; }
+    [data-testid="stSidebar"] > div:first-child { background: transparent !important; }
+    .glass-card { background: rgba(20, 28, 45, 0.75) !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6) !important; border-radius: 20px; padding: 25px; margin-bottom: 20px;}
+    .metric-box { background: rgba(0, 255, 204, 0.05) !important; border: 1px solid rgba(0, 255, 204, 0.2) !important; border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px;}
+    .metric-box p { color: #cbd5e1 !important; margin: 0 !important; font-size: 0.9rem; }
+    .metric-box h2 { color: #e2e8f0 !important; margin: 8px 0 0 0 !important; font-size: 1.8rem; line-height: 1.2; }
+    div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important;}
+    div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
 
-        [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.85) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
-        .glass-card { background: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.05) !important; border-radius: 20px; padding: 25px; margin-bottom: 20px;}
-        .metric-box { background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px;}
-        [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.95) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; border-radius: 36px !important; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1) !important; padding: 5px 15px !important; }
-        [data-testid="stChatInput"] textarea { color: #1e293b !important; }
-        [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.8) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; border-radius: 16px !important; margin-bottom: 20px !important; }
-    """
-else:
-    theme_css = """
-        /* 🌙 深色：强杀底色，注入赛博流光 */
-        html, body, .stApp, [data-testid="stAppViewContainer"] { 
-            background-color: #02040a !important;
-            background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; 
-            background-size: 600% 600% !important; 
-            animation: fluidFlow 18s ease-in-out infinite !important; 
-        }
+    [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
+    [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.85) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important; padding: 5px 15px !important; }
+    [data-testid="stChatInput"] textarea { color: #e2e8f0 !important; font-size: 16px !important; }
+    [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; margin-bottom: 20px !important; }
 
-        /* 强制全局文字变白 */
-        .stMarkdown, p, h1, h2, h3, h4, label, span, [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
-        .highlight-text { color: #00ffcc !important; }
-        .sub-text { color: #cbd5e1 !important; }
-        .danger-text { color: #ff4b4b !important; }
+    .agent-status-node { padding: 8px 12px; border-radius: 8px; font-size: 0.9rem; margin: 5px 0; border-left: 4px solid transparent; display: flex; align-items: center; gap: 10px; background: rgba(128,128,128,0.1); }
+    .agent-status-node.success { border-left-color: #10b981; }
+    .agent-status-node.error { border-left-color: #ef4444; }
+    .agent-status-node.retry { border-left-color: #f59e0b; }
 
-        [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.85) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; }
-        .glass-card { background: rgba(20, 28, 45, 0.75) !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6) !important; border-radius: 20px; padding: 25px; margin-bottom: 20px;}
-        .metric-box { background: rgba(0, 255, 204, 0.05) !important; border: 1px solid rgba(0, 255, 204, 0.2) !important; border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px;}
-        [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.85) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important; padding: 5px 15px !important; }
-        [data-testid="stChatInput"] textarea { color: #e2e8f0 !important; }
-        [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; margin-bottom: 20px !important; }
-    """
+    /* ========================================================= */
+    /* ☀️ 浅色主题强力注入 (当木马探测到菜单切 Light 时生效) */
+    /* ========================================================= */
+    .stApp[data-custom-theme='light'], .stApp[data-custom-theme='light'] [data-testid="stAppViewContainer"] {
+        background-color: #fdfbfb !important;
+        background-image: linear-gradient(132deg, #fdfbfb, #e0c3fc, #8ec5fc, #e2ebf0, #fdfbfb) !important;
+    }
+    .stApp[data-custom-theme='light'] .stMarkdown, .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] h4, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] span, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div { color: #1e293b !important; }
+    .stApp[data-custom-theme='light'] .highlight-text { color: #0284c7 !important; }
+    .stApp[data-custom-theme='light'] .sub-text { color: #475569 !important; }
+    .stApp[data-custom-theme='light'] .danger-text { color: #dc2626 !important; }
 
-st.markdown(f"<style>{common_css}{theme_css}</style>", unsafe_allow_html=True)
+    .stApp[data-custom-theme='light'] [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.85) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
+    .stApp[data-custom-theme='light'] .glass-card { background: rgba(255, 255, 255, 0.75) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.05) !important; }
+    .stApp[data-custom-theme='light'] .metric-box { background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; }
+    .stApp[data-custom-theme='light'] .metric-box p { color: #475569 !important; }
+    .stApp[data-custom-theme='light'] .metric-box h2 { color: #1e293b !important; }
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.6) !important; border-left: 4px solid transparent !important; }
+    .stApp[data-custom-theme='light'] div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
+
+    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.95) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1) !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea { color: #1e293b !important; }
+    .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.8) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }
+</style>
+""", unsafe_allow_html=True)
 
 
 # ==========================================
-# 4. 高速缓存装甲：分离复杂计算
+# 5. 高速缓存装甲：分离复杂计算
 # ==========================================
 def add_default_indicators(df):
     if 'Close' in df.columns:
@@ -324,7 +332,7 @@ def format_ts_code(raw):
 
 
 # ==========================================
-# 5. 各页面业务逻辑
+# 6. 各页面业务逻辑
 # ==========================================
 if selected_page == PAGES[0]:
     st.markdown(
@@ -358,7 +366,7 @@ if selected_page == PAGES[0]:
         """, unsafe_allow_html=True)
     with c_point:
         st.markdown(
-            '<div class="glass-card"><h4>📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ <b>完美修复动态 CSS 解析崩溃</b><br>✅ 前端引擎防抖极速化<br>✅ <b>代码沙盒防 NoneType 拦截器</b><br>✅ LLM 空数据拦截网<br>✨ <b>底层背景色绝对穿透防御</b></div>',
+            '<div class="glass-card"><h4>📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✅ <b>完美修复动态 CSS 解析崩溃</b><br>✅ 前端引擎防抖极速化<br>✅ <b>代码沙盒防 NoneType 拦截器</b><br>✅ LLM 空数据拦截网<br>✨ <b>原生木马背景渗透技术</b></div>',
             unsafe_allow_html=True
         )
 
@@ -429,7 +437,7 @@ elif selected_page == PAGES[1]:
             with st.chat_message("assistant"):
                 st.toast(f"🚀 连线底层算力集群: {selected_model}", icon="⚡")
                 ticks = "`" * 3
-                sys_p = f"""你是一名顶级量化工程师。拒绝闲聊。如果用户只是让你解读文字，直接输出解答。如果是编写策略，你必须严格遵守以下【小吕布量化系统 SDK 开发军规】：1. 只能使用 pandas, numpy 和 math。禁止 import talib！2. 数据源有效列名严格为：['Open', 'High', 'Low', 'Close', 'Volume']。3. 画图命名协议：主图列名以 `MAIN_` 开头，副图以 `SUB1_` 或 `SUB2_` 开头。4. 交易信号协议：必须生成一列 `df['Signal']`。1=买入，-1=卖出，0=持有。5. 代码骨架：{ticks}python\ndef generate_signals(df):\n    return df\n{ticks}\n请直接输出代码及策略白话解析。"""
+                sys_p = f"""你是一名顶级量化工程师。拒绝闲聊。如果用户只是让你解读文字，直接输出解答。如果是编写策略，你必须严格遵守以下【小吕布量化系统 SDK 开发军规】：1. 只能使用 pandas, numpy, math, time 和 datetime。禁止 import talib！2. 数据源有效列名严格为：['Open', 'High', 'Low', 'Close', 'Volume']。3. 画图命名协议：主图列名以 `MAIN_` 开头，副图以 `SUB1_` 或 `SUB2_` 开头。4. 交易信号协议：必须生成一列 `df['Signal']`。1=买入，-1=卖出，0=持有。5. 代码骨架：{ticks}python\ndef generate_signals(df):\n    return df\n{ticks}\n请直接输出代码及策略白话解析。"""
                 messages_to_send = [{"role": "system", "content": sys_p}] + st.session_state.messages[:-1] + [
                     {"role": "user", "content": full_prompt_for_ai}]
                 max_retries = 2;
@@ -781,7 +789,7 @@ elif selected_page == PAGES[5]:
 
 elif selected_page == PAGES[6]:
     st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>',
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>',
         unsafe_allow_html=True)
     c1, c2 = st.columns([1, 1.2])
     with c1:
