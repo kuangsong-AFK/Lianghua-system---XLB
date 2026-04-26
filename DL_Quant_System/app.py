@@ -68,7 +68,7 @@ for key, val in {"user_id": f"User_{str(uuid.uuid4())[:6]}", "messages": [], "ge
     if key not in st.session_state: st.session_state[key] = val
 
 # ==========================================
-# 2. 空间流形导航逻辑
+# 2. 空间流形导航逻辑 & 原生主题开关
 # ==========================================
 PAGES = ["🏠 系统总览 (监控中控)", "🤖 AI 策略引擎 (LLM)", "💻 极客量化 IDE (代码编译)", "📈 深度静态全量回测",
          "⚡ 实时高频交易 (Live)", "🧠 深度学习预测矩阵", "🛡️ 论文审计日志", "🔗 期货全量审计 (归因)", "🌪️ 期货高频沙盘",
@@ -85,7 +85,11 @@ with st.sidebar:
     st.markdown("---")
     selected_page = st.radio("导航菜单", PAGES, label_visibility="collapsed")
 
-    # 🔥 修复 Bug 2: 3D 桌宠合法挂载于侧边栏，不再越界流窜
+    st.markdown("---")
+    # 🔥 绝杀修复：新增 Python 原生主题切换开关，彻底摆脱浏览器系统主题的束缚！
+    use_light_theme = st.toggle("🌓 切换 冰蓝(浅) / 赛博(深)", value=False)
+
+    # 桌宠合法挂载于侧边栏，不再越界流窜
     if extensions:
         st.markdown("---")
         extensions.summon_global_3d_lulu()
@@ -102,22 +106,22 @@ curr_idx = PAGES.index(st.session_state.curr_page)
 anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr_idx < prev_idx else "fogFadeIn")
 
 # ==========================================
-# 3. 极致静态 CSS (修复了跨域白屏与文字掩盖 BUG)
+# 3. 极致静态 CSS (后端 Python 动态推流版)
 # ==========================================
 if selected_page == PAGES[1]:
     st.markdown(
         '<style>div[data-testid="stFileUploader"] { position: absolute !important; top: -9999px !important; opacity: 0 !important; z-index: -9999 !important; pointer-events: none !important; }</style>',
         unsafe_allow_html=True)
 
+# 动效变量使用 f-string 隔离注入
 st.markdown(f"""
 <style>
     .block-container {{ animation: {anim_name} 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; background: transparent !important; padding-top: 4.5rem !important; padding-bottom: 120px !important; }}
 </style>
 """, unsafe_allow_html=True)
 
-# 🔥 修复 Bug 1 & 4: 移除跨域 JS，使用 CSS 媒体查询自适应主题，且尊重 var(--text-color)
-st.markdown("""
-<style>
+# 全局公共样式 (不管黑白都生效的布局和动画)
+common_css = """
     @keyframes fluidFlow { 0% { background-position: 0% 50%; } 25% { background-position: 50% 100%; } 50% { background-position: 100% 50%; } 75% { background-position: 50% 0%; } 100% { background-position: 0% 50%; } }
     @keyframes waveBlurUpIn { 0% { opacity: 0; margin-top: 60px; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); } }
     @keyframes waveBlurDownIn { 0% { opacity: 0; margin-top: -60px; filter: blur(15px); transform: scale(0.98); } 100% { opacity: 1; margin-top: 0px; filter: blur(0px); transform: scale(1); } }
@@ -128,31 +132,9 @@ st.markdown("""
     .stMarkdown a.header-anchor, .stMarkdown h1 svg, .stMarkdown h2 svg, .stMarkdown h3 svg { display: none !important; pointer-events: none !important; }
     [data-testid="stAppViewContainer"], [data-testid="stBottomBlock"], [data-testid="stBottom"] > div { background: transparent !important; border: none !important; }
 
-    /* 全局文字自适应，绝不死锁白字 */
+    /* 文字颜色完美继承 Streamlit 原生设定，绝不冲突 */
     .stMarkdown, p, h1, h2, h3, h4, label, [data-testid="stMetricValue"] > div { color: var(--text-color) !important; }
-    .highlight-text { color: #00ffcc !important; }
-    .sub-text { color: #8b9bb4 !important; }
-    .danger-text { color: #ff4b4b !important; }
-
-    /* 深色主题默认流光 */
-    .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
-    [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; }
-    .glass-card { background: rgba(20, 28, 45, 0.65) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
-    .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px; overflow: hidden; }
-
-    /* CSS 原生媒体查询探测浅色主题 (代替崩溃的 JS 探测) */
-    @media (prefers-color-scheme: light) {
-        .stApp { background-image: linear-gradient(132deg, #fdfbfb, #e0c3fc, #8ec5fc, #e2ebf0, #fdfbfb) !important; background-size: 400% 400% !important; animation: fluidFlow 12s ease infinite !important; }
-        .highlight-text { color: #0284c7 !important; }
-        .sub-text { color: #475569 !important; }
-        .danger-text { color: #dc2626 !important; }
-        .glass-card { background: rgba(255, 255, 255, 0.6) !important; border: 1px solid rgba(0, 0, 0, 0.1) !important; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.05) !important; }
-        .metric-box { background: rgba(2, 132, 199, 0.05) !important; border: 1px solid rgba(2, 132, 199, 0.2) !important; }
-        [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.75) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
-    }
-
     [data-testid="stChatInput"] { background: transparent !important; border: none !important; box-shadow: none !important; max-width: 850px; margin: 0 auto 10px auto !important; }
-    [data-testid="stChatInput"] > div:first-child { backdrop-filter: blur(25px) !important; border-radius: 36px !important; padding: 5px 15px !important; }
     [data-testid="stChatInput"] textarea { color: var(--text-color) !important; font-size: 16px !important; }
     textarea { font-family: 'Consolas', 'Courier New', monospace !important; }
 
@@ -160,8 +142,42 @@ st.markdown("""
     .agent-status-node.success { border-left-color: #10b981; }
     .agent-status-node.error { border-left-color: #ef4444; }
     .agent-status-node.retry { border-left-color: #f59e0b; }
-</style>
-""", unsafe_allow_html=True)
+"""
+
+# 🔥 核心拆分：Python 动态判别注入对应的主题皮肤
+if use_light_theme:
+    theme_css = """
+        /* ☀️ 浅色：冰蓝薄荷渐变阵法 */
+        .stApp { background-image: linear-gradient(132deg, #fdfbfb, #e0c3fc, #8ec5fc, #e2ebf0, #fdfbfb) !important; background-size: 400% 400% !important; animation: fluidFlow 12s ease infinite !important; }
+        .highlight-text { color: #0284c7 !important; }
+        .sub-text { color: #475569 !important; }
+        .danger-text { color: #dc2626 !important; }
+        [data-testid="stSidebar"] { background: rgba(248, 250, 252, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(0,0,0,0.08) !important; }
+        .glass-card { background: rgba(255, 255, 255, 0.6) !important; backdrop-filter: blur(20px); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.05); }
+        .metric-box { background: rgba(2, 132, 199, 0.05); border: 1px solid rgba(2, 132, 199, 0.2); border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px; }
+        [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.75) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08) !important; padding: 5px 15px !important; }
+        div[role="radiogroup"] > label { background: rgba(241, 245, 249, 0.6) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important;}
+        div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(59, 130, 246, 0.15), rgba(255, 255, 255, 0.95)) !important; border-left: 4px solid #3b82f6 !important; }
+        [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.7) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; border-radius: 16px !important; backdrop-filter: blur(10px); margin-bottom: 20px !important; }
+    """
+else:
+    theme_css = """
+        /* 🌙 深色：赛博流光阵法 */
+        .stApp { background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important; background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; }
+        .highlight-text { color: #00ffcc !important; }
+        .sub-text { color: #8b9bb4 !important; }
+        .danger-text { color: #ff4b4b !important; }
+        [data-testid="stSidebar"] { background: rgba(5, 8, 14, 0.75) !important; backdrop-filter: blur(25px) !important; border-right: 1px solid rgba(255,255,255,0.08) !important; }
+        .glass-card { background: rgba(20, 28, 45, 0.65) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 25px; margin-bottom: 20px; box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6); }
+        .metric-box { background: rgba(0, 255, 204, 0.05); border: 1px solid rgba(0, 255, 204, 0.2); border-radius: 10px; padding: 15px; text-align: center; margin-bottom: 10px; }
+        [data-testid="stChatInput"] > div:first-child { background-color: rgba(30, 41, 59, 0.6) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; border-radius: 36px !important; box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important; padding: 5px 15px !important; }
+        div[role="radiogroup"] > label { background: rgba(15, 20, 30, 0.4) !important; border-left: 4px solid transparent !important; border-radius: 12px !important; margin-bottom: 10px !important;}
+        div[role="radiogroup"] > label:has(input:checked) { background: linear-gradient(90deg, rgba(0, 255, 204, 0.3), rgba(10, 15, 25, 0.95)) !important; border-left: 4px solid #00ffcc !important; }
+        [data-testid="stExpander"] { background: rgba(15, 23, 35, 0.8) !important; border: 1px solid rgba(0, 255, 204, 0.3) !important; border-radius: 16px !important; backdrop-filter: blur(10px); margin-bottom: 20px !important; }
+    """
+
+# 将公共样式与主题样式一并推流至前端
+st.markdown(f"<style>{common_css}{theme_css}</style>", unsafe_allow_html=True)
 
 
 # ==========================================
@@ -230,7 +246,7 @@ def execute_safely(code, df):
     try:
         safe_code = str(code).replace("pandas.np", "np")
         l_vars = {}
-        # 🔥 修复 Bug 3: 注入缺失的 time 和 datetime 粮草，杜绝沙盒报错
+        # 🔥 修复：注入缺失的 time 和 datetime 粮草，杜绝沙盒报错
         exec(safe_code, {"pd": pd, "np": np, "math": math, "time": time, "datetime": datetime}, l_vars)
         func_to_call = next((v for k, v in l_vars.items() if callable(v)), None)
         if not func_to_call: return df
@@ -526,7 +542,7 @@ elif selected_page == PAGES[4]:
         live_code = st.text_input("🎯 动态推送标的", value="000001")
         freq = st.slider("⏱️ 刷新间隔 (秒)", 0.1, 2.0, 0.5)
 
-        # 🔥 修复 Bug 5: 重写状态机控制逻辑，彻底抛弃死循环
+        # 🔥 修复：重写状态机控制逻辑，彻底抛弃死循环
         if st.button("▶️ 开启高频推演", type="primary"):
             st.session_state.is_live_trading = True
             st.session_state.live_tick_idx = 20
@@ -540,7 +556,7 @@ elif selected_page == PAGES[4]:
         met_ph = st.empty()
         cht_ph = st.empty()
 
-        # 🔥 修复 Bug 5: 利用 st.rerun() 释放线程霸权，保证按钮随时可点
+        # 🔥 修复：利用 st.rerun() 释放线程霸权，保证按钮随时可点
         if st.session_state.is_live_trading:
             if "live_tick_idx" not in st.session_state:
                 st.session_state.live_tick_idx = 20
