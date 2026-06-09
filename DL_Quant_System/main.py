@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import io
 import base64
 from datetime import datetime, timedelta
+from data_loader import fetch_stock_data, format_ts_code as normalize_ts_code
 from secure_config import get_secret
 from strategy_sandbox import execute_strategy
 
@@ -39,15 +40,7 @@ plt.rcParams['axes.unicode_minus'] = False
 
 
 def format_stock_code(code):
-    code = str(code).strip()
-    if len(code) == 6 and code.isdigit():
-        if code.startswith(('60', '68', '90')):
-            return f"{code}.SH"
-        elif code.startswith(('00', '30', '20')):
-            return f"{code}.SZ"
-        elif code.startswith(('43', '83', '87')):
-            return f"{code}.BJ"
-    return code
+    return normalize_ts_code(code)
 
 
 # --- 参数默认值 ---
@@ -112,24 +105,27 @@ def calculate_indicators(df, params=None):
 
 @st.cache_data(ttl=43200, show_spinner=False)
 def download_data_with_retry(ts_code):
-    if pro is None:
-        return None, 0
-    end_date = datetime.now().strftime('%Y%m%d')
     start_20 = (datetime.now() - timedelta(days=20 * 365)).strftime('%Y%m%d')
-    try:
-        df = pro.daily(ts_code=ts_code, start_date=start_20, end_date=end_date)
-        if df is not None and len(df) > 100:
-            return df.sort_values('trade_date').reset_index(drop=True), 20
-    except:
-        pass
-    start_5 = (datetime.now() - timedelta(days=5 * 365)).strftime('%Y%m%d')
-    try:
-        df = pro.daily(ts_code=ts_code, start_date=start_5, end_date=end_date)
-        if df is not None and not df.empty:
-            return df.sort_values('trade_date').reset_index(drop=True), 5
-    except:
-        pass
+    df, source = fetch_stock_data(
+        ts_code,
+        adj=None,
+        start_date=start_20,
+        tushare_token=TS_TOKEN,
+        tushare_module=ts,
+    )
+    if df is not None and not df.empty:
+        years = 20 if source == "tushare" else _estimate_years(df)
+        return df.sort_values('trade_date').reset_index(drop=True), years
     return None, 0
+
+
+def _estimate_years(df):
+    if df is None or df.empty or "trade_date" not in df.columns:
+        return 0
+    dates = pd.to_datetime(df["trade_date"], errors="coerce").dropna()
+    if dates.empty:
+        return 0
+    return max(1, int((dates.max() - dates.min()).days / 365))
 
 
 # --- 核心：生成专业研报 HTML ---

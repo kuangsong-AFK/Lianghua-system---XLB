@@ -15,6 +15,7 @@ import uuid
 import math
 from PIL import Image
 from backtester.engine import simple_backtest
+from data_loader import fetch_stock_data, format_ts_code as normalize_ts_code
 from secure_config import get_secret
 from strategy_sandbox import execute_strategy
 
@@ -285,7 +286,7 @@ def add_default_indicators(df):
 @st.cache_data(ttl=300, show_spinner=False)
 def get_tushare_status():
     if pro is None:
-        return "Missing TUSHARE_TOKEN"
+        return "Local CSV mode"
     try:
         t0 = time.time()
         pro.trade_cal(exchange='SSE', start_date='20240101', end_date='20240101')
@@ -296,22 +297,31 @@ def get_tushare_status():
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_and_clean_data(ts_code, adj, start_date):
-    if not TUSHARE_TOKEN:
-        return pd.DataFrame()
-    df = ts.pro_bar(ts_code=ts_code, adj=adj, start_date=start_date)
+    df, _source = fetch_stock_data(
+        ts_code,
+        adj=adj,
+        start_date=start_date,
+        tushare_token=TUSHARE_TOKEN,
+        tushare_module=ts,
+    )
     if df is not None and not df.empty:
-        df = df.sort_values('trade_date').reset_index(drop=True)
-        df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
-        mapping_base = {'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'vol': 'Volume',
-                        'amount': 'Amount'}
-        for l_case, c_case in mapping_base.items():
-            if l_case in df.columns: df[c_case] = df[l_case]
-        if 'Volume' not in df.columns and 'vol' in df.columns: df['Volume'] = df['vol']
         return add_default_indicators(df)
     return pd.DataFrame()
 
 
-@st.cache_data(show_spinner=False)
+def _hash_market_frame(df):
+    if df is None or df.empty:
+        return ("empty",)
+    close_col = "Close" if "Close" in df.columns else ("close" if "close" in df.columns else None)
+    date_col = "trade_date" if "trade_date" in df.columns else None
+    first_date = str(df[date_col].iloc[0]) if date_col else ""
+    last_date = str(df[date_col].iloc[-1]) if date_col else ""
+    first_close = float(df[close_col].iloc[0]) if close_col else 0.0
+    last_close = float(df[close_col].iloc[-1]) if close_col else 0.0
+    return (len(df), tuple(map(str, df.columns)), first_date, last_date, round(first_close, 6), round(last_close, 6))
+
+
+@st.cache_data(show_spinner=False, hash_funcs={pd.DataFrame: _hash_market_frame})
 def run_backtest_metrics(df_source, strategy_code):
     if df_source is None or df_source.empty:
         return {"df": pd.DataFrame(), "metrics": {"total": 0, "annual": 0, "max_dd": 0, "sharpe": 0, "trades": 0}}
@@ -347,6 +357,37 @@ def execute_safely(code, df):
 
 
 def render_smart_charts(df):
+    if df is None or df.empty:
+        fig = go.Figure()
+        fig.update_layout(
+            height=420,
+            template="none",
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            annotations=[dict(text="No market data", showarrow=False, x=0.5, y=0.5, xref="paper", yref="paper")],
+            margin=dict(l=10, r=10, t=10, b=10),
+        )
+        return fig
+    if "trade_date" not in df.columns:
+        df = df.copy()
+        df["trade_date"] = pd.RangeIndex(len(df))
+    else:
+        df = df.copy()
+        df["trade_date"] = pd.to_datetime(df["trade_date"], errors="coerce")
+        if df["trade_date"].isna().all():
+            df["trade_date"] = pd.RangeIndex(len(df))
+    required_price_cols = {"Open", "High", "Low", "Close"}
+    if not required_price_cols.issubset(df.columns):
+        fig = go.Figure()
+        fig.update_layout(
+            height=420,
+            template="none",
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            annotations=[dict(text="Missing OHLC columns", showarrow=False, x=0.5, y=0.5, xref="paper", yref="paper")],
+            margin=dict(l=10, r=10, t=10, b=10),
+        )
+        return fig
     main_inds = [c for c in df.columns if c.startswith('MAIN_')]
     sub_groups = {}
     for c in df.columns:
@@ -355,8 +396,13 @@ def render_smart_charts(df):
     rows = 2 + len(sub_groups)
     fig = make_subplots(rows=rows, cols=1, shared_xaxes=True, vertical_spacing=0.03,
                         row_heights=[0.5, 0.15] + [0.35 / max(1, len(sub_groups))] * len(sub_groups))
-    x_labels = df['trade_date'].dt.strftime('%Y-%m-%d') if df['trade_date'].dt.time.nunique() <= 1 else df[
-        'trade_date'].dt.strftime('%m-%d %H:%M')
+    is_time_axis = pd.api.types.is_datetime64_any_dtype(df['trade_date'])
+    if is_time_axis:
+        time_fmt = '%Y-%m-%d' if df['trade_date'].dt.time.nunique() <= 1 else '%m-%d %H:%M'
+        x_labels = df['trade_date'].dt.strftime(time_fmt)
+    else:
+        time_fmt = None
+        x_labels = df['trade_date'].astype(str)
     fig.add_trace(go.Candlestick(x=x_labels, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
                                  increasing_line_color='#ef4444', decreasing_line_color='#10b981', name='K线'), row=1,
                   col=1)
@@ -366,9 +412,8 @@ def render_smart_charts(df):
     if 'Signal' in df.columns:
         buys = df[df['Signal'] == 1]
         sells = df[df['Signal'] == -1]
-        buy_x = buys['trade_date'].dt.strftime('%Y-%m-%d' if df['trade_date'].dt.time.nunique() <= 1 else '%m-%d %H:%M')
-        sell_x = sells['trade_date'].dt.strftime(
-            '%Y-%m-%d' if df['trade_date'].dt.time.nunique() <= 1 else '%m-%d %H:%M')
+        buy_x = buys['trade_date'].dt.strftime(time_fmt) if is_time_axis else buys['trade_date'].astype(str)
+        sell_x = sells['trade_date'].dt.strftime(time_fmt) if is_time_axis else sells['trade_date'].astype(str)
         fig.add_trace(go.Scatter(x=buy_x, y=buys['Low'] * 0.998, mode='markers',
                                  marker=dict(symbol='triangle-up', size=14, color='#3b82f6'), name='买'), row=1, col=1)
         fig.add_trace(go.Scatter(x=sell_x, y=sells['High'] * 1.002, mode='markers',
@@ -398,9 +443,7 @@ def render_smart_charts(df):
 
 
 def format_ts_code(raw):
-    raw = str(raw).strip().upper()
-    if len(raw) == 6 and raw.isdigit(): return f"{raw}.SH" if raw.startswith(('6', '9')) else f"{raw}.SZ"
-    return raw
+    return normalize_ts_code(raw)
 
 
 # ==========================================
@@ -702,8 +745,12 @@ elif selected_page == PAGES[5]:
                 with st.spinner("神经网络前向传播中..."):
                     try:
                         df = fetch_and_clean_data(format_ts_code(st_code), 'qfq', f"{start_year_dl}0101")
+                        if df is None or df.empty or "Close" not in df.columns:
+                            raise ValueError("market data is empty; configure TUSHARE_TOKEN or keep a local CSV sample")
+                        if len(df) <= slen + 5:
+                            raise ValueError(f"not enough rows for sequence length {slen}; got {len(df)} rows")
                         prices = df['Close'].values.reshape(-1, 1)
-                        split_idx = max(slen + 1, int(len(prices) * 0.8))
+                        split_idx = min(len(prices) - 1, max(slen + 1, int(len(prices) * 0.8)))
                         scaler = MinMaxScaler()
                         scaler.fit(prices[:split_idx])
                         scaled = scaler.transform(prices)
@@ -711,7 +758,9 @@ elif selected_page == PAGES[5]:
                         for i in range(slen, len(scaled)): X.append(scaled[i - slen:i, 0]); y.append(scaled[i, 0])
                         X_arr = np.array(X)
                         y_arr = np.array(y)
-                        train_count = max(1, split_idx - slen)
+                        if len(X_arr) == 0:
+                            raise ValueError("not enough rows to build model windows")
+                        train_count = min(len(X_arr), max(1, split_idx - slen))
                         X_train_t = torch.tensor(X_arr[:train_count], dtype=torch.float32).unsqueeze(-1)
                         y_train_t = torch.tensor(y_arr[:train_count], dtype=torch.float32)
                         X_t = torch.tensor(X_arr, dtype=torch.float32).unsqueeze(-1)

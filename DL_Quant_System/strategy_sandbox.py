@@ -93,14 +93,17 @@ def validate_strategy_source(source):
         raise StrategySandboxError(f"strategy syntax error: {exc}") from exc
 
     body = [node for node in tree.body if not _is_docstring_expr(node)]
-    if len(body) != 1 or not isinstance(body[0], ast.FunctionDef):
-        raise StrategySandboxError("strategy must define exactly one generate_signals(df) function")
+    if not body or not all(isinstance(node, ast.FunctionDef) for node in body):
+        raise StrategySandboxError("strategy may only contain function definitions")
 
-    func = body[0]
-    if func.name != "generate_signals":
+    functions = {node.name: node for node in body}
+    func = functions.get("generate_signals")
+    if func is None:
         raise StrategySandboxError("strategy entrypoint must be generate_signals(df)")
-    if func.decorator_list:
+    if any(node.decorator_list for node in body):
         raise StrategySandboxError("strategy decorators are not allowed")
+    if any(node.name.startswith("__") for node in body):
+        raise StrategySandboxError("double-underscore function names are not allowed")
     if len(func.args.args) != 1 or func.args.args[0].arg != "df":
         raise StrategySandboxError("generate_signals must accept one argument named df")
     if func.args.vararg or func.args.kwarg or func.args.defaults or func.args.kw_defaults:
@@ -127,8 +130,7 @@ def validate_strategy_source(source):
 
 def execute_strategy(source, df, timeout_seconds=2.0):
     tree = validate_strategy_source(source)
-    namespace = {}
-    globals_scope = {
+    namespace = {
         "__builtins__": SAFE_BUILTINS,
         "datetime": datetime,
         "math": math,
@@ -136,7 +138,7 @@ def execute_strategy(source, df, timeout_seconds=2.0):
         "pd": pd,
         "time": time,
     }
-    exec(compile(tree, "<strategy>", "exec"), globals_scope, namespace)
+    exec(compile(tree, "<strategy>", "exec"), namespace, namespace)
     func = namespace.get("generate_signals")
     if not callable(func):
         raise StrategySandboxError("generate_signals(df) was not created")
