@@ -52,7 +52,7 @@ def forge_micro_features(df):
     return df
 
 
-def build_tensor_arsenal(df, seq_len=60):
+def build_tensor_arsenal(df, seq_len=60, fit_ratio=0.8):
     """
     📦 打包营：将二维表格切片为 PyTorch 最爱的三维张量
     seq_len: 滑动窗口长度（60根5分钟K线 = 1个交易日左右）
@@ -65,7 +65,9 @@ def build_tensor_arsenal(df, seq_len=60):
 
     # 归一化：将所有数值无情压缩到 0~1 之间，防止神经网络梯度爆炸
     scaler = MinMaxScaler()
-    data_scaled = scaler.fit_transform(data_matrix)
+    fit_rows = max(seq_len + 1, int(len(data_matrix) * fit_ratio))
+    scaler.fit(data_matrix[:fit_rows])
+    data_scaled = scaler.transform(data_matrix)
 
     X, y = [], []
     # 滑窗切割：用过去 seq_len 个 Tick，预测第 seq_len+1 个 Tick 的收盘价

@@ -17,5 +17,5 @@ echo ==================================================
 echo.
 
 :: 启动允许外部访问模式
-".venv\Scripts\python.exe" -m streamlit run app.py --server.address=0.0.0.0
+".venv\Scripts\python.exe" -m streamlit run "DL_Quant_System\app.py" --server.address=0.0.0.0
 pause

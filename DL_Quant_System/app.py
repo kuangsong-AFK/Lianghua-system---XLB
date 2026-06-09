@@ -14,6 +14,9 @@ from datetime import datetime
 import uuid
 import math
 from PIL import Image
+from backtester.engine import simple_backtest
+from secure_config import get_secret
+from strategy_sandbox import execute_strategy
 
 # 🔥 安全导入扩展先锋营 🔥
 try:
@@ -50,17 +53,19 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-KIMI_API_KEY = "sk-yS2foVgWtvnFMWKRTLnI6l8NFqFrRiB8ojre75g2mK2P8LBk"
-TUSHARE_TOKEN = "ba486af7606bc2f6018f1d592251a49674132225f59d37b3473d676e"
-ts.set_token(TUSHARE_TOKEN)
+KIMI_API_KEY = get_secret("KIMI_API_KEY", "MOONSHOT_API_KEY")
+TUSHARE_TOKEN = get_secret("TUSHARE_TOKEN")
+if TUSHARE_TOKEN:
+    ts.set_token(TUSHARE_TOKEN)
 
 
 @st.cache_resource
-def get_ts_pro(): return ts.pro_api()
+def get_ts_pro():
+    return ts.pro_api() if TUSHARE_TOKEN else None
 
 
 pro = get_ts_pro()
-client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=60.0)
+client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=60.0) if KIMI_API_KEY else None
 
 for key, val in {"user_id": f"User_{str(uuid.uuid4())[:6]}", "messages": [], "generated_code": "",
                  "strategy_explanation": "暂无策略解析，请先前往 AI 战情室下达军令。", "dl_result": None,
@@ -279,6 +284,8 @@ def add_default_indicators(df):
 
 @st.cache_data(ttl=300, show_spinner=False)
 def get_tushare_status():
+    if pro is None:
+        return "Missing TUSHARE_TOKEN"
     try:
         t0 = time.time()
         pro.trade_cal(exchange='SSE', start_date='20240101', end_date='20240101')
@@ -289,6 +296,8 @@ def get_tushare_status():
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_and_clean_data(ts_code, adj, start_date):
+    if not TUSHARE_TOKEN:
+        return pd.DataFrame()
     df = ts.pro_bar(ts_code=ts_code, adj=adj, start_date=start_date)
     if df is not None and not df.empty:
         df = df.sort_values('trade_date').reset_index(drop=True)
@@ -304,44 +313,37 @@ def fetch_and_clean_data(ts_code, adj, start_date):
 
 @st.cache_data(show_spinner=False)
 def run_backtest_metrics(df_source, strategy_code):
+    if df_source is None or df_source.empty:
+        return {"df": pd.DataFrame(), "metrics": {"total": 0, "annual": 0, "max_dd": 0, "sharpe": 0, "trades": 0}}
     df_safe = df_source.copy()
     if strategy_code:
         df_ai = execute_safely(strategy_code, df_source)
         if df_ai is not None and hasattr(df_ai, 'columns'):
             for col in df_ai.columns:
                 if col == 'Signal' or col.startswith(('MAIN_', 'SUB')): df_safe[col] = df_ai[col]
-    df = df_safe
-    df['Ret'] = df['Close'].pct_change()
-    df['Pos'] = df.get('Signal', pd.Series([0] * len(df))).replace(0, np.nan).ffill().fillna(0)
-    df['Strat_Ret'] = df['Pos'].shift(1) * df['Ret']
-    df['Cum_Prod'] = (1 + df['Strat_Ret'].fillna(0)).cumprod()
-    total_ret = (df['Cum_Prod'].iloc[-1] - 1) if not df.empty else 0
-    annual = (1 + total_ret) ** (252 / max(1, len(df))) - 1 if not df.empty else 0
-    max_dd = (df['Cum_Prod'] / df['Cum_Prod'].cummax() - 1).min() if not df.empty else 0
-    vol = df['Strat_Ret'].std() * np.sqrt(252) if not df.empty else 0
-    sharpe = annual / vol if vol != 0 else 0
-    return {"df": df, "metrics": {"total": total_ret, "annual": annual, "max_dd": max_dd, "sharpe": sharpe}}
+    signals = df_safe["Signal"] if "Signal" in df_safe.columns else pd.Series([0] * len(df_safe), index=df_safe.index)
+    df, raw_metrics = simple_backtest(
+        df_safe,
+        signals=signals,
+        commission=0.0003,
+        slippage=0.0005,
+        allow_short=False,
+    )
+    metrics = {
+        "total": raw_metrics.get("total_return", 0),
+        "annual": raw_metrics.get("annual_return", 0),
+        "max_dd": raw_metrics.get("max_drawdown", 0),
+        "sharpe": raw_metrics.get("sharpe", 0),
+        "trades": raw_metrics.get("trades", 0),
+        "win_rate": raw_metrics.get("win_rate", 0),
+    }
+    return {"df": df, "metrics": metrics}
 
 
 def execute_safely(code, df):
     if not code: return df
-    try:
-        safe_code = str(code).replace("pandas.np", "np")
-        l_vars = {}
-        exec(safe_code, {"pd": pd, "np": np, "math": math, "time": time, "datetime": datetime}, l_vars)
-        func_to_call = next((v for k, v in l_vars.items() if callable(v)), None)
-        if not func_to_call: return df
-        df_ai = func_to_call(df.copy())
-        if df_ai is None or not hasattr(df_ai, 'columns'): return df
-        sig_col = next((c for c in df_ai.columns if c.lower() == 'signal'), None)
-        if sig_col:
-            df_ai['Signal'] = df_ai[sig_col].fillna(0).apply(
-                lambda x: 1 if x > 0.1 else (-1 if x < -0.1 else 0)).astype(int)
-        else:
-            df_ai['Signal'] = 0
-        return df_ai
-    except Exception:
-        return df
+    safe_code = str(code).replace("pandas.np", "np")
+    return execute_strategy(safe_code, df)
 
 
 def render_smart_charts(df):
@@ -523,6 +525,8 @@ elif selected_page == PAGES[1]:
                         messages_to_send.extend([{"role": "assistant", "content": safe_resp}, {"role": "user",
                                                                                                "content": f"代码报错：`{last_error}`，请严格遵循模板修复。"}])
                     try:
+                        if client is None:
+                            raise RuntimeError("Missing KIMI_API_KEY or MOONSHOT_API_KEY")
                         valid_messages = [m for m in messages_to_send if m.get("content") and str(m["content"]).strip()]
                         stream = client.chat.completions.create(model=selected_model, messages=valid_messages,
                                                                 stream=True,
@@ -698,12 +702,20 @@ elif selected_page == PAGES[5]:
                 with st.spinner("神经网络前向传播中..."):
                     try:
                         df = fetch_and_clean_data(format_ts_code(st_code), 'qfq', f"{start_year_dl}0101")
+                        prices = df['Close'].values.reshape(-1, 1)
+                        split_idx = max(slen + 1, int(len(prices) * 0.8))
                         scaler = MinMaxScaler()
-                        scaled = scaler.fit_transform(df['Close'].values.reshape(-1, 1))
+                        scaler.fit(prices[:split_idx])
+                        scaled = scaler.transform(prices)
                         X, y = [], []
                         for i in range(slen, len(scaled)): X.append(scaled[i - slen:i, 0]); y.append(scaled[i, 0])
-                        X_t = torch.tensor(np.array(X), dtype=torch.float32).unsqueeze(-1)
-                        y_t = torch.tensor(np.array(y), dtype=torch.float32)
+                        X_arr = np.array(X)
+                        y_arr = np.array(y)
+                        train_count = max(1, split_idx - slen)
+                        X_train_t = torch.tensor(X_arr[:train_count], dtype=torch.float32).unsqueeze(-1)
+                        y_train_t = torch.tensor(y_arr[:train_count], dtype=torch.float32)
+                        X_t = torch.tensor(X_arr, dtype=torch.float32).unsqueeze(-1)
+                        y_t = torch.tensor(y_arr, dtype=torch.float32)
 
 
                         class LSTM_Model(nn.Module):
@@ -750,7 +762,7 @@ elif selected_page == PAGES[5]:
                             if "导入本地模型" in run_mode:
                                 lbox.markdown(f"**正在解析并挂载本地 {m_name} 模型权重...**")
                                 try:
-                                    model.load_state_dict(torch.load(uploaded_model, map_location=torch.device('cpu')))
+                                    model.load_state_dict(torch.load(uploaded_model, map_location=torch.device('cpu'), weights_only=True))
                                     lbox.success(f"**{m_name}** | 权重校验通过，挂载成功！");
                                     pbar.progress(1.0)
                                 except Exception as load_e:
@@ -758,7 +770,7 @@ elif selected_page == PAGES[5]:
                                     opt = torch.optim.Adam(model.parameters(), lr=0.01);
                                     crit = nn.MSELoss()
                                     for e in range(10): model.train(); opt.zero_grad(); loss = crit(
-                                        model(X_t).squeeze(), y_t); loss.backward(); opt.step()
+                                        model(X_train_t).squeeze(), y_train_t); loss.backward(); opt.step()
                             else:
                                 lbox.markdown(f"**正在在线训练 {m_name} 模型...**")
                                 opt = torch.optim.Adam(model.parameters(), lr=0.01);
@@ -766,8 +778,8 @@ elif selected_page == PAGES[5]:
                                 for e in range(eps):
                                     model.train();
                                     opt.zero_grad();
-                                    pred = model(X_t);
-                                    loss = crit(pred.squeeze(), y_t);
+                                    pred = model(X_train_t);
+                                    loss = crit(pred.squeeze(), y_train_t);
                                     loss.backward();
                                     opt.step()
                                     pbar.progress((m_idx * eps + e + 1) / (len(model_choices) * eps))
@@ -829,6 +841,8 @@ elif selected_page == PAGES[5]:
                     ai_ph = st.empty()
                     prompt = f"你是一个顶级的量化分析师，为小白解盘。当前收盘价 {latest_price:.2f}元。基于【{model_desc}】推演，未来1天预测价为 {day1_pred:.2f}元，未来5天为 {day5_pred:.2f}元。模型胜率为 {success_rate:.1f}%，偏差为 {mape:.2f}%。请用大白话（限200字以内，不要代码），向小白解释并给出建议。"
                     try:
+                        if client is None:
+                            raise RuntimeError("Missing KIMI_API_KEY or MOONSHOT_API_KEY")
                         stream = client.chat.completions.create(model="moonshot-v1-8k",
                                                                 messages=[{"role": "user", "content": prompt}],
                                                                 stream=True, temperature=0.5)

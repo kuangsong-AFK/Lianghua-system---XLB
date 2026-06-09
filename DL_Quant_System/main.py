@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import io
 import base64
 from datetime import datetime, timedelta
+from secure_config import get_secret
+from strategy_sandbox import execute_strategy
 
 # --- 关键修正：援军必须先到场！---
 # 将自定义模块的导入移到最上方，防止 NameError
@@ -26,9 +28,10 @@ except ImportError:
     print("⚠️ 警告：缺少 backtester 或 utils 模块，请检查目录结构！")
 
 # 配置 Tushare Token
-TS_TOKEN = "ba486af7606bc2f6018f1d592251a49674132225f59d37b3473d676e"
-ts.set_token(TS_TOKEN)
-pro = ts.pro_api()
+TS_TOKEN = get_secret("TUSHARE_TOKEN")
+if TS_TOKEN:
+    ts.set_token(TS_TOKEN)
+pro = ts.pro_api() if TS_TOKEN else None
 
 # 设置绘图风格
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'Arial']
@@ -109,6 +112,8 @@ def calculate_indicators(df, params=None):
 
 @st.cache_data(ttl=43200, show_spinner=False)
 def download_data_with_retry(ts_code):
+    if pro is None:
+        return None, 0
     end_date = datetime.now().strftime('%Y%m%d')
     start_20 = (datetime.now() - timedelta(days=20 * 365)).strftime('%Y%m%d')
     try:
@@ -212,11 +217,13 @@ def run_full_pipeline(code, epochs=10, params=None):
         df = calculate_indicators(df_raw, params)
         df_features = construct_features(df)
         predictor = LSTMPredictor(sequence_length=10)
-        X, y = predictor.prepare_data(df_features)
-        split = int(len(X) * 0.8)
-        X_train, X_test = X[:split], X[split:]
-        y_train, y_test = y[:split], y[split:]
-        predictor.build_model((X.shape[1], X.shape[2]))
+        split_row = int(len(df_features) * 0.8)
+        train_df = df_features.iloc[:split_row].copy()
+        test_start = max(0, split_row - predictor.sequence_length)
+        test_df_features = df_features.iloc[test_start:].copy()
+        X_train, y_train = predictor.prepare_data(train_df, fit=True)
+        X_test, y_test = predictor.prepare_data(test_df_features, fit=False)
+        predictor.build_model((X_train.shape[1], X_train.shape[2]))
         predictor.model.fit(X_train, y_train, epochs=epochs, batch_size=32, verbose=0)
         y_pred_prob = predictor.model.predict(X_test)
         signals = (y_pred_prob.flatten() > 0.5).astype(int)
@@ -248,6 +255,9 @@ def run_ai_strategy(code, strategy_code, params=None):
     if 'trade_date' in df.columns: df = df.rename(columns={'trade_date': 'date'})
 
     try:
+        if params is None:
+            params = DEFAULT_PARAMS
+
         # --- 影子分身 & 语义映射 ---
         ma_mapping = {'ma1': 'ma_1', 'ma2': 'ma_2', 'ma3': 'ma_3', 'ma4': 'ma_4'}
         for param_key, real_col in ma_mapping.items():
@@ -271,12 +281,20 @@ def run_ai_strategy(code, strategy_code, params=None):
             if col in df.columns: df[col.capitalize()] = df[col]
 
             # --- 核心：防自杀备份 ---
-        original_df = df.copy()
-
         strategy_code = textwrap.dedent(strategy_code).strip()
-        scope = {'df': df, 'np': np, 'pd': pd, 'PARAMS': params}
+        df_res = execute_strategy(strategy_code, df)
+        df_res['signal'] = df_res['Signal'].astype(int)
+        res_df, metrics = simple_backtest(df_res, signals=df_res['signal'])
 
-        exec(strategy_code, scope)
+        if len(res_df) == len(df_res):
+            res_df['signal'] = df_res['signal'].values
+            cols_to_copy = ['ma_1', 'ma_2', 'ma_3', 'ma_4', 'vol',
+                            'macd_dif', 'macd_dea', 'macd_hist',
+                            'k', 'd', 'j', 'rsi', 'bias1', 'bias2', 'bias3']
+            for col in cols_to_copy:
+                if col in df_res.columns:
+                    res_df[col] = df_res[col].values
+        return res_df, metrics, years, None
 
         # --- 核心：防自杀回滚 ---
         current_df = scope.get('df')

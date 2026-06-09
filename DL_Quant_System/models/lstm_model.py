@@ -12,14 +12,14 @@ class LSTMPredictor:
         self.model = None
         self.scaler = MinMaxScaler(feature_range=(0, 1))
 
-    def prepare_data(self, df):
+    def prepare_data(self, df, fit=True):
         # 选择特征列 (基于你之前在 utils 中定义的特征)
         features = ['close', 'MA5', 'MA20', 'ROC5', 'VOLATILITY5']
         data = df[features].values
         target = df['target'].values
 
         # 归一化
-        scaled_data = self.scaler.fit_transform(data)
+        scaled_data = self.scaler.fit_transform(data) if fit else self.scaler.transform(data)
 
         X, y = [], []
         for i in range(len(scaled_data) - self.sequence_length):

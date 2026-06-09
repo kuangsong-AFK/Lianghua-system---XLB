@@ -1,0 +1,21 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.streamlit/secrets.toml
+**/.streamlit/secrets.toml
+
+user_logs/
+*.log
+
+# Local binary/model artifacts. Use Git LFS or external storage when they must be versioned.
+*.glb
+*.h5
+*.mp4
+*.pt
+*.pth

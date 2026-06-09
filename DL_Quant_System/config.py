@@ -1,1 +1,4 @@
-TOKEN = 'ba486af7606bc2f6018f1d592251a49674132225f59d37b3473d676e'
+from secure_config import get_secret
+
+
+TOKEN = get_secret("TUSHARE_TOKEN")

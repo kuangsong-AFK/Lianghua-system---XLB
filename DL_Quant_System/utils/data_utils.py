@@ -7,16 +7,21 @@ import time
 try:
     from config import TOKEN
 except ImportError:
-    TOKEN = 'ba486af7606bc2f6018f1d592251a49674132225f59d37b3473d676e'
+    TOKEN = os.getenv("TUSHARE_TOKEN", "")
 
-ts.set_token(TOKEN)
-pro = ts.pro_api()
+if TOKEN:
+    ts.set_token(TOKEN)
+pro = ts.pro_api() if TOKEN else None
 
 
 def download_daily_data(ts_code, start_date, end_date):
     """
     获取指定股票的日线行情数据（基础版）
     """
+    if pro is None:
+        print("缺少 TUSHARE_TOKEN，无法下载数据。")
+        return None
+
     # 确保 data 目录存在
     if not os.path.exists("data"):
         os.makedirs("data")

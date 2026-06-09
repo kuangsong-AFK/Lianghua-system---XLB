@@ -13,6 +13,7 @@ import json
 import pandas as pd
 import numpy as np
 from datetime import datetime
+from strategy_sandbox import execute_strategy
 
 try:
     from streamlit import fragment as st_fragment
@@ -390,25 +391,8 @@ def summon_global_3d_lulu():
 
 def safe_exec_fut_strategy(code, df):
     if not code: return df
-    try:
-        safe_code = str(code).replace("pandas.np", "np")
-        l_vars = {}
-        exec(safe_code, {"pd": pd, "np": np, "math": math, "time": time, "datetime": datetime}, l_vars)
-        func_to_call = next((v for k, v in l_vars.items() if callable(v)), None)
-        if not func_to_call: return df
-
-        df_ai = func_to_call(df.copy())
-        if df_ai is None or not hasattr(df_ai, 'columns'): return df
-
-        sig_col = next((c for c in df_ai.columns if c.lower() == 'signal'), None)
-        if sig_col:
-            df_ai['Signal'] = df_ai[sig_col].fillna(0).apply(
-                lambda x: 1 if x > 0.1 else (-1 if x < -0.1 else 0)).astype(int)
-        else:
-            df_ai['Signal'] = 0
-        return df_ai
-    except Exception:
-        return df
+    safe_code = str(code).replace("pandas.np", "np")
+    return execute_strategy(safe_code, df)
 
 
 def render_fut_charts(df):
@@ -666,12 +650,15 @@ def render_futures_backtest():
                         df['Pos'] = df.get('Signal', pd.Series([0] * len(df))).replace(0, np.nan).ffill().fillna(0)
                         df['Price_Diff'] = df['Close'].diff().fillna(0)
                         init_cash, trade_lots = 1000000, 10
+                        trade_cost_rate = 0.0008
+                        df['Trade_Size'] = df['Pos'].diff().abs().fillna(df['Pos'].abs())
+                        df['Trade_Cost'] = df['Trade_Size'] * df['Close'] * final_mult * trade_lots * trade_cost_rate
 
                         df['Long_PnL'] = np.where(df['Pos'].shift(1) == 1, df['Price_Diff'] * final_mult * trade_lots,
                                                   0)
                         df['Short_PnL'] = np.where(df['Pos'].shift(1) == -1,
                                                    -df['Price_Diff'] * final_mult * trade_lots, 0)
-                        df['Total_PnL'] = df['Long_PnL'] + df['Short_PnL']
+                        df['Total_PnL'] = df['Long_PnL'] + df['Short_PnL'] - df['Trade_Cost']
                         df['Equity'] = init_cash + df['Total_PnL'].cumsum()
                         df['Margin_Used'] = df['Close'] * final_mult * final_margin_rate * trade_lots * df[
                             'Pos'].abs().shift(1).fillna(0)
