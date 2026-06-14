@@ -104,6 +104,17 @@ with st.sidebar:
     st.markdown("### 🎓 小吕布量化 Pro")
     st.caption(f"🛡️ 节点 ID: {st.session_state.user_id}")
     st.markdown("---")
+    theme_options = {"自动": "auto", "浅色": "light", "深色": "dark"}
+    current_theme = st.session_state.get("visual_theme", "auto")
+    current_label = next((label for label, value in theme_options.items() if value == current_theme), "自动")
+    theme_label = st.radio(
+        "外观",
+        list(theme_options.keys()),
+        index=list(theme_options.keys()).index(current_label),
+        horizontal=True,
+    )
+    st.session_state.visual_theme = theme_options[theme_label]
+    st.markdown("---")
     selected_page = st.radio(
         "导航菜单",
         PAGES,
@@ -111,10 +122,18 @@ with st.sidebar:
         label_visibility="collapsed",
     )
 
-    # 🔥 修复：将桌宠召唤阵转移到侧边栏深处，防止其挤占顶部空间
     if extensions:
         st.markdown("---")
-        extensions.summon_global_3d_lulu()
+        enable_pet = st.toggle(
+            "开启 3D 桌宠",
+            value=False,
+            key="enable_3d_pet",
+            help="默认关闭以加快 Streamlit Cloud 首屏加载。",
+        )
+        if enable_pet:
+            pet_names = list(getattr(extensions, "PET_ROSTER", {}).keys())
+            active_pet = st.selectbox("桌宠角色", pet_names, label_visibility="collapsed") if pet_names else None
+            extensions.summon_global_3d_lulu(active_pet)
 
 if selected_page != st.session_state.curr_page:
     st.session_state.prev_page = st.session_state.curr_page
@@ -135,57 +154,69 @@ anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr
 # ==========================================
 # 3. 永生级 JS 探针：持续监听主题变化，且绝不消亡
 # ==========================================
+theme_mode = st.session_state.get("visual_theme", "auto")
 components.html("""
 <script>
-    const doc = window.parent.document;
-    if (!window.parent.__LULU_THEME_PROBE) {
-        window.parent.__LULU_THEME_PROBE = true;
+(() => {
+    const win = window.parent;
+    const doc = win.document;
+    const desiredTheme = "__THEME_MODE__";
+    win.__LULU_THEME_MODE = desiredTheme;
 
-        const updateTheme = () => {
-            const app = doc.querySelector('.stApp');
-            if (!app || !doc.body) return;
+    const resolveTheme = () => {
+        const mode = win.__LULU_THEME_MODE || desiredTheme;
+        if (mode === "light" || mode === "dark") return mode;
+        return win.matchMedia && win.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    };
 
-            // 测算原生文字变量亮度
-            const probe = doc.createElement('div');
-            probe.style.color = 'var(--text-color)';
-            probe.style.display = 'none';
-            doc.body.appendChild(probe);
-            const compColor = window.getComputedStyle(probe).color;
-            doc.body.removeChild(probe);
+    const applyTheme = () => {
+        const app = doc.querySelector(".stApp");
+        if (!app) return;
+        const theme = resolveTheme();
+        app.setAttribute("data-custom-theme", theme);
+        doc.documentElement.setAttribute("data-custom-theme", theme);
+    };
+    win.__LULU_APPLY_THEME = applyTheme;
 
-            const rgb = compColor.match(/\\d+/g);
-            if (rgb && rgb.length >= 3) {
-                const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
-                // 白字亮度高，判定为深色主题；黑字亮度低，判定为浅色主题
-                const themeAttr = brightness > 128 ? 'dark' : 'light';
-                if (app.getAttribute('data-custom-theme') !== themeAttr) {
-                    app.setAttribute('data-custom-theme', themeAttr);
-                }
-            }
+    const attachFileButton = () => {
+        const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
+        const fileInput = doc.querySelector('div[data-testid="stFileUploader"] input[type="file"]');
+        if (!chatInputOuter || !fileInput || doc.getElementById("fake-attach-btn")) return;
 
-            // 附件回形针 UI 强化
-            const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
-            const fileInput = doc.querySelector('div[data-testid="stFileUploader"] input[type="file"]');
-            if (chatInputOuter && fileInput) {
-                const innerPill = chatInputOuter.querySelector('.stChatInputContainer') || chatInputOuter.firstElementChild; 
-                if (innerPill && !doc.getElementById('fake-attach-btn')) {
-                    innerPill.style.setProperty('position', 'relative', 'important');
-                    const fakeBtn = doc.createElement('div');
-                    fakeBtn.id = 'fake-attach-btn';
-                    fakeBtn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #8b9bb4; cursor: pointer; transition: 0.2s;"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>`;
-                    fakeBtn.style.cssText = 'position: absolute !important; left: 16px !important; top: 50% !important; transform: translateY(-50%) !important; z-index: 9999 !important; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px;';
-                    fakeBtn.onclick = () => fileInput.click();
-                    innerPill.appendChild(fakeBtn);
-                    const textAreaWrap = innerPill.querySelector('[data-baseweb="textarea"]');
-                    if(textAreaWrap) textAreaWrap.style.setProperty('padding-left', '40px', 'important');
-                }
-            }
-        };
-        setInterval(updateTheme, 500);
-        updateTheme();
+        const innerPill = chatInputOuter.querySelector(".stChatInputContainer") || chatInputOuter.firstElementChild;
+        if (!innerPill) return;
+
+        innerPill.style.setProperty("position", "relative", "important");
+        const fakeBtn = doc.createElement("button");
+        fakeBtn.id = "fake-attach-btn";
+        fakeBtn.type = "button";
+        fakeBtn.setAttribute("aria-label", "上传附件");
+        fakeBtn.innerHTML = "＋";
+        fakeBtn.style.cssText = "position:absolute!important;left:14px!important;top:50%!important;transform:translateY(-50%)!important;z-index:20!important;width:28px!important;height:28px!important;border:0!important;border-radius:999px!important;background:rgba(120,120,128,.16)!important;color:var(--text-color,#111)!important;font-size:20px!important;line-height:26px!important;cursor:pointer!important;";
+        fakeBtn.onclick = () => fileInput.click();
+        innerPill.appendChild(fakeBtn);
+
+        const textAreaWrap = innerPill.querySelector('[data-baseweb="textarea"]');
+        if (textAreaWrap) textAreaWrap.style.setProperty("padding-left", "42px", "important");
+    };
+
+    applyTheme();
+    let tries = 0;
+    const settle = () => {
+        attachFileButton();
+        if (++tries < 10) win.setTimeout(settle, 250);
+    };
+    settle();
+
+    if (!win.__LULU_THEME_MEDIA_BOUND && win.matchMedia) {
+        win.__LULU_THEME_MEDIA_BOUND = true;
+        win.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+            if (typeof win.__LULU_APPLY_THEME === "function") win.__LULU_APPLY_THEME();
+        });
     }
+})();
 </script>
-""", height=0, width=0)
+""".replace("__THEME_MODE__", theme_mode), height=0, width=0)
 
 # ==========================================
 # 4. 极致静态 CSS (双主题分离，修复毛玻璃缺失 BUG)
@@ -289,6 +320,203 @@ st.markdown("""
     .stApp[data-custom-theme='light'] [data-testid="stChatInput"] > div:first-child { background-color: rgba(255, 255, 255, 0.9) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1) !important; }
     .stApp[data-custom-theme='light'] [data-testid="stChatInput"] textarea { color: #1e293b !important; }
     .stApp[data-custom-theme='light'] [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.7) !important; border: 1px solid rgba(0, 0, 0, 0.15) !important; }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+<style>
+    /* iOS 26 Liquid Glass override: lighter paint, fewer continuous animations. */
+    @keyframes iosContentIn {
+        from { opacity: 0; transform: translateY(10px) scale(0.996); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .stApp[data-custom-theme='light'] {
+        --text-color: #1d1d1f;
+        --ios-muted: #6e6e73;
+        --ios-surface: rgba(255, 255, 255, 0.66);
+        --ios-surface-strong: rgba(255, 255, 255, 0.86);
+        --ios-surface-soft: rgba(255, 255, 255, 0.42);
+        --ios-border: rgba(60, 60, 67, 0.18);
+        --ios-border-strong: rgba(60, 60, 67, 0.28);
+        --ios-accent: #0a84ff;
+        --ios-danger: #ff3b30;
+        --ios-shadow: 0 18px 55px rgba(0, 0, 0, 0.10);
+        --ios-shadow-soft: 0 8px 26px rgba(0, 0, 0, 0.08);
+        background:
+            radial-gradient(circle at 16% -10%, rgba(10, 132, 255, 0.16), transparent 28%),
+            radial-gradient(circle at 92% 10%, rgba(52, 199, 89, 0.10), transparent 24%),
+            linear-gradient(180deg, #fbfbfd 0%, #f2f3f7 48%, #e9ebf0 100%) !important;
+        animation: none !important;
+    }
+
+    .stApp[data-custom-theme='dark'] {
+        --text-color: #f5f5f7;
+        --ios-muted: #a1a1a6;
+        --ios-surface: rgba(28, 28, 30, 0.70);
+        --ios-surface-strong: rgba(44, 44, 46, 0.86);
+        --ios-surface-soft: rgba(255, 255, 255, 0.08);
+        --ios-border: rgba(255, 255, 255, 0.16);
+        --ios-border-strong: rgba(255, 255, 255, 0.24);
+        --ios-accent: #0a84ff;
+        --ios-danger: #ff453a;
+        --ios-shadow: 0 22px 65px rgba(0, 0, 0, 0.42);
+        --ios-shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.34);
+        background:
+            radial-gradient(circle at 16% -10%, rgba(10, 132, 255, 0.18), transparent 28%),
+            radial-gradient(circle at 90% 8%, rgba(48, 209, 88, 0.08), transparent 24%),
+            linear-gradient(180deg, #050506 0%, #111113 54%, #000000 100%) !important;
+        animation: none !important;
+    }
+
+    .stApp[data-custom-theme] [data-testid="stAppViewContainer"] {
+        background: transparent !important;
+        animation: none !important;
+    }
+
+    .block-container {
+        max-width: 1240px !important;
+        padding-top: 2.2rem !important;
+        padding-bottom: 5.5rem !important;
+        animation: iosContentIn 0.28s ease-out both !important;
+    }
+
+    .stApp[data-custom-theme] [data-testid="stSidebar"] {
+        background: var(--ios-surface) !important;
+        border-right: 1px solid var(--ios-border) !important;
+        box-shadow: var(--ios-shadow-soft) !important;
+        backdrop-filter: blur(26px) saturate(180%) !important;
+        -webkit-backdrop-filter: blur(26px) saturate(180%) !important;
+    }
+
+    .stApp[data-custom-theme] .glass-card,
+    .stApp[data-custom-theme] .metric-box,
+    .stApp[data-custom-theme] [data-testid="stExpander"] {
+        background: var(--ios-surface) !important;
+        border: 1px solid var(--ios-border) !important;
+        box-shadow: var(--ios-shadow) !important;
+        backdrop-filter: blur(24px) saturate(180%) !important;
+        -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+    }
+
+    .glass-card {
+        border-radius: 26px !important;
+        padding: 22px 24px !important;
+    }
+
+    .metric-box {
+        border-radius: 22px !important;
+        padding: 16px !important;
+    }
+
+    .stApp[data-custom-theme] h1,
+    .stApp[data-custom-theme] h2,
+    .stApp[data-custom-theme] h3,
+    .stApp[data-custom-theme] h4,
+    .stApp[data-custom-theme] p,
+    .stApp[data-custom-theme] label,
+    .stApp[data-custom-theme] .stMarkdown {
+        color: var(--text-color) !important;
+        letter-spacing: 0 !important;
+    }
+
+    .stApp[data-custom-theme] .sub-text,
+    .stApp[data-custom-theme] .metric-box p,
+    .stApp[data-custom-theme] small,
+    .stApp[data-custom-theme] [data-testid="stCaptionContainer"] {
+        color: var(--ios-muted) !important;
+    }
+
+    .stApp[data-custom-theme] .highlight-text,
+    .stApp[data-custom-theme] .metric-box h2 {
+        color: var(--ios-accent) !important;
+    }
+
+    .stApp[data-custom-theme] .danger-text {
+        color: var(--ios-danger) !important;
+    }
+
+    .stApp[data-custom-theme] div[role="radiogroup"] > label {
+        background: transparent !important;
+        border: 1px solid transparent !important;
+        border-left: 1px solid transparent !important;
+        border-radius: 18px !important;
+        margin-bottom: 8px !important;
+        padding: 8px 10px !important;
+    }
+
+    .stApp[data-custom-theme] div[role="radiogroup"] > label:has(input:checked) {
+        background: var(--ios-surface-strong) !important;
+        border: 1px solid var(--ios-border-strong) !important;
+        box-shadow: var(--ios-shadow-soft) !important;
+    }
+
+    .stApp[data-custom-theme] input,
+    .stApp[data-custom-theme] textarea,
+    .stApp[data-custom-theme] [data-baseweb="select"] > div,
+    .stApp[data-custom-theme] [data-baseweb="input"] > div,
+    .stApp[data-custom-theme] [data-testid="stChatInput"] > div:first-child {
+        background: var(--ios-surface-strong) !important;
+        border: 1px solid var(--ios-border) !important;
+        border-radius: 18px !important;
+        color: var(--text-color) !important;
+        box-shadow: none !important;
+    }
+
+    .stApp[data-custom-theme] [data-testid="stChatInput"] > div:first-child {
+        border-radius: 999px !important;
+        box-shadow: var(--ios-shadow-soft) !important;
+    }
+
+    .stApp[data-custom-theme] button[kind="primary"],
+    .stApp[data-custom-theme] .stButton > button {
+        border-radius: 999px !important;
+        border: 1px solid var(--ios-border) !important;
+        background: var(--ios-surface-strong) !important;
+        color: var(--text-color) !important;
+        box-shadow: var(--ios-shadow-soft) !important;
+        transition: transform 0.16s ease, background 0.16s ease, box-shadow 0.16s ease !important;
+    }
+
+    .stApp[data-custom-theme] button[kind="primary"],
+    .stApp[data-custom-theme] .stButton > button[kind="primary"] {
+        background: var(--ios-accent) !important;
+        color: #ffffff !important;
+        border-color: rgba(255, 255, 255, 0.22) !important;
+    }
+
+    .stApp[data-custom-theme] .stButton > button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 14px 32px rgba(10, 132, 255, 0.22) !important;
+    }
+
+    .stApp[data-custom-theme] [data-testid="stDataFrame"],
+    .stApp[data-custom-theme] [data-testid="stTable"] {
+        border-radius: 20px !important;
+        overflow: hidden !important;
+        border: 1px solid var(--ios-border) !important;
+        box-shadow: var(--ios-shadow-soft) !important;
+    }
+
+    @media (max-width: 760px) {
+        .block-container {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+            padding-top: 1.2rem !important;
+        }
+        .glass-card {
+            border-radius: 22px !important;
+            padding: 18px !important;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .block-container,
+        .stApp[data-custom-theme] * {
+            animation: none !important;
+            transition: none !important;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 

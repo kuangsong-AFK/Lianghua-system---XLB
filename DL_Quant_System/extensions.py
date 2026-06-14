@@ -32,35 +32,40 @@ except ImportError:
 
 SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 
+PET_ROSTER = {
+    "🍊 水豚噜噜": "lulu.glb",
+    "🐧 高雅企鹅": "penguin.glb",
+    "🐱 hello Kitty": "kitty.glb",
+    "🐷 猪猪侠": "pig.glb",
+}
 
-def summon_global_3d_lulu():
-    """全自动免配置版：强制重载缓存，采用 jsdelivr 极速 CDN"""
+
+def _resolve_pet_path(current_dir, filename):
+    for path in (
+        os.path.join(current_dir, "static", filename),
+        os.path.join(current_dir, filename),
+    ):
+        if os.path.exists(path):
+            return path
+    return ""
+
+
+@st.cache_data(show_spinner=False)
+def _read_pet_b64(path, mtime, size):
+    del mtime, size
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
+
+
+def summon_global_3d_lulu(active_pet=None):
+    """Load one selected 3D pet only when the user enables it."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
-
-    PET_ROSTER = {
-        "🍊 水豚噜噜": "lulu.glb",
-        "🐧 高雅企鹅": "penguin.glb",
-        "🐱 hello Kitty": "kitty.glb",
-        "🐷 猪猪侠": "pig.glb"
-    }
-
-    pet_b64 = {}
-    with st.spinner("正在为雷达加装多维宇宙识别系统..."):
-        for name, filename in PET_ROSTER.items():
-            path_static = os.path.join(current_dir, "static", filename)
-            path_root = os.path.join(current_dir, filename)
-
-            if os.path.exists(path_static):
-                with open(path_static, "rb") as f:
-                    pet_b64[name] = base64.b64encode(f.read()).decode("utf-8")
-            elif os.path.exists(path_root):
-                with open(path_root, "rb") as f:
-                    pet_b64[name] = base64.b64encode(f.read()).decode("utf-8")
-            else:
-                pet_b64[name] = ""
-
-    if not any(pet_b64.values()):
+    active_pet = active_pet if active_pet in PET_ROSTER else next(iter(PET_ROSTER))
+    pet_path = _resolve_pet_path(current_dir, PET_ROSTER[active_pet])
+    if not pet_path:
         return
+    stat = os.stat(pet_path)
+    pet_b64 = {active_pet: _read_pet_b64(pet_path, stat.st_mtime, stat.st_size)}
 
     pets_json_str = json.dumps(pet_b64)
 
