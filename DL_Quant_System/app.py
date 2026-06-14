@@ -147,20 +147,18 @@ if st.session_state.curr_page not in PAGES:
 if st.session_state.prev_page not in PAGES:
     st.session_state.prev_page = st.session_state.curr_page
 
-prev_idx = PAGES.index(st.session_state.prev_page)
-curr_idx = PAGES.index(st.session_state.curr_page)
-anim_name = "waveBlurUpIn" if curr_idx > prev_idx else ("waveBlurDownIn" if curr_idx < prev_idx else "fogFadeIn")
-
 # ==========================================
 # 3. 永生级 JS 探针：持续监听主题变化，且绝不消亡
 # ==========================================
 theme_mode = st.session_state.get("visual_theme", "auto")
+pet_enabled_js = "true" if st.session_state.get("enable_3d_pet", False) else "false"
 components.html("""
 <script>
 (() => {
     const win = window.parent;
     const doc = win.document;
     const desiredTheme = "__THEME_MODE__";
+    const petEnabled = __PET_ENABLED__;
     win.__LULU_THEME_MODE = desiredTheme;
 
     const resolveTheme = () => {
@@ -177,6 +175,15 @@ components.html("""
         doc.documentElement.setAttribute("data-custom-theme", theme);
     };
     win.__LULU_APPLY_THEME = applyTheme;
+
+    const removeLegacyPet = () => {
+        if (petEnabled) return;
+        ["lulu-global-pet", "lulu-ctx-menu"].forEach((id) => {
+            const el = doc.getElementById(id);
+            if (el) el.remove();
+        });
+        delete win.__PETS_JSON_DATA__;
+    };
 
     const attachFileButton = () => {
         const chatInputOuter = doc.querySelector('div[data-testid="stChatInput"]');
@@ -201,6 +208,7 @@ components.html("""
     };
 
     applyTheme();
+    removeLegacyPet();
     let tries = 0;
     const settle = () => {
         attachFileButton();
@@ -216,7 +224,7 @@ components.html("""
     }
 })();
 </script>
-""".replace("__THEME_MODE__", theme_mode), height=0, width=0)
+""".replace("__THEME_MODE__", theme_mode).replace("__PET_ENABLED__", pet_enabled_js), height=0, width=0)
 
 # ==========================================
 # 4. 极致静态 CSS (双主题分离，修复毛玻璃缺失 BUG)
@@ -228,7 +236,7 @@ if selected_page == PAGES[1]:
 
 st.markdown(f"""
 <style>
-    .block-container {{ animation: {anim_name} 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; background: transparent !important; padding-top: 4.5rem !important; padding-bottom: 120px !important; }}
+    .block-container {{ animation: none !important; background: transparent !important; padding-top: 2.2rem !important; padding-bottom: 5.5rem !important; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -278,7 +286,7 @@ st.markdown("""
     .stApp[data-custom-theme='dark'], .stApp[data-custom-theme='dark'] [data-testid="stAppViewContainer"] {
         background-color: #02040a !important;
         background-image: linear-gradient(132deg, #02040a, #030e2b, #111d3d, #082a72, #030614, #1d2b4f, #0a47b3, #02040a) !important;
-        background-size: 600% 600% !important; animation: fluidFlow 18s ease-in-out infinite !important; 
+        background-size: 100% 100% !important; animation: none !important;
     }
     .stApp[data-custom-theme='dark'] .stMarkdown, .stApp[data-custom-theme='dark'] p, .stApp[data-custom-theme='dark'] h1, .stApp[data-custom-theme='dark'] h2, .stApp[data-custom-theme='dark'] h3, .stApp[data-custom-theme='dark'] h4, .stApp[data-custom-theme='dark'] label, .stApp[data-custom-theme='dark'] [data-testid="stMetricValue"] > div { color: #e2e8f0 !important; }
     .stApp[data-custom-theme='dark'] .highlight-text { color: #00ffcc !important; }
@@ -302,7 +310,7 @@ st.markdown("""
     .stApp[data-custom-theme='light'], .stApp[data-custom-theme='light'] [data-testid="stAppViewContainer"] {
         background-color: #fdfbfb !important;
         background-image: linear-gradient(132deg, #fdfbfb, #e0c3fc, #8ec5fc, #e2ebf0, #fdfbfb) !important;
-        background-size: 400% 400% !important; animation: fluidFlow 12s ease infinite !important; 
+        background-size: 100% 100% !important; animation: none !important;
     }
     .stApp[data-custom-theme='light'] .stMarkdown, .stApp[data-custom-theme='light'] p, .stApp[data-custom-theme='light'] h1, .stApp[data-custom-theme='light'] h2, .stApp[data-custom-theme='light'] h3, .stApp[data-custom-theme='light'] h4, .stApp[data-custom-theme='light'] label, .stApp[data-custom-theme='light'] [data-testid="stMetricValue"] > div { color: #1e293b !important; }
     .stApp[data-custom-theme='light'] .highlight-text { color: #0284c7 !important; }
@@ -520,6 +528,71 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+st.markdown("""
+<style>
+    /* Final performance and visual override. This intentionally wins over older theme CSS. */
+    .stApp[data-custom-theme='light'],
+    .stApp:not([data-custom-theme]),
+    .stApp[data-custom-theme='light'] [data-testid="stAppViewContainer"] {
+        background: #f5f5f7 !important;
+        background-image:
+            radial-gradient(circle at 18% 0%, rgba(10, 132, 255, 0.10), transparent 28%),
+            radial-gradient(circle at 88% 8%, rgba(175, 82, 222, 0.08), transparent 24%) !important;
+    }
+
+    .stApp[data-custom-theme='dark'],
+    .stApp[data-custom-theme='dark'] [data-testid="stAppViewContainer"] {
+        background: #000000 !important;
+        background-image:
+            radial-gradient(circle at 20% 0%, rgba(10, 132, 255, 0.18), transparent 30%),
+            radial-gradient(circle at 86% 6%, rgba(94, 92, 230, 0.12), transparent 25%) !important;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        .stApp:not([data-custom-theme]),
+        .stApp:not([data-custom-theme]) [data-testid="stAppViewContainer"] {
+            background: #000000 !important;
+            background-image:
+                radial-gradient(circle at 20% 0%, rgba(10, 132, 255, 0.18), transparent 30%),
+                radial-gradient(circle at 86% 6%, rgba(94, 92, 230, 0.12), transparent 25%) !important;
+        }
+    }
+
+    .stApp[data-custom-theme] *,
+    .stApp[data-custom-theme] *::before,
+    .stApp[data-custom-theme] *::after {
+        animation: none !important;
+        scroll-behavior: auto !important;
+    }
+
+    .stApp[data-custom-theme] .glass-card,
+    .stApp[data-custom-theme] .metric-box,
+    .stApp[data-custom-theme] [data-testid="stExpander"] {
+        backdrop-filter: blur(14px) saturate(150%) !important;
+        -webkit-backdrop-filter: blur(14px) saturate(150%) !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.10) !important;
+    }
+
+    .stApp[data-custom-theme='dark'] .glass-card,
+    .stApp[data-custom-theme='dark'] .metric-box,
+    .stApp[data-custom-theme='dark'] [data-testid="stExpander"] {
+        box-shadow: 0 12px 34px rgba(0, 0, 0, 0.36) !important;
+    }
+
+    .stApp[data-custom-theme] [data-testid="stSidebar"] {
+        backdrop-filter: blur(16px) saturate(150%) !important;
+        -webkit-backdrop-filter: blur(16px) saturate(150%) !important;
+    }
+
+    .block-container {
+        opacity: 1 !important;
+        transform: none !important;
+        animation: none !important;
+        padding-top: 2rem !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 
 # ==========================================
 # 5. 高速缓存装甲：分离复杂计算
@@ -540,12 +613,7 @@ def add_default_indicators(df):
 def get_tushare_status():
     if pro is None:
         return "Local CSV mode"
-    try:
-        t0 = time.time()
-        pro.trade_cal(exchange='SSE', start_date='20240101', end_date='20240101')
-        return f"🟢 Online ({int((time.time() - t0) * 1000)}ms)"
-    except:
-        return "🔴 Offline"
+    return "🟢 Token ready"
 
 
 @st.cache_data(ttl=3600, show_spinner=False)

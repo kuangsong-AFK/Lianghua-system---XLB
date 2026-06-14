@@ -23,13 +23,6 @@ except ImportError:
     except ImportError:
         st_fragment = lambda f: f
 
-try:
-    import akshare as ak
-
-    HAS_AKSHARE = True
-except ImportError:
-    HAS_AKSHARE = False
-
 SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 
 PET_ROSTER = {
@@ -394,6 +387,15 @@ def summon_global_3d_lulu(active_pet=None):
     components.html(html_code, height=0, width=0)
 
 
+@st.cache_resource(show_spinner=False)
+def get_akshare_module():
+    try:
+        import akshare as ak
+    except ImportError:
+        return None
+    return ak
+
+
 def safe_exec_fut_strategy(code, df):
     if not code: return df
     safe_code = str(code).replace("pandas.np", "np")
@@ -534,7 +536,8 @@ def render_ide_page():
 
 
 def render_futures_backtest():
-    if not HAS_AKSHARE: st.error(
+    ak = get_akshare_module()
+    if ak is None: st.error(
         "🚨 警告：检测到未装备 AkShare 引擎！\n\n主公，请立即在终端执行以下军令完成列装：\n`pip install akshare`"); return
     st.markdown(
         '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🔗 期货全量审计与归因分析</h3><p class="sub-text">已切换至全免费无限制的 AkShare 开源数据引擎。直接输入代码，自动拉取分钟与日线数据！</p></div>',
