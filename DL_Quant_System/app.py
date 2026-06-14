@@ -94,15 +94,22 @@ PAGES = ["🏠 系统总览 (监控中控)", "🤖 AI 策略引擎 (LLM)", "💻
          "🧩 扩展插件中心"]
 if custom_plugins and hasattr(custom_plugins, 'EXTRA_PAGES'): PAGES.extend(custom_plugins.EXTRA_PAGES)
 
-if "curr_page" not in st.session_state: st.session_state.curr_page = PAGES[0]
-if "prev_page" not in st.session_state: st.session_state.prev_page = PAGES[0]
+if st.session_state.get("curr_page") not in PAGES:
+    st.session_state.curr_page = PAGES[0]
+if st.session_state.get("prev_page") not in PAGES:
+    st.session_state.prev_page = st.session_state.curr_page
 if "just_switched" not in st.session_state: st.session_state.just_switched = False
 
 with st.sidebar:
     st.markdown("### 🎓 小吕布量化 Pro")
     st.caption(f"🛡️ 节点 ID: {st.session_state.user_id}")
     st.markdown("---")
-    selected_page = st.radio("导航菜单", PAGES, label_visibility="collapsed")
+    selected_page = st.radio(
+        "导航菜单",
+        PAGES,
+        index=PAGES.index(st.session_state.curr_page),
+        label_visibility="collapsed",
+    )
 
     # 🔥 修复：将桌宠召唤阵转移到侧边栏深处，防止其挤占顶部空间
     if extensions:
@@ -115,6 +122,11 @@ if selected_page != st.session_state.curr_page:
     st.session_state.just_switched = True
 else:
     st.session_state.just_switched = False
+
+if st.session_state.curr_page not in PAGES:
+    st.session_state.curr_page = PAGES[0]
+if st.session_state.prev_page not in PAGES:
+    st.session_state.prev_page = st.session_state.curr_page
 
 prev_idx = PAGES.index(st.session_state.prev_page)
 curr_idx = PAGES.index(st.session_state.curr_page)
