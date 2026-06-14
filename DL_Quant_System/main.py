@@ -31,8 +31,11 @@ except ImportError:
 # 配置 Tushare Token
 TS_TOKEN = get_secret("TUSHARE_TOKEN")
 if TS_TOKEN:
-    ts.set_token(TS_TOKEN)
-pro = ts.pro_api() if TS_TOKEN else None
+    try:
+        ts.set_token(TS_TOKEN)
+    except Exception:
+        pass
+pro = ts.pro_api(TS_TOKEN) if TS_TOKEN else None
 
 # 设置绘图风格
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'Arial']

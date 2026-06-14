@@ -44,6 +44,16 @@ except ImportError:
 
 pd.np = np
 SUB_PATTERN = re.compile(r'^SUB(\d+)_')
+DEFAULT_BACKTEST_STRATEGY = """
+def generate_signals(df):
+    df = df.copy()
+    df['MAIN_MA5'] = df['Close'].rolling(window=5).mean()
+    df['MAIN_MA20'] = df['Close'].rolling(window=20).mean()
+    df['Signal'] = 0
+    df.loc[df['MAIN_MA5'] > df['MAIN_MA20'], 'Signal'] = 1
+    df.loc[df['MAIN_MA5'] < df['MAIN_MA20'], 'Signal'] = -1
+    return df
+""".strip()
 
 # ==========================================
 # 1. 核心兵符与状态初始化
@@ -57,12 +67,15 @@ st.set_page_config(
 KIMI_API_KEY = get_secret("KIMI_API_KEY", "MOONSHOT_API_KEY")
 TUSHARE_TOKEN = get_secret("TUSHARE_TOKEN")
 if TUSHARE_TOKEN:
-    ts.set_token(TUSHARE_TOKEN)
+    try:
+        ts.set_token(TUSHARE_TOKEN)
+    except Exception:
+        pass
 
 
 @st.cache_resource
 def get_ts_pro():
-    return ts.pro_api() if TUSHARE_TOKEN else None
+    return ts.pro_api(TUSHARE_TOKEN) if TUSHARE_TOKEN else None
 
 
 pro = get_ts_pro()
@@ -326,11 +339,24 @@ def run_backtest_metrics(df_source, strategy_code):
     if df_source is None or df_source.empty:
         return {"df": pd.DataFrame(), "metrics": {"total": 0, "annual": 0, "max_dd": 0, "sharpe": 0, "trades": 0}}
     df_safe = df_source.copy()
-    if strategy_code:
-        df_ai = execute_safely(strategy_code, df_source)
-        if df_ai is not None and hasattr(df_ai, 'columns'):
-            for col in df_ai.columns:
-                if col == 'Signal' or col.startswith(('MAIN_', 'SUB')): df_safe[col] = df_ai[col]
+    strategy_status = "default"
+    strategy_error = ""
+    code_to_run = strategy_code.strip() if isinstance(strategy_code, str) else ""
+    if not code_to_run:
+        code_to_run = DEFAULT_BACKTEST_STRATEGY
+    else:
+        strategy_status = "custom"
+
+    try:
+        df_ai = execute_safely(code_to_run, df_source)
+    except Exception as exc:
+        strategy_status = "fallback"
+        strategy_error = str(exc)
+        df_ai = execute_safely(DEFAULT_BACKTEST_STRATEGY, df_source)
+
+    if df_ai is not None and hasattr(df_ai, 'columns'):
+        for col in df_ai.columns:
+            if col == 'Signal' or col.startswith(('MAIN_', 'SUB')): df_safe[col] = df_ai[col]
     signals = df_safe["Signal"] if "Signal" in df_safe.columns else pd.Series([0] * len(df_safe), index=df_safe.index)
     df, raw_metrics = simple_backtest(
         df_safe,
@@ -347,12 +373,15 @@ def run_backtest_metrics(df_source, strategy_code):
         "trades": raw_metrics.get("trades", 0),
         "win_rate": raw_metrics.get("win_rate", 0),
     }
-    return {"df": df, "metrics": metrics}
+    return {"df": df, "metrics": metrics, "strategy_status": strategy_status, "strategy_error": strategy_error}
 
 
 def execute_safely(code, df):
     if not code: return df
     safe_code = str(code).replace("pandas.np", "np")
+    match = re.search(r"`{3}(?:python)?\s*(.*?)\s*`{3}", safe_code, re.DOTALL | re.IGNORECASE)
+    if match:
+        safe_code = match.group(1).strip()
     return execute_strategy(safe_code, df)
 
 
@@ -642,6 +671,13 @@ elif selected_page == PAGES[3]:
         if st.session_state.bt_result:
             m = st.session_state.bt_result['metrics']
             df = st.session_state.bt_result['df']
+            if st.session_state.bt_result.get("strategy_status") == "fallback":
+                st.warning(
+                    "当前保存的策略代码不符合 generate_signals(df) 沙盒规范，"
+                    f"已自动改用内置双均线策略完成本次回测。原始错误：{st.session_state.bt_result.get('strategy_error', '')}"
+                )
+            elif st.session_state.bt_result.get("strategy_status") == "default":
+                st.info("本次未检测到已保存 AI/IDE 策略，已使用内置双均线策略完成回测。")
             c1, c2, c3, c4 = st.columns(4)
             c1.markdown(
                 f'<div class="metric-box"><p>累计收益</p><h2 style="color:#3b82f6;">{m["total"] * 100:.2f}%</h2></div>',

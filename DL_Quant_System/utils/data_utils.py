@@ -13,7 +13,10 @@ except ImportError:
 
 TOKEN = get_secret("TUSHARE_TOKEN") or os.getenv("TUSHARE_TOKEN", "")
 if TOKEN:
-    ts.set_token(TOKEN)
+    try:
+        ts.set_token(TOKEN)
+    except Exception:
+        pass
 
 
 def download_daily_data(ts_code, start_date, end_date):

@@ -27,7 +27,8 @@ def fetch_stock_data(ts_code, adj=None, start_date=None, tushare_token="", tusha
     ts_code = format_ts_code(ts_code)
     if tushare_token and tushare_module is not None:
         try:
-            df = tushare_module.pro_bar(ts_code=ts_code, adj=adj, start_date=start_date)
+            api = tushare_module.pro_api(tushare_token)
+            df = _fetch_tushare_daily(api, ts_code, adj=adj, start_date=start_date)
             if df is not None and not df.empty:
                 return normalize_market_data(df), "tushare"
         except Exception:
@@ -36,6 +37,38 @@ def fetch_stock_data(ts_code, adj=None, start_date=None, tushare_token="", tusha
     if local_df is not None and not local_df.empty:
         return normalize_market_data(local_df), "local"
     return pd.DataFrame(), "empty"
+
+
+def _fetch_tushare_daily(api, ts_code, adj=None, start_date=None):
+    df = api.daily(ts_code=ts_code, start_date=start_date)
+    if df is None or df.empty:
+        return pd.DataFrame()
+    if adj not in ("qfq", "hfq"):
+        return df
+
+    factors = api.adj_factor(ts_code=ts_code, start_date=start_date)
+    if factors is None or factors.empty:
+        return df
+
+    result = df.merge(factors[["trade_date", "adj_factor"]], on="trade_date", how="left")
+    result = result.sort_values("trade_date").reset_index(drop=True)
+    result["adj_factor"] = pd.to_numeric(result["adj_factor"], errors="coerce").bfill().ffill()
+    latest_factor = result["adj_factor"].dropna().iloc[-1] if result["adj_factor"].notna().any() else None
+    if not latest_factor:
+        return result.drop(columns=["adj_factor"], errors="ignore")
+
+    for col in ("open", "high", "low", "close", "pre_close"):
+        if col not in result.columns:
+            continue
+        values = pd.to_numeric(result[col], errors="coerce")
+        if adj == "hfq":
+            result[col] = values * result["adj_factor"]
+        else:
+            result[col] = values * result["adj_factor"] / latest_factor
+    if {"close", "pre_close"}.issubset(result.columns):
+        result["change"] = result["close"] - result["pre_close"]
+        result["pct_chg"] = result["change"] / result["pre_close"].replace(0, pd.NA) * 100
+    return result.drop(columns=["adj_factor"], errors="ignore")
 
 
 def load_local_stock_data(ts_code, start_date=None):
