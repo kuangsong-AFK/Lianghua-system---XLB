@@ -17,7 +17,7 @@ from PIL import Image
 from backtester.engine import simple_backtest
 from data_loader import fetch_stock_data, format_ts_code as normalize_ts_code
 from secure_config import get_secret
-from strategy_sandbox import execute_strategy
+from strategy_sandbox import execute_strategy, prepare_strategy_source
 from ai_prompts import build_system_prompt, build_retry_user_message
 
 # 🔥 安全导入扩展先锋营 🔥
@@ -99,7 +99,7 @@ for key, val in {"user_id": f"User_{str(uuid.uuid4())[:6]}", "messages": [], "ge
 # ==========================================
 PAGES = ["🏠 系统总览 (监控中控)", "🤖 AI 策略引擎 (LLM)", "💻 极客量化 IDE (代码编译)", "📈 深度静态全量回测",
          "⚡ 实时高频交易 (Live)", "🧠 深度学习预测矩阵", "🛡️ 论文审计日志", "🔗 期货全量审计 (归因)", "🌪️ 期货高频沙盘",
-         "🧩 扩展插件中心"]
+         "🔍 选股神器 (全市场扫描)", "🧩 扩展插件中心"]
 if custom_plugins and hasattr(custom_plugins, 'EXTRA_PAGES'): PAGES.extend(custom_plugins.EXTRA_PAGES)
 
 if st.session_state.get("curr_page") not in PAGES:
@@ -694,17 +694,7 @@ def run_backtest_metrics(df_source, strategy_code):
 
 def execute_safely(code, df):
     if not code: return df
-    safe_code = str(code).replace("pandas.np", "np")
-    match = re.search(r"`{3}(?:python)?\s*(.*?)\s*`{3}", safe_code, re.DOTALL | re.IGNORECASE)
-    if match:
-        safe_code = match.group(1).strip()
-    # 🔧 沙盒环境已内置 pd/np/math/time/datetime；AI 生成的 import 语句一律剔除
-    #    （沙盒本就禁止任何 import，剔除不会降低安全性，反而提升策略装载成功率）
-    safe_code = "\n".join(
-        line for line in safe_code.splitlines()
-        if not line.strip().startswith(("import ", "from "))
-    ).strip()
-    return execute_strategy(safe_code, df)
+    return execute_strategy(prepare_strategy_source(code), df)
 
 
 def render_smart_charts(df):
@@ -1297,6 +1287,113 @@ elif selected_page == PAGES[8]:
     if extensions: extensions.render_futures_sandbox()
 
 elif selected_page == PAGES[9]:
+    from screener import get_stock_universe, run_screen, MARKET_LABELS
+
+    st.markdown(
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🔍 选股神器 (全市场扫描)</h3>'
+        '<p class="sub-text">用当前策略代码的买点条件扫描整个市场 —— 哪只股票今天出现买点，就把它捞出来。策略代码不用改，直接复用 AI/IDE 里那份。</p></div>',
+        unsafe_allow_html=True)
+
+    # 1. 策略来源
+    src_choice = st.radio(
+        "🧬 策略来源",
+        ["全局已保存策略 (AI/IDE)", "🏔️ 主升浪模型", "💡 经典双均线"],
+        horizontal=True,
+    )
+    if src_choice == "🏔️ 主升浪模型":
+        zsl = getattr(extensions, "ZHU_SHENG_LANG_CODE", "") if extensions else ""
+        active_code = zsl or st.session_state.generated_code or DEFAULT_BACKTEST_STRATEGY
+    elif src_choice == "💡 经典双均线":
+        active_code = DEFAULT_BACKTEST_STRATEGY
+    else:
+        active_code = st.session_state.generated_code
+
+    with st.expander("🧬 查看/修改当前策略代码（扫描即用它找买点）", expanded=False):
+        active_code = st.text_area(
+            "策略代码", value=active_code if active_code else DEFAULT_BACKTEST_STRATEGY,
+            height=280, label_visibility="collapsed")
+
+    if not active_code or not active_code.strip():
+        st.warning("还没有策略代码。请先到 AI 战情室生成策略、或在 IDE 里载入模板，再回来扫描。")
+    else:
+        col_l, col_r = st.columns([1, 2.4])
+        with col_l:
+            universe_label = st.selectbox("🌐 扫描范围", list(MARKET_LABELS.values()), index=0)
+            market_key = {v: k for k, v in MARKET_LABELS.items()}[universe_label]
+            lookback_label = st.selectbox("⏱️ 买点新鲜度", ["仅最新一天", "近 3 日内", "近 5 日内"], index=1)
+            lookback_days = {"仅最新一天": 1, "近 3 日内": 3, "近 5 日内": 5}[lookback_label]
+            span_years = {"近1年": 1, "近2年": 2, "近3年": 3}[
+                st.selectbox("📅 数据深度", ["近1年", "近2年", "近3年"], index=1)]
+            workers = st.slider("⚙️ 并发线程", 1, 6, 3,
+                                help="全市场扫描建议 3~4；网络慢或触发限流时降到 1~2。")
+            do_scan = st.button("🚀 开始全市场扫描", type="primary", use_container_width=True)
+            st.caption("⚠️ 全市场约 5400 只，耗时可能 20 分钟以上；建议先用本地样例/板块测试。")
+
+        with col_r:
+            if do_scan:
+                codes, names = get_stock_universe(TUSHARE_TOKEN, ts, market_key)
+                if not codes:
+                    st.error("没有可扫描的标的：TUSHARE_TOKEN 未配置或接口异常。请改用「本地样例」。")
+                else:
+                    prog = st.progress(0.0)
+                    status_line = st.empty()
+                    start_date = f"{datetime.now().year - span_years}0101"
+
+                    def _cb(done, total, code):
+                        prog.progress(done / max(1, total))
+                        status_line.caption(f"🔭 扫描中 {done}/{total} … 刚完成: {code}")
+
+                    with st.spinner(f"正在扫描 {len(codes)} 只标的..."):
+                        results, stats = run_screen(
+                            active_code, codes, start_date, lookback_days,
+                            TUSHARE_TOKEN, ts, max_workers=workers, progress_cb=_cb)
+                    st.session_state.screen_results = results
+                    st.session_state.screen_stats = stats
+                    st.session_state.screen_names = names
+
+            if st.session_state.get("screen_results") is not None:
+                res = st.session_state.screen_results
+                stats = st.session_state.screen_stats
+                st.success(
+                    f"✅ 扫描完成：共 {stats['total']} 只 | 命中买点 {len(res)} 只 | "
+                    f"无数据 {stats['no_data']} | 接口失败 {stats['failed']} | 策略报错 {stats['strategy_errors']}")
+                if not res:
+                    st.info("本次没有股票满足策略买点条件。可放宽「买点新鲜度」或换数据深度再试。")
+                else:
+                    names = st.session_state.screen_names
+                    table = pd.DataFrame([{
+                        "代码": r["code"],
+                        "名称": names.get(r["code"], ""),
+                        "买点日期": r["buy_date"],
+                        "最新收盘": round(r["close"], 2),
+                        "近5日涨跌%": round(r.get("pct5") or 0, 2),
+                        "数据行数": r.get("rows", 0),
+                    } for r in res])
+                    st.dataframe(table, use_container_width=True, hide_index=True)
+
+                    picked = st.selectbox(
+                        "📈 查看个股买点K线",
+                        [f"{r['code']} {names.get(r['code'], '')}" for r in res])
+                    if picked:
+                        pick_code = picked.split()[0]
+                        df_chart = fetch_and_clean_data(pick_code, 'qfq', f"{datetime.now().year - 2}0101")
+                        if df_chart is not None and not df_chart.empty:
+                            try:
+                                df_ai = execute_safely(active_code, df_chart)
+                                if df_ai is not None and hasattr(df_ai, 'columns'):
+                                    for col in df_ai.columns:
+                                        if col == 'Signal' or col.startswith(('MAIN_', 'SUB')):
+                                            df_chart[col] = df_ai[col]
+                            except Exception:
+                                pass
+                            st.plotly_chart(render_smart_charts(df_chart), use_container_width=True,
+                                            config={'scrollZoom': True})
+            elif not do_scan:
+                st.markdown(
+                    """<div class="metric-box" style="height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center;"><p>等待主公下达扫描指令</p><h2 style="color: #3b82f6;">点击 [开始全市场扫描]</h2><p class="sub-text" style="margin-top: 10px;">命中买点的股票会自动列出，支持查看K线与买点标记</p></div>""",
+                    unsafe_allow_html=True)
+
+elif selected_page == PAGES[10]:
     if extensions: extensions.render_new_features_page()
 
 else:

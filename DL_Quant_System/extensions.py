@@ -32,6 +32,53 @@ PET_ROSTER = {
     "🐷 猪猪侠": "pig.glb",
 }
 
+# 🏔️ 主升浪模型（预设模板，供 IDE 与选股神器共用）
+ZHU_SHENG_LANG_CODE = """def generate_signals(df):
+    df = df.copy()
+    close = df['Close']
+    high = df['High']
+    low = df['Low']
+
+    base_win = 250
+    gap_win = 120
+    rise_th = 0.6
+    tol = 1.03
+    price_cap = 30.0
+
+    base_low = low.rolling(base_win, min_periods=60).min().shift(gap_win)
+    peak = high.rolling(base_win + gap_win, min_periods=60).max()
+    rise = peak / base_low - 1.0
+
+    had_wave = rise >= rise_th
+    fell_back = close <= base_low * tol
+    cheap = close < price_cap
+
+    if 'Volume' in df.columns:
+        vol = df.get('Volume', 0)
+        vol_now = vol.rolling(20, min_periods=5).mean()
+        vol_past = vol.rolling(base_win + gap_win, min_periods=60).mean()
+        dry_up = vol_now <= vol_past * 1.2
+    else:
+        dry_up = pd.Series(True, index=df.index)
+
+    buy_zone = had_wave & fell_back & cheap & dry_up
+    sell_zone = had_wave & (close > base_low * 1.3)
+
+    buy_edge = buy_zone & (~buy_zone.shift(1, fill_value=False))
+    sell_edge = sell_zone & (~sell_zone.shift(1, fill_value=False))
+
+    df['Signal'] = 0
+    df.loc[buy_edge, 'Signal'] = 1
+    df.loc[sell_edge, 'Signal'] = -1
+    df['Signal'] = df['Signal'].astype(int)
+
+    df['MAIN_起点线'] = base_low
+    df['MAIN_前高线'] = peak.where(had_wave)
+    df['SUB1_主升涨幅'] = (rise * 100.0).clip(lower=0.0)
+    df['SUB2_买入区域'] = np.where(buy_zone, 1, 0)
+
+    return df"""
+
 
 def _resolve_pet_path(current_dir, filename):
     for path in (
@@ -473,51 +520,7 @@ def render_ide_page():
     boll_code = """def generate_signals(df):\n    df['MAIN_BOLL_MID'] = df['Close'].rolling(window=20).mean()\n    std = df['Close'].rolling(window=20).std()\n    df['MAIN_BOLL_UP'] = df['MAIN_BOLL_MID'] + 2 * std\n    df['MAIN_BOLL_DN'] = df['MAIN_BOLL_MID'] - 2 * std\n    df['Signal'] = 0\n    df.loc[df['Close'] > df['MAIN_BOLL_UP'], 'Signal'] = 1\n    df.loc[df['Close'] < df['MAIN_BOLL_DN'], 'Signal'] = -1\n    return df"""
     kdj_code = """def generate_signals(df):\n    n, m1, m2 = 9, 3, 3\n    low_list = df['Low'].rolling(window=n).min()\n    high_list = df['High'].rolling(window=n).max()\n    rsv = (df['Close'] - low_list) / (high_list - low_list) * 100\n    df['SUB1_K'] = rsv.ewm(com=m1-1, adjust=False).mean()\n    df['SUB1_D'] = df['SUB1_K'].ewm(com=m2-1, adjust=False).mean()\n    df['SUB1_J'] = 3 * df['SUB1_K'] - 2 * df['SUB1_D']\n    df['Signal'] = 0\n    df.loc[df['SUB1_J'] < 20, 'Signal'] = 1\n    df.loc[df['SUB1_J'] > 80, 'Signal'] = -1\n    return df"""
     macd_code = """def generate_signals(df):\n    exp1 = df['Close'].ewm(span=12, adjust=False).mean()\n    exp2 = df['Close'].ewm(span=26, adjust=False).mean()\n    df['SUB1_MACD_DIFF'] = exp1 - exp2\n    df['SUB1_MACD_DEA'] = df['SUB1_MACD_DIFF'].ewm(span=9, adjust=False).mean()\n    df['SUB1_MACD_HIST'] = 2 * (df['SUB1_MACD_DIFF'] - df['SUB1_MACD_DEA'])\n    df['Signal'] = 0\n    df.loc[(df['SUB1_MACD_DIFF'] > df['SUB1_MACD_DEA']) & (df['SUB1_MACD_DIFF'].shift(1) <= df['SUB1_MACD_DEA'].shift(1)), 'Signal'] = 1\n    df.loc[(df['SUB1_MACD_DIFF'] < df['SUB1_MACD_DEA']) & (df['SUB1_MACD_DIFF'].shift(1) >= df['SUB1_MACD_DEA'].shift(1)), 'Signal'] = -1\n    return df"""
-    zhushenglang_code = """def generate_signals(df):
-    df = df.copy()
-    close = df['Close']
-    high = df['High']
-    low = df['Low']
-
-    base_win = 250
-    gap_win = 120
-    rise_th = 0.6
-    tol = 1.03
-    price_cap = 30.0
-
-    base_low = low.rolling(base_win, min_periods=60).min().shift(gap_win)
-    peak = high.rolling(base_win + gap_win, min_periods=60).max()
-    rise = peak / base_low - 1.0
-
-    had_wave = rise >= rise_th
-    fell_back = close <= base_low * tol
-    cheap = close < price_cap
-
-    if 'Volume' in df.columns:
-        vol = df.get('Volume', 0)
-        vol_now = vol.rolling(20, min_periods=5).mean()
-        vol_past = vol.rolling(base_win + gap_win, min_periods=60).mean()
-        dry_up = vol_now <= vol_past * 1.2
-    else:
-        dry_up = pd.Series(True, index=df.index)
-
-    buy_zone = had_wave & fell_back & cheap & dry_up
-    sell_zone = had_wave & (close > base_low * 1.3)
-
-    buy_edge = buy_zone & (~buy_zone.shift(1, fill_value=False))
-    sell_edge = sell_zone & (~sell_zone.shift(1, fill_value=False))
-
-    df['Signal'] = 0
-    df.loc[buy_edge, 'Signal'] = 1
-    df.loc[sell_edge, 'Signal'] = -1
-    df['Signal'] = df['Signal'].astype(int)
-
-    df['MAIN_起点线'] = base_low
-    df['MAIN_前高线'] = peak.where(had_wave)
-    df['SUB1_主升涨幅'] = (rise * 100.0).clip(lower=0.0)
-    df['SUB2_买入区域'] = np.where(buy_zone, 1, 0)
-
-    return df"""
+    zhushenglang_code = ZHU_SHENG_LANG_CODE
     templates = {"💡 经典双均线模板 (默认)": default_code, "📈 趋势突破流 (布林带 BOLL)": boll_code,
                  "🌊 震荡反转流 (超买超卖 KDJ)": kdj_code, "🚀 动量加速流 (量价 MACD)": macd_code,
                  "🏔️ 主升浪模型": zhushenglang_code}

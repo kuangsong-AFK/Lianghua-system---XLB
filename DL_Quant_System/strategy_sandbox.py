@@ -1,6 +1,7 @@
 import ast
 import concurrent.futures
 import math
+import re
 import time
 from datetime import datetime
 
@@ -126,6 +127,24 @@ def validate_strategy_source(source):
             raise StrategySandboxError("double-underscore strings are not allowed")
 
     return tree
+
+
+def prepare_strategy_source(source):
+    """从 AI 回复中提取 ```python 代码块并剔除 import 行。
+
+    沙盒环境已内置 pd/np/math/time/datetime，任何 import 都会被沙盒拒绝，
+    因此提前剔除（不会降低安全性，反而提升策略装载成功率）。
+    供 AI 战情室、回测与选股神器共用。
+    """
+    safe_code = str(source).replace("pandas.np", "np")
+    match = re.search(r"`{3}(?:python)?\s*(.*?)\s*`{3}", safe_code, re.DOTALL | re.IGNORECASE)
+    if match:
+        safe_code = match.group(1).strip()
+    safe_code = "\n".join(
+        line for line in safe_code.splitlines()
+        if not line.strip().startswith(("import ", "from "))
+    ).strip()
+    return safe_code
 
 
 def execute_strategy(source, df, timeout_seconds=2.0):

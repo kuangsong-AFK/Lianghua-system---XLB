@@ -28,6 +28,7 @@ PAGES = [
     "🛡️ 论文审计日志",
     "🔗 期货全量审计 (归因)",
     "🌪️ 期货高频沙盘",
+    "🔍 选股神器 (全市场扫描)",
     "🧩 扩展插件中心",
 ]
 
@@ -129,6 +130,28 @@ def interact_futures(at):
     raise RuntimeError("未找到期货回测按钮")
 
 
+def interact_screener(at):
+    # PAGES[9]: 选股神器 - 用经典双均线扫描本地样例
+    for radio in at.radio:
+        if "策略来源" in str(radio.label):
+            radio.set_value("💡 经典双均线")
+            at.run()
+            break
+    clicked = False
+    for btn in at.button:
+        if "开始全市场扫描" in str(btn.label):
+            btn.click()
+            clicked = True
+            at.run()
+            break
+    if not clicked:
+        raise RuntimeError("未找到扫描按钮")
+    if at.exception:
+        raise RuntimeError([e.value for e in at.exception])
+    assert at.session_state["screen_results"] is not None, "扫描未产出结果"
+    assert at.session_state["screen_stats"]["scanned"] > 0, "扫描数量为 0"
+
+
 if __name__ == "__main__":
     # 页面渲染测试
     for page in PAGES:
@@ -139,6 +162,7 @@ if __name__ == "__main__":
     run_page("💻 极客量化 IDE (代码编译)", extra=interact_ide)
     run_page("🧠 深度学习预测矩阵", extra=interact_dl, timeout=600)
     run_page("🔗 期货全量审计 (归因)", extra=interact_futures, timeout=300)
+    run_page("🔍 选股神器 (全市场扫描)", extra=interact_screener, timeout=300)
 
     print("\n" + "=" * 60)
     failed = [r for r in results if r[1] != "OK"]
