@@ -1083,6 +1083,143 @@ def _screen_job_idle_sync():
         st.rerun()
 
 
+def _chat_worker(job, selected_model, enable_deep_think, messages_to_send):
+    """Kimi 流式生成 + 沙盒预检自修复循环，全部在后台线程执行。
+
+    生成过程实时写入 job['text']（正文）与 job['thinking']（推理过程），
+    供 AI 页的 0.3s 定时片段实时展示。
+    """
+    job["model"] = selected_model
+    max_retries = 2
+    agent_logs = []
+    last_error = ""
+    result = {"full_resp": "", "explanation": "", "code": "", "logs": []}
+    for attempt in range(max_retries + 1):
+        job["attempt"] = attempt + 1
+        job["status"] = f"第 {attempt + 1} 次生成中..."
+        if attempt > 0:
+            agent_logs.append(
+                f'<div class="agent-status-node retry">🔄 <b>尝试 {attempt}:</b> 沙盒拦截异常 (<code>{last_error}</code>) -> Agent 发起重构</div>')
+            job["logs"] = list(agent_logs)
+            safe_resp = job.get("text") or "(API 前一次流响应为空，因引发沙盒报错被退回)"
+            messages_to_send.extend([{"role": "assistant", "content": safe_resp},
+                                     {"role": "user", "content": build_retry_user_message(last_error)}])
+        try:
+            valid_messages = [m for m in messages_to_send if m.get("content") and str(m["content"]).strip()]
+            # 🔧 kimi-k3 是推理模型，只允许 temperature=1（传其他值会 400），故对 K3 不传 temperature
+            create_kwargs = {"model": selected_model, "messages": valid_messages, "stream": True}
+            if selected_model != "kimi-k3":
+                create_kwargs["temperature"] = 0.3 if enable_deep_think else 0.7
+            stream = client.chat.completions.create(**create_kwargs)
+            full_resp = ""
+            job["text"] = ""
+            job["thinking"] = ""
+            for chunk in stream:
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+                if getattr(delta, "content", None):
+                    full_resp += delta.content
+                    job["text"] = full_resp
+                rc = getattr(delta, "reasoning_content", None)
+                if rc:
+                    job["thinking"] = (job.get("thinking") or "") + rc
+            job["text"] = full_resp
+            code_match = re.search(r"`{3}python\s*(.*?)\s*`{3}", full_resp, re.DOTALL)
+            resp_clean = re.sub(r"<think>.*?</think>", "", full_resp, flags=re.DOTALL)
+            explanation = re.sub(r"`{3}python\s*.*?\s*`{3}", "", resp_clean,
+                                 flags=re.DOTALL).strip().replace("【策略白话解析】", "").strip()
+            result["explanation"] = explanation if explanation else "该策略完全由硬核代码驱动，未返回额外人话分析。"
+            if not code_match:
+                result["full_resp"] = full_resp
+                result["logs"] = list(agent_logs)
+                job["status"] = "完成（本次回复不含代码块）"
+                break
+            extracted_code = code_match.group(1).strip()
+            try:
+                dummy_df = pd.DataFrame(
+                    {'trade_date': pd.date_range('20230101', periods=50), 'Open': np.random.rand(50) * 10,
+                     'High': np.random.rand(50) * 12, 'Low': np.random.rand(50) * 8,
+                     'Close': np.random.rand(50) * 10})
+                _ = execute_safely(extracted_code, add_default_indicators(dummy_df))
+                result["code"] = extracted_code
+                agent_logs.append(
+                    f'<div class="agent-status-node success">✅ <b>尝试 {attempt + 1}:</b> 代码通过沙盒预检 -> 策略已安全装载</div>')
+                result["full_resp"] = full_resp
+                result["logs"] = list(agent_logs)
+                job["status"] = "完成"
+                break
+            except Exception as e:
+                last_error = str(e)
+                if attempt == max_retries:
+                    agent_logs.append(
+                        f'<div class="agent-status-node error">❌ <b>最终结果:</b> 失败，最终报错: <code>{last_error}</code></div>')
+                    result["full_resp"] = full_resp
+                    result["logs"] = list(agent_logs)
+                    job["status"] = "完成（沙盒预检未通过）"
+        except Exception as e:
+            result["full_resp"] = (job.get("text") or "") + f"\n\n❌ [异常阻断: 通信失败或超载 - {e}]"
+            result["logs"] = list(agent_logs)
+            job["status"] = "失败"
+            break
+    job["result"] = result
+    job["status"] = job.get("status") or "完成"
+
+
+def _finalize_chat_job(job):
+    if job.get("finalized"):
+        return False
+    job["finalized"] = True
+    res = job.get("result") or {}
+    full_resp = res.get("full_resp", "")
+    if not full_resp or not full_resp.strip():
+        full_resp = "❌ 大模型网络中断或未返回任何数据，请重试。"
+    logs = res.get("logs") or []
+    if logs:
+        full_resp += "\n\n" + "".join(logs)
+    if res.get("explanation"):
+        st.session_state.strategy_explanation = res["explanation"]
+    if res.get("code"):
+        st.session_state.generated_code = res["code"]
+    st.session_state.messages.append({"role": "assistant", "content": full_resp})
+    return True
+
+
+@st.fragment(run_every="0.3s")
+def _chat_live_fragment():
+    from bg_runner import get_job
+
+    job = get_job("chat_job")
+    if not job:
+        return
+    st.session_state.chat_job = dict(job)
+    if job["running"]:
+        with st.container(border=True):
+            st.markdown(f"🤖 **Kimi 实时生成中**（模型 {job.get('model', '')} · {job.get('status', '')}）")
+            thinking = job.get("thinking") or ""
+            if thinking:
+                with st.expander("🧠 深度思考过程（实时）", expanded=False):
+                    st.markdown(thinking[-4000:] + "▌")
+            text = (job.get("text") or "").replace("<think>", "").replace("</think>", "")
+            if text:
+                st.markdown(text + "▌")
+            else:
+                st.caption("⏳ 正在等待模型响应（K3 深度思考通常需要 20~60 秒）...")
+    elif _finalize_chat_job(job):
+        st.rerun()
+
+
+def _chat_idle_sync():
+    from bg_runner import get_job
+
+    job = get_job("chat_job")
+    if not job:
+        return
+    st.session_state.chat_job = dict(job)
+    if _finalize_chat_job(job):
+        st.rerun()
+
+
 # ==========================================
 # 6. 各页面业务逻辑
 # ==========================================
@@ -1192,77 +1329,19 @@ try:
                 st.stop()
             full_prompt_for_ai = f"以下是您需要重点参考的附件原始数据：\n{file_context_text}\n\n我的指令：{raw_prompt}" if file_context_text else raw_prompt
             st.session_state.messages.append({"role": "user", "content": raw_prompt})
-            with chat_container:
-                with st.chat_message("user"):
-                    st.markdown(raw_prompt)
-                with st.chat_message("assistant"):
-                    st.toast(f"🚀 连线底层算力集群: {selected_model}", icon="⚡")
-                    sys_p = build_system_prompt()
-                    messages_to_send = [{"role": "system", "content": sys_p}] + st.session_state.messages[:-1] + [
-                        {"role": "user", "content": full_prompt_for_ai}]
-                    max_retries = 2;
-                    agent_logs = [];
-                    last_error = "";
-                    full_resp = "";
-                    msg_box = st.empty()
-                    for attempt in range(max_retries + 1):
-                        if attempt > 0:
-                            agent_logs.append(
-                                f'<div class="agent-status-node retry">🔄 <b>尝试 {attempt}:</b> 沙盒拦截异常 (<code>{last_error}</code>) -> Agent 发起重构</div>')
-                            safe_resp = full_resp if full_resp and full_resp.strip() else "(API 前一次流响应为空，因引发沙盒报错被退回)"
-                            messages_to_send.extend([{"role": "assistant", "content": safe_resp}, {"role": "user",
-                                                                                                   "content": build_retry_user_message(last_error)}])
-                        try:
-                            if client is None:
-                                raise RuntimeError("Missing KIMI_API_KEY or MOONSHOT_API_KEY")
-                            valid_messages = [m for m in messages_to_send if m.get("content") and str(m["content"]).strip()]
-                            # 🔧 kimi-k3 是推理模型，只允许 temperature=1（传其他值会 400），故对 K3 不传 temperature
-                            create_kwargs = {"model": selected_model, "messages": valid_messages, "stream": True}
-                            if selected_model != "kimi-k3":
-                                create_kwargs["temperature"] = 0.3 if enable_deep_think else 0.7
-                            stream = client.chat.completions.create(**create_kwargs)
-                            full_resp = ""
-                            for chunk in stream:
-                                if chunk.choices[0].delta.content:
-                                    full_resp += chunk.choices[0].delta.content
-                                    msg_box.markdown(full_resp.replace("<think>", "🧠 深度思考中...\n\n").replace("</think>",
-                                                                                                                 "\n\n---\n") + "▌",
-                                                     unsafe_allow_html=True)
-                            msg_box.markdown(
-                                full_resp.replace("<think>", "🧠 深度思考过程：\n").replace("</think>", "\n---\n"),
-                                unsafe_allow_html=True)
-                            code_match = re.search(r"`{3}python\s*(.*?)\s*`{3}", full_resp, re.DOTALL)
-                            resp_clean = re.sub(r"<think>.*?</think>", "", full_resp, flags=re.DOTALL)
-                            explanation = re.sub(r"`{3}python\s*.*?\s*`{3}", "", resp_clean,
-                                                 flags=re.DOTALL).strip().replace("【策略白话解析】", "").strip()
-                            st.session_state.strategy_explanation = explanation if explanation else "该策略完全由硬核代码驱动，未返回额外人话分析。"
-                            if not code_match: break
-                            extracted_code = code_match.group(1).strip()
-                            try:
-                                dummy_df = pd.DataFrame(
-                                    {'trade_date': pd.date_range('20230101', periods=50), 'Open': np.random.rand(50) * 10,
-                                     'High': np.random.rand(50) * 12, 'Low': np.random.rand(50) * 8,
-                                     'Close': np.random.rand(50) * 10})
-                                _ = execute_safely(extracted_code, add_default_indicators(dummy_df))
-                                st.session_state.generated_code = extracted_code
-                                agent_logs.append(
-                                    f'<div class="agent-status-node success">✅ <b>尝试 {attempt + 1}:</b> 代码通过沙盒预检 -> 策略已安全装载</div>')
-                                st.markdown("".join(agent_logs), unsafe_allow_html=True)
-                                break
-                            except Exception as e:
-                                last_error = str(e)
-                                if attempt == max_retries:
-                                    agent_logs.append(
-                                        f'<div class="agent-status-node error">❌ <b>最终结果:</b> 失败，最终报错: <code>{last_error}</code></div>')
-                                    st.markdown("".join(agent_logs), unsafe_allow_html=True)
-                        except Exception as e:
-                            st.error(f"链路断开: {e}")
-                            full_resp += f"\n\n❌ [异常阻断: 通信失败或超载 - {e}]"
-                            break
-                    if not full_resp or not full_resp.strip(): full_resp = "❌ 大模型网络中断或未返回任何数据，请重试。"
-                    if agent_logs: full_resp += "\n\n" + "".join(agent_logs)
-                    st.session_state.messages.append({"role": "assistant", "content": full_resp})
+            sys_p = build_system_prompt()
+            messages_to_send = [{"role": "system", "content": sys_p}] + st.session_state.messages[:-1] + [
+                {"role": "user", "content": full_prompt_for_ai}]
+            # 🔥 实时生成：Kimi 流式输出放到后台线程，页面用 0.3s 片段实时展示
+            from bg_runner import start_job
+            start_job("chat_job", _chat_worker, args=(selected_model, enable_deep_think, messages_to_send))
             st.rerun()
+
+        from bg_runner import get_job as _gj
+        if _gj("chat_job") and _gj("chat_job")["running"]:
+            _chat_live_fragment()
+        else:
+            _chat_idle_sync()
 
     elif selected_page == PAGES[2]:
         if extensions: extensions.render_ide_page()
