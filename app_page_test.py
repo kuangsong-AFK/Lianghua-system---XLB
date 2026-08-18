@@ -7,6 +7,7 @@
 逐页切换左侧导航，检查每个页面渲染是否抛异常。
 """
 import sys
+import time
 import traceback
 from pathlib import Path
 
@@ -17,6 +18,18 @@ sys.path.insert(0, str(ROOT / "DL_Quant_System"))
 from streamlit.testing.v1 import AppTest
 
 APP_FILE = ROOT / "app.py"
+
+
+def wait_job(key, timeout=180):
+    """等待后台任务结束（AppTest 中 run_every 片段不会自动刷新，需手动轮询注册表）。"""
+    from bg_runner import get_job
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        job = get_job(key)
+        if job and not job["running"]:
+            return job
+        time.sleep(0.2)
+    raise RuntimeError(f"后台任务 {key} 超时未完成")
 
 PAGES = [
     "🏠 系统总览 (监控中控)",
@@ -73,13 +86,18 @@ def run_page(name, extra=None, timeout=120):
 
 
 def interact_backtest(at):
-    # PAGES[3]: 点击"启动全量归因回测"按钮（使用本地 CSV 000001）
+    # PAGES[3]: 点击"启动全量归因回测"按钮（后台异步执行，轮询等待完成）
     for btn in at.button:
         if "启动全量归因回测" in str(btn.label):
             btn.click()
             at.run()
             if at.exception:
                 raise RuntimeError([e.value for e in at.exception])
+            wait_job("bt_job")
+            at.run()  # 渲染完成后的结果
+            if at.exception:
+                raise RuntimeError([e.value for e in at.exception])
+            assert at.session_state["bt_result"] is not None, "回测未产出结果"
             assert any("plotly_chart" == str(el.type) for el in at.get("plotly_chart")), "未找到回测图表"
             return
     raise RuntimeError("未找到回测按钮")
@@ -129,7 +147,7 @@ def interact_futures(at):
 
 
 def interact_screener(at):
-    # PAGES[9]: 选股神器 - 用经典双均线扫描本地样例
+    # PAGES[4]: 选股神器 - 用经典双均线扫描本地样例（后台异步，轮询等待）
     for radio in at.radio:
         if "策略来源" in str(radio.label):
             radio.set_value("💡 经典双均线")
@@ -139,11 +157,15 @@ def interact_screener(at):
     for btn in at.button:
         if "开始全市场扫描" in str(btn.label):
             btn.click()
-            clicked = True
             at.run()
+            clicked = True
             break
     if not clicked:
         raise RuntimeError("未找到扫描按钮")
+    if at.exception:
+        raise RuntimeError([e.value for e in at.exception])
+    wait_job("screen_job")
+    at.run()
     if at.exception:
         raise RuntimeError([e.value for e in at.exception])
     assert at.session_state["screen_results"] is not None, "扫描未产出结果"

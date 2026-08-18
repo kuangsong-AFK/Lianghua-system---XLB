@@ -13,11 +13,23 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "DL_Quant_System"))
+
+
+def wait_job(key, timeout=180):
+    from bg_runner import get_job
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        job = get_job(key)
+        if job and not job["running"]:
+            return job
+        time.sleep(0.2)
+    raise RuntimeError(f"后台任务 {key} 超时未完成")
 
 SECRET_FILES = [
     ROOT / ".streamlit" / "secrets.toml",
@@ -76,7 +88,7 @@ def run():
             results.append((page, "OK"))
             print(f"[PASS] {page}")
 
-    # 回测交互（无密钥 → 本地 CSV 降级路径）
+    # 回测交互（无密钥 → 本地 CSV 降级路径；后台异步执行需轮询等待）
     switch(at, "📈 深度静态全量回测")
     for btn in at.button:
         if "启动全量归因回测" in str(btn.label):
@@ -87,8 +99,17 @@ def run():
         results.append(("回测交互", [e.value for e in at.exception]))
         print("[FAIL] 回测交互", [e.value for e in at.exception])
     else:
-        results.append(("回测交互", "OK"))
-        print("[PASS] 回测交互")
+        wait_job("bt_job")
+        at.run()
+        if at.exception:
+            results.append(("回测交互", [e.value for e in at.exception]))
+            print("[FAIL] 回测交互", [e.value for e in at.exception])
+        elif at.session_state["bt_result"] is None:
+            results.append(("回测交互", "回测未产出结果"))
+            print("[FAIL] 回测交互: 回测未产出结果")
+        else:
+            results.append(("回测交互", "OK"))
+            print("[PASS] 回测交互")
 
     # IDE 交互
     switch(at, "💻 极客量化 IDE (代码编译)")
@@ -125,10 +146,16 @@ def run():
         results.append(("选股交互", "未找到扫描按钮"))
         print("[FAIL] 选股交互: 未找到扫描按钮")
     else:
-        stats = at.session_state["screen_stats"]
-        print(f"      选股统计: {stats}")
-        results.append(("选股交互", "OK"))
-        print("[PASS] 选股交互")
+        wait_job("screen_job")
+        at.run()
+        if at.exception:
+            results.append(("选股交互", [e.value for e in at.exception]))
+            print("[FAIL] 选股交互", [e.value for e in at.exception])
+        else:
+            stats = at.session_state["screen_stats"]
+            print(f"      选股统计: {stats}")
+            results.append(("选股交互", "OK"))
+            print("[PASS] 选股交互")
 
 
 if __name__ == "__main__":

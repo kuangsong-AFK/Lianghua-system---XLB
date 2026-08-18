@@ -662,20 +662,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 4.5 流体动态背景（黑白双主题，置于所有样式之后以确保生效）
+# 4.5 流体动态背景（黑白双主题，GPU 友好版：静态渐变底 + transform 漂移光斑）
 # ==========================================
 st.markdown("""
 <style>
-    /* 🌀 流体背景动画：复用项目自带的 fluidFlow 关键帧，让背景缓慢流动 */
-    @keyframes fluidFlow {
-        0%   { background-position: 0% 50%; }
-        25%  { background-position: 50% 100%; }
-        50%  { background-position: 100% 50%; }
-        75%  { background-position: 50% 0%; }
-        100% { background-position: 0% 50%; }
-    }
-
-    /* 让内容容器透明，露出应用层流体背景 */
+    /* 让内容容器透明，露出应用层背景 */
     .stApp[data-custom-theme] [data-testid="stAppViewContainer"],
     .stApp:not([data-custom-theme]) [data-testid="stAppViewContainer"] {
         background: transparent !important;
@@ -687,58 +678,82 @@ st.markdown("""
         background: transparent !important;
     }
 
-    /* 🌙 深色主题：深空星云流体 */
+    /* 🌙 深色主题：深空星云静态底色 */
     .stApp[data-custom-theme='dark'] {
-        background-image:
-            radial-gradient(ellipse at 18% 18%, rgba(10, 132, 255, 0.32) 0%, transparent 52%),
-            radial-gradient(ellipse at 82% 12%, rgba(94, 92, 230, 0.30) 0%, transparent 50%),
-            radial-gradient(ellipse at 88% 82%, rgba(0, 255, 204, 0.16) 0%, transparent 55%),
-            radial-gradient(ellipse at 12% 88%, rgba(255, 59, 48, 0.14) 0%, transparent 50%),
-            linear-gradient(132deg, #02040a, #03102c, #0a1a3f, #0d2b6b, #071536, #02040a) !important;
-        background-size: 320% 320% !important;
+        background:
+            radial-gradient(ellipse at 18% 18%, rgba(10, 132, 255, 0.16) 0%, transparent 55%),
+            radial-gradient(ellipse at 85% 80%, rgba(0, 255, 204, 0.10) 0%, transparent 55%),
+            linear-gradient(135deg, #02040a, #071536 45%, #0a1a3f 70%, #02040a) !important;
         background-attachment: fixed !important;
-        animation: fluidFlow 26s ease-in-out infinite !important;
     }
 
-    /* ☀️ 浅色主题：晨雾流光流体 */
+    /* ☀️ 浅色主题：晨雾静态底色 */
     .stApp[data-custom-theme='light'] {
-        background-image:
-            radial-gradient(ellipse at 16% 14%, rgba(10, 132, 255, 0.16) 0%, transparent 50%),
-            radial-gradient(ellipse at 84% 10%, rgba(175, 82, 222, 0.14) 0%, transparent 50%),
-            radial-gradient(ellipse at 88% 82%, rgba(52, 199, 89, 0.12) 0%, transparent 52%),
-            radial-gradient(ellipse at 10% 86%, rgba(255, 149, 0, 0.11) 0%, transparent 50%),
-            linear-gradient(135deg, #fdfbfd, #eef3ff, #f6ecff, #e9f6ff, #fdfbfd) !important;
-        background-size: 320% 320% !important;
+        background:
+            radial-gradient(ellipse at 16% 14%, rgba(10, 132, 255, 0.10) 0%, transparent 55%),
+            radial-gradient(ellipse at 88% 82%, rgba(52, 199, 89, 0.08) 0%, transparent 55%),
+            linear-gradient(135deg, #fdfbfd, #eef3ff 45%, #f6ecff 70%, #fdfbfd) !important;
         background-attachment: fixed !important;
-        animation: fluidFlow 26s ease-in-out infinite !important;
     }
 
-    /* 未挂主题时的兜底（JS 探针挂载前的瞬间） */
+    /* 未挂主题时的兜底 */
     .stApp:not([data-custom-theme]) {
-        background-image:
-            radial-gradient(ellipse at 16% 14%, rgba(10, 132, 255, 0.16) 0%, transparent 50%),
-            radial-gradient(ellipse at 84% 10%, rgba(175, 82, 222, 0.14) 0%, transparent 50%),
-            radial-gradient(ellipse at 88% 82%, rgba(52, 199, 89, 0.12) 0%, transparent 52%),
-            linear-gradient(135deg, #fdfbfd, #eef3ff, #f6ecff, #e9f6ff, #fdfbfd) !important;
-        background-size: 320% 320% !important;
-        background-attachment: fixed !important;
-        animation: fluidFlow 26s ease-in-out infinite !important;
+        background: linear-gradient(135deg, #fdfbfd, #eef3ff 45%, #f6ecff 70%, #fdfbfd) fixed !important;
     }
     @media (prefers-color-scheme: dark) {
         .stApp:not([data-custom-theme]) {
-            background-image:
-                radial-gradient(ellipse at 18% 18%, rgba(10, 132, 255, 0.32) 0%, transparent 52%),
-                radial-gradient(ellipse at 82% 12%, rgba(94, 92, 230, 0.30) 0%, transparent 50%),
-                radial-gradient(ellipse at 88% 82%, rgba(0, 255, 204, 0.16) 0%, transparent 55%),
-                linear-gradient(132deg, #02040a, #03102c, #0a1a3f, #0d2b6b, #071536, #02040a) !important;
+            background: linear-gradient(135deg, #02040a, #071536 45%, #0a1a3f 70%, #02040a) fixed !important;
         }
+    }
+
+    /* 🌀 漂移光斑（transform 动画走 GPU 合成，不触发重绘，低端设备也流畅） */
+    .stApp[data-custom-theme]::before,
+    .stApp[data-custom-theme]::after {
+        content: "";
+        position: fixed;
+        z-index: -1;
+        pointer-events: none;
+        border-radius: 50%;
+        will-change: transform;
+    }
+    .stApp[data-custom-theme='dark']::before {
+        width: 46vw; height: 46vw; top: -14vw; left: -10vw;
+        background: radial-gradient(circle, rgba(10, 132, 255, 0.38) 0%, transparent 65%);
+        filter: blur(64px);
+        animation: blobDriftA 24s ease-in-out infinite alternate;
+    }
+    .stApp[data-custom-theme='dark']::after {
+        width: 42vw; height: 42vw; bottom: -16vw; right: -8vw;
+        background: radial-gradient(circle, rgba(94, 92, 230, 0.36) 0%, transparent 65%);
+        filter: blur(72px);
+        animation: blobDriftB 30s ease-in-out infinite alternate;
+    }
+    .stApp[data-custom-theme='light']::before {
+        width: 44vw; height: 44vw; top: -12vw; left: -8vw;
+        background: radial-gradient(circle, rgba(10, 132, 255, 0.20) 0%, transparent 65%);
+        filter: blur(68px);
+        animation: blobDriftA 26s ease-in-out infinite alternate;
+    }
+    .stApp[data-custom-theme='light']::after {
+        width: 40vw; height: 40vw; bottom: -14vw; right: -6vw;
+        background: radial-gradient(circle, rgba(175, 82, 222, 0.18) 0%, transparent 65%);
+        filter: blur(72px);
+        animation: blobDriftB 32s ease-in-out infinite alternate;
+    }
+
+    @keyframes blobDriftA {
+        from { transform: translate(0, 0) scale(1); }
+        to   { transform: translate(12vw, 9vh) scale(1.15); }
+    }
+    @keyframes blobDriftB {
+        from { transform: translate(0, 0) scale(1.1); }
+        to   { transform: translate(-10vw, -8vh) scale(0.95); }
     }
 
     /* 尊重系统减少动态偏好 */
     @media (prefers-reduced-motion: reduce) {
-        .stApp[data-custom-theme='dark'],
-        .stApp[data-custom-theme='light'],
-        .stApp:not([data-custom-theme]) {
+        .stApp[data-custom-theme]::before,
+        .stApp[data-custom-theme]::after {
             animation: none !important;
         }
     }
@@ -768,8 +783,7 @@ def get_tushare_status():
     return "🟢 Token ready"
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def fetch_and_clean_data(ts_code, adj, start_date):
+def _fetch_clean_uncached(ts_code, adj, start_date):
     df, _source = fetch_stock_data(
         ts_code,
         adj=adj,
@@ -780,6 +794,11 @@ def fetch_and_clean_data(ts_code, adj, start_date):
     if df is not None and not df.empty:
         return add_default_indicators(df)
     return pd.DataFrame()
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_and_clean_data(ts_code, adj, start_date):
+    return _fetch_clean_uncached(ts_code, adj, start_date)
 
 
 def _hash_market_frame(df):
@@ -794,8 +813,7 @@ def _hash_market_frame(df):
     return (len(df), tuple(map(str, df.columns)), first_date, last_date, round(first_close, 6), round(last_close, 6))
 
 
-@st.cache_data(show_spinner=False, hash_funcs={pd.DataFrame: _hash_market_frame})
-def run_backtest_metrics(df_source, strategy_code):
+def _run_backtest_core(df_source, strategy_code):
     if df_source is None or df_source.empty:
         return {"df": pd.DataFrame(), "metrics": {"total": 0, "annual": 0, "max_dd": 0, "sharpe": 0, "trades": 0}}
     df_safe = df_source.copy()
@@ -834,6 +852,11 @@ def run_backtest_metrics(df_source, strategy_code):
         "win_rate": raw_metrics.get("win_rate", 0),
     }
     return {"df": df, "metrics": metrics, "strategy_status": strategy_status, "strategy_error": strategy_error}
+
+
+@st.cache_data(show_spinner=False, hash_funcs={pd.DataFrame: _hash_market_frame})
+def run_backtest_metrics(df_source, strategy_code):
+    return _run_backtest_core(df_source, strategy_code)
 
 
 def execute_safely(code, df):
@@ -929,6 +952,107 @@ def render_smart_charts(df):
 
 def format_ts_code(raw):
     return normalize_ts_code(raw)
+
+
+# ==========================================
+# 5.5 后台任务：回测 / 选股 异步执行 + 可停止 + 跨页面保留
+# ==========================================
+def _bt_worker(job, ts_code, adj, start_date, code):
+    job["status"] = "正在获取行情数据..."
+    df_raw = _fetch_clean_uncached(ts_code, adj, start_date)
+    if job["stop"]:
+        job["status"] = "已停止"
+        return
+    job["status"] = "正在回测计算..."
+    result = _run_backtest_core(df_raw, code)
+    if job["stop"]:
+        job["status"] = "已停止"
+        return
+    job["result"] = result
+    job["status"] = "完成"
+
+
+def _screen_worker(job, code, codes, names, start_date, lookback, token, ts_module, workers):
+    from screener import run_screen
+
+    job["total"] = len(codes)
+
+    def _cb(done, total, c):
+        job["done"] = done
+        job["total"] = total
+        job["progress"] = done / max(1, total)
+        job["status"] = f"扫描中 {done}/{total}：{c}"
+
+    results, stats = run_screen(
+        code, codes, start_date, lookback, token, ts_module,
+        max_workers=workers, progress_cb=_cb,
+        should_stop=lambda: job["stop"],
+    )
+    job["result"] = results
+    job["stats"] = stats
+    job["names"] = names
+    job["status"] = "已停止（保留已扫描的部分结果）" if job["stop"] else "完成"
+
+
+@st.fragment(run_every="0.5s")
+def _bt_job_fragment():
+    from bg_runner import get_job, request_stop
+
+    job = get_job("bt_job")
+    if not job:
+        return
+    st.session_state.bt_job = dict(job)
+    if job["running"]:
+        with st.container(border=True):
+            c1, c2 = st.columns([3, 1])
+            with c1:
+                st.info(f"⏳ 回测进行中：{job['status']}")
+            with c2:
+                if st.button("⏹️ 停止回测", use_container_width=True, key="bt_stop_btn"):
+                    request_stop("bt_job")
+                    st.rerun(scope="fragment")
+    elif not job["finalized"]:
+        job["finalized"] = True
+        if job.get("error"):
+            st.session_state.bt_error = job["error"]
+            st.session_state.bt_result = None
+        else:
+            st.session_state.bt_error = ""
+            st.session_state.bt_result = job.get("result")
+        st.rerun()
+
+
+@st.fragment(run_every="0.5s")
+def _screen_job_fragment():
+    from bg_runner import get_job, request_stop
+
+    job = get_job("screen_job")
+    if not job:
+        return
+    st.session_state.screen_job = dict(job)
+    if job["running"]:
+        with st.container(border=True):
+            p1, p2 = st.columns([3, 1])
+            with p1:
+                st.progress(min(1.0, float(job.get("progress") or 0.0)))
+                st.caption(f"⏳ {job['status']}")
+            with p2:
+                if st.button("⏹️ 停止扫描", use_container_width=True, key="screen_stop_btn"):
+                    request_stop("screen_job")
+                    st.rerun(scope="fragment")
+    elif not job["finalized"]:
+        job["finalized"] = True
+        if job.get("error"):
+            st.session_state.screen_error = job["error"]
+            st.session_state.screen_results = None
+            st.session_state.screen_stats = None
+        else:
+            st.session_state.screen_error = ""
+            st.session_state.screen_results = job.get("result")
+            st.session_state.screen_stats = job.get("stats")
+            st.session_state.screen_names = job.get("names") or {}
+            st.session_state.screen_stopped = bool(job.get("stop"))
+        st.rerun()
 
 
 # ==========================================
@@ -1127,13 +1251,20 @@ try:
             start_year = datetime.now().year - span_mapping[span_choice]
             adj_p = st.selectbox("⚖️ 复权模式", ["qfq", "hfq", "None"]).split(" ")[0]
             if st.button("🚀 启动全量归因回测", use_container_width=True, type="primary"):
-                with st.spinner("数据挂载中..."):
-                    try:
-                        df_raw = fetch_and_clean_data(ts_code, adj_p if adj_p != "None" else None, f"{start_year}0101")
-                        st.session_state.bt_result = run_backtest_metrics(df_raw, st.session_state.generated_code)
-                    except Exception as e:
-                        st.error(f"异常: {e}")
+                from bg_runner import start_job
+                st.session_state.bt_result = None
+                st.session_state.bt_error = ""
+                start_job(
+                    "bt_job",
+                    _bt_worker,
+                    args=(ts_code, adj_p if adj_p != "None" else None, f"{start_year}0101",
+                          st.session_state.generated_code),
+                )
+                st.rerun()
+            _bt_job_fragment()
         with col_r:
+            if st.session_state.get("bt_error"):
+                st.error(f"回测异常: {st.session_state.bt_error}")
             if st.session_state.bt_result:
                 m = st.session_state.bt_result['metrics']
                 df = st.session_state.bt_result['df']
@@ -1162,6 +1293,8 @@ try:
                     with st.expander("💡 展开：AI 策略白话解析", expanded=False): st.markdown(
                         st.session_state.strategy_explanation)
                 st.plotly_chart(render_smart_charts(df), use_container_width=True, config={'scrollZoom': True})
+            elif st.session_state.get("bt_job", {}).get("running"):
+                st.info("⏳ 回测正在后台执行，进度见左侧。切换页面不会中断任务。")
 
     elif selected_page == PAGES[5]:
         st.markdown(
@@ -1473,31 +1606,34 @@ try:
 
             with col_r:
                 if do_scan:
+                    from bg_runner import start_job
                     codes, names = get_stock_universe(TUSHARE_TOKEN, market_key)
                     if not codes:
                         st.error("没有可扫描的标的：TUSHARE_TOKEN 未配置或接口异常。请改用「本地样例」。")
                     else:
-                        prog = st.progress(0.0)
-                        status_line = st.empty()
+                        st.session_state.screen_results = None
+                        st.session_state.screen_stats = None
+                        st.session_state.screen_names = {}
+                        st.session_state.screen_error = ""
+                        st.session_state.screen_stopped = False
                         start_date = f"{datetime.now().year - span_years}0101"
+                        start_job(
+                            "screen_job",
+                            _screen_worker,
+                            args=(active_code, codes, names, start_date, lookback_days,
+                                  TUSHARE_TOKEN, ts, workers),
+                        )
+                        st.rerun()
+                _screen_job_fragment()
 
-                        def _cb(done, total, code):
-                            prog.progress(done / max(1, total))
-                            status_line.caption(f"🔭 扫描中 {done}/{total} … 刚完成: {code}")
-
-                        with st.spinner(f"正在扫描 {len(codes)} 只标的..."):
-                            results, stats = run_screen(
-                                active_code, codes, start_date, lookback_days,
-                                TUSHARE_TOKEN, ts, max_workers=workers, progress_cb=_cb)
-                        st.session_state.screen_results = results
-                        st.session_state.screen_stats = stats
-                        st.session_state.screen_names = names
-
+                if st.session_state.get("screen_error"):
+                    st.error(f"扫描异常: {st.session_state.screen_error}")
                 if st.session_state.get("screen_results") is not None:
                     res = st.session_state.screen_results
                     stats = st.session_state.screen_stats
+                    prefix = "⏹️ 已手动停止（保留已扫描的部分结果）：" if st.session_state.get("screen_stopped") else "✅ 扫描完成："
                     st.success(
-                        f"✅ 扫描完成：共 {stats['total']} 只 | 命中买点 {len(res)} 只 | "
+                        prefix + f"共 {stats['total']} 只 | 命中买点 {len(res)} 只 | "
                         f"无数据 {stats['no_data']} | 接口失败 {stats['failed']} | 策略报错 {stats['strategy_errors']}")
                     if not res:
                         st.info("本次没有股票满足策略买点条件。可放宽「买点新鲜度」或换数据深度再试。")
@@ -1530,9 +1666,9 @@ try:
                                     pass
                                 st.plotly_chart(render_smart_charts(df_chart), use_container_width=True,
                                                 config={'scrollZoom': True})
-                elif not do_scan:
+                elif not st.session_state.get("screen_job", {}).get("running"):
                     st.markdown(
-                        """<div class="metric-box" style="height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center;"><p>等待主公下达扫描指令</p><h2 style="color: #3b82f6;">点击 [开始全市场扫描]</h2><p class="sub-text" style="margin-top: 10px;">命中买点的股票会自动列出，支持查看K线与买点标记</p></div>""",
+                        """<div class="metric-box" style="height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center;"><p>等待主公下达扫描指令</p><h2 style="color: #3b82f6;">点击 [开始全市场扫描]</h2><p class="sub-text" style="margin-top: 10px;">命中买点的股票会自动列出，支持查看K线与买点标记；扫描可随时停止，切页不中断</p></div>""",
                         unsafe_allow_html=True)
 
     else:

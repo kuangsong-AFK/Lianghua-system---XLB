@@ -9,9 +9,21 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+
+
+def wait_job(key, timeout=180):
+    from bg_runner import get_job
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        job = get_job(key)
+        if job and not job["running"]:
+            return job
+        time.sleep(0.2)
+    raise RuntimeError(f"后台任务 {key} 超时未完成")
 
 OLD_SANDBOX = '''import ast
 import concurrent.futures
@@ -178,6 +190,9 @@ for btn in at.button:
         break
 assert clicked, "未找到回测按钮"
 assert not at.exception, [e.value for e in at.exception]
+wait_job("bt_job")
+at.run()
+assert not at.exception, [e.value for e in at.exception]
 assert at.session_state["bt_result"] is not None, "回测未产出"
 print("[PASS] 混合部署回测交互（降级沙盒路径）")
 
@@ -198,6 +213,9 @@ for btn in at.button:
         clicked = True
         break
 assert clicked, "未找到扫描按钮"
+assert not at.exception, [e.value for e in at.exception]
+wait_job("screen_job")
+at.run()
 assert not at.exception, [e.value for e in at.exception]
 stats = at.session_state["screen_stats"]
 print(f"[PASS] 混合部署选股交互: {stats}")

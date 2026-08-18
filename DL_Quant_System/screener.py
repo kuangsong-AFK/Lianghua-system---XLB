@@ -129,8 +129,12 @@ def _scan_one(args):
 
 def run_screen(strategy_code, universe_codes, start_date, lookback,
                tushare_token, tushare_module, max_workers=3,
-               progress_cb=None, log_cb=None):
-    """多线程扫描股票池，返回 (命中买点列表, 统计信息)。"""
+               progress_cb=None, log_cb=None, should_stop=None):
+    """多线程扫描股票池，返回 (命中买点列表, 统计信息)。
+
+    should_stop: 可选回调，返回 True 时立即停止提交新任务并中断等待
+    （已完成的股票结果保留在 results 中）。
+    """
     results = []
     scanned = failed = no_data = strategy_err = 0
     total = len(universe_codes)
@@ -159,6 +163,10 @@ def run_screen(strategy_code, universe_codes, start_date, lookback,
                 progress_cb(i, total, code)
             if log_cb:
                 log_cb(code, r)
+            if should_stop and should_stop():
+                for f in futures:
+                    f.cancel()
+                break
     results.sort(key=lambda r: (r.get("pct5") or 0), reverse=True)
     stats = {
         "scanned": scanned,
