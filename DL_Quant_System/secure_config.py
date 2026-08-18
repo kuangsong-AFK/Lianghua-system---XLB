@@ -58,4 +58,23 @@ def _read_streamlit_secret(name):
             return str(st.secrets[name])
     except Exception:
         pass
+    # 兜底：Streamlit 按启动目录(CWD)找 secrets.toml，如果用户从其他目录启动
+    # 应用（CWD 不对），则直接按模块位置解析项目内的 secrets.toml 文件。
+    module_dir = Path(__file__).resolve().parent
+    for path in (
+        module_dir.parent / ".streamlit" / "secrets.toml",   # 项目根目录
+        module_dir / ".streamlit" / "secrets.toml",          # DL_Quant_System 目录
+    ):
+        try:
+            if not path.exists():
+                continue
+            for raw_line in path.read_text(encoding="utf-8").splitlines():
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                if key.strip() == name:
+                    return value.strip().strip('"').strip("'")
+        except Exception:
+            continue
     return ""
