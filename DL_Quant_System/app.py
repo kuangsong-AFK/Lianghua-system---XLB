@@ -690,6 +690,12 @@ def execute_safely(code, df):
     match = re.search(r"`{3}(?:python)?\s*(.*?)\s*`{3}", safe_code, re.DOTALL | re.IGNORECASE)
     if match:
         safe_code = match.group(1).strip()
+    # 🔧 沙盒环境已内置 pd/np/math/time/datetime；AI 生成的 import 语句一律剔除
+    #    （沙盒本就禁止任何 import，剔除不会降低安全性，反而提升策略装载成功率）
+    safe_code = "\n".join(
+        line for line in safe_code.splitlines()
+        if not line.strip().startswith(("import ", "from "))
+    ).strip()
     return execute_strategy(safe_code, df)
 
 
@@ -889,7 +895,7 @@ elif selected_page == PAGES[1]:
             with st.chat_message("assistant"):
                 st.toast(f"🚀 连线底层算力集群: {selected_model}", icon="⚡")
                 ticks = "`" * 3
-                sys_p = f"""你是一名顶级量化工程师。拒绝闲聊。如果用户只是让你解读文字，直接输出解答。如果是编写策略，你必须严格遵守以下【小吕布量化系统 SDK 开发军规】：1. 只能使用 pandas, numpy, math, time 和 datetime。禁止 import talib！2. 数据源有效列名严格为：['Open', 'High', 'Low', 'Close', 'Volume']。3. 画图命名协议：主图列名以 `MAIN_` 开头，副图以 `SUB1_` 或 `SUB2_` 开头。4. 交易信号协议：必须生成一列 `df['Signal']`。1=买入，-1=卖出，0=持有。5. 代码骨架：{ticks}python\ndef generate_signals(df):\n    return df\n{ticks}\n请直接输出代码及策略白话解析。"""
+                sys_p = f"""你是一名顶级量化工程师。拒绝闲聊。如果用户只是让你解读文字，直接输出解答。如果是编写策略，你必须严格遵守以下【小吕布量化系统 SDK 开发军规】：1. 只能使用 pandas, numpy, math, time 和 datetime。禁止任何 import/from 导入语句（环境已内置，直接以 pd、np、math、time、datetime 使用即可，千万不要写 import）！2. 数据源有效列名严格为：['Open', 'High', 'Low', 'Close', 'Volume']。3. 画图命名协议：主图列名以 `MAIN_` 开头，副图以 `SUB1_` 或 `SUB2_` 开头。4. 交易信号协议：必须生成一列 `df['Signal']`。1=买入，-1=卖出，0=持有。5. 代码骨架：{ticks}python\ndef generate_signals(df):\n    return df\n{ticks}\n代码块内只允许包含 generate_signals 这一个函数定义，不要 import，不要任何函数外的语句。请直接输出代码及策略白话解析。"""
                 messages_to_send = [{"role": "system", "content": sys_p}] + st.session_state.messages[:-1] + [
                     {"role": "user", "content": full_prompt_for_ai}]
                 max_retries = 2;

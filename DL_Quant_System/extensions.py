@@ -405,6 +405,9 @@ def safe_exec_fut_strategy(code, df):
 def render_fut_charts(df):
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
+    df = df.copy()
+    if "trade_date" in df.columns and not pd.api.types.is_datetime64_any_dtype(df["trade_date"]):
+        df["trade_date"] = pd.to_datetime(df["trade_date"], errors="coerce")
     main_inds = [c for c in df.columns if c.startswith('MAIN_')]
     sub_groups = {}
     for c in df.columns:
@@ -477,8 +480,11 @@ def render_ide_page():
         import strategy_templates;
         import inspect
         for name, func in inspect.getmembers(strategy_templates, inspect.isfunction):
-            if name.startswith("strategy_"): templates[
-                "🛡️ 严谨：" + name.replace("strategy_", "").upper()] = inspect.getsource(func)
+            if name.startswith("strategy_"):
+                # 沙盒要求入口函数必须叫 generate_signals(df)，
+                # 因此把模板源码中的函数名重写为标准入口名。
+                src = inspect.getsource(func).replace(f"def {name}(", "def generate_signals(", 1)
+                templates["🛡️ 严谨：" + name.replace("strategy_", "").upper()] = src
     except:
         pass
 
@@ -594,7 +600,7 @@ def render_futures_backtest():
                         volatility = base_p * 0.0015
                         np.random.seed();
                         periods_num = 400
-                        freq_pd = selected_freq.replace('m', 'T') if selected_freq != 'D' else 'D'
+                        freq_pd = 'D' if selected_freq == 'D' else f'{selected_freq}min'
                         dates = pd.date_range(end=datetime.now(), periods=periods_num, freq=freq_pd)
                         closes = [base_p]
                         for _ in range(periods_num - 1): closes.append(closes[-1] + np.random.normal(0, volatility))
