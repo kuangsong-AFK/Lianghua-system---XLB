@@ -18,6 +18,7 @@ from backtester.engine import simple_backtest
 from data_loader import fetch_stock_data, format_ts_code as normalize_ts_code
 from secure_config import get_secret
 from strategy_sandbox import execute_strategy
+from ai_prompts import build_system_prompt, build_retry_user_message
 
 # 🔥 安全导入扩展先锋营 🔥
 try:
@@ -86,7 +87,7 @@ def get_ts_pro():
 
 
 pro = get_ts_pro()
-client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=60.0) if KIMI_API_KEY else None
+client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=300.0) if KIMI_API_KEY else None
 
 for key, val in {"user_id": f"User_{str(uuid.uuid4())[:6]}", "messages": [], "generated_code": "",
                  "strategy_explanation": "暂无策略解析，请先前往 AI 战情室下达军令。", "dl_result": None,
@@ -900,8 +901,7 @@ elif selected_page == PAGES[1]:
                 st.markdown(raw_prompt)
             with st.chat_message("assistant"):
                 st.toast(f"🚀 连线底层算力集群: {selected_model}", icon="⚡")
-                ticks = "`" * 3
-                sys_p = f"""你是一名顶级量化工程师。拒绝闲聊。如果用户只是让你解读文字，直接输出解答。如果是编写策略，你必须严格遵守以下【小吕布量化系统 SDK 开发军规】：1. 只能使用 pandas, numpy, math, time 和 datetime。禁止任何 import/from 导入语句（环境已内置，直接以 pd、np、math、time、datetime 使用即可，千万不要写 import）！2. 数据源有效列名严格为：['Open', 'High', 'Low', 'Close', 'Volume']。3. 画图命名协议：主图列名以 `MAIN_` 开头，副图以 `SUB1_` 或 `SUB2_` 开头。4. 交易信号协议：必须生成一列 `df['Signal']`。1=买入，-1=卖出，0=持有。5. 代码骨架：{ticks}python\ndef generate_signals(df):\n    return df\n{ticks}\n代码块内只允许包含 generate_signals 这一个函数定义，不要 import，不要任何函数外的语句。请直接输出代码及策略白话解析。"""
+                sys_p = build_system_prompt()
                 messages_to_send = [{"role": "system", "content": sys_p}] + st.session_state.messages[:-1] + [
                     {"role": "user", "content": full_prompt_for_ai}]
                 max_retries = 2;
@@ -915,7 +915,7 @@ elif selected_page == PAGES[1]:
                             f'<div class="agent-status-node retry">🔄 <b>尝试 {attempt}:</b> 沙盒拦截异常 (<code>{last_error}</code>) -> Agent 发起重构</div>')
                         safe_resp = full_resp if full_resp and full_resp.strip() else "(API 前一次流响应为空，因引发沙盒报错被退回)"
                         messages_to_send.extend([{"role": "assistant", "content": safe_resp}, {"role": "user",
-                                                                                               "content": f"代码报错：`{last_error}`，请严格遵循模板修复。"}])
+                                                                                               "content": build_retry_user_message(last_error)}])
                     try:
                         if client is None:
                             raise RuntimeError("Missing KIMI_API_KEY or MOONSHOT_API_KEY")
