@@ -44,6 +44,13 @@ except ImportError:
 
 pd.np = np
 SUB_PATTERN = re.compile(r'^SUB(\d+)_')
+MODEL_OPTIONS = {
+    "kimi-k3 (最新旗舰 · 默认)": "kimi-k3",
+    "kimi-k2.6": "kimi-k2.6",
+    "moonshot-v1-8k": "moonshot-v1-8k",
+    "moonshot-v1-32k": "moonshot-v1-32k",
+    "moonshot-v1-128k": "moonshot-v1-128k",
+}
 DEFAULT_BACKTEST_STRATEGY = """
 def generate_signals(df):
     df = df.copy()
@@ -835,8 +842,7 @@ elif selected_page == PAGES[1]:
 
     ctrl_col1, ctrl_col2 = st.columns([1, 1])
     with ctrl_col1:
-        selected_model = st.selectbox("🧠 选择大模型算力通道", ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
-                                      index=0)
+        selected_model = MODEL_OPTIONS[st.selectbox("🧠 选择大模型算力通道", list(MODEL_OPTIONS.keys()), index=0)]
     with ctrl_col2:
         st.markdown("<div style='height: 32px;'></div>", unsafe_allow_html=True)
         enable_deep_think = st.toggle("💡 强子注入：开启深度思考引擎 (CoT)", value=False)
@@ -914,9 +920,11 @@ elif selected_page == PAGES[1]:
                         if client is None:
                             raise RuntimeError("Missing KIMI_API_KEY or MOONSHOT_API_KEY")
                         valid_messages = [m for m in messages_to_send if m.get("content") and str(m["content"]).strip()]
-                        stream = client.chat.completions.create(model=selected_model, messages=valid_messages,
-                                                                stream=True,
-                                                                temperature=0.3 if enable_deep_think else 0.7)
+                        # 🔧 kimi-k3 是推理模型，只允许 temperature=1（传其他值会 400），故对 K3 不传 temperature
+                        create_kwargs = {"model": selected_model, "messages": valid_messages, "stream": True}
+                        if selected_model != "kimi-k3":
+                            create_kwargs["temperature"] = 0.3 if enable_deep_think else 0.7
+                        stream = client.chat.completions.create(**create_kwargs)
                         full_resp = ""
                         for chunk in stream:
                             if chunk.choices[0].delta.content:
@@ -1242,9 +1250,9 @@ elif selected_page == PAGES[5]:
                     try:
                         if client is None:
                             raise RuntimeError("Missing KIMI_API_KEY or MOONSHOT_API_KEY")
-                        stream = client.chat.completions.create(model="moonshot-v1-8k",
+                        stream = client.chat.completions.create(model="kimi-k3",
                                                                 messages=[{"role": "user", "content": prompt}],
-                                                                stream=True, temperature=0.5)
+                                                                stream=True)
                         full_txt = ""
                         for chunk in stream:
                             if chunk.choices[0].delta.content: full_txt += chunk.choices[0].delta.content; ai_ph.info(
