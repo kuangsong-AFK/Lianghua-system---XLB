@@ -35,47 +35,50 @@ PET_ROSTER = {
 # 🏔️ 主升浪模型（预设模板，供 IDE 与选股神器共用）
 ZHU_SHENG_LANG_CODE = """def generate_signals(df):
     df = df.copy()
+
     close = df['Close']
     high = df['High']
     low = df['Low']
 
-    base_win = 250
-    gap_win = 120
-    rise_th = 0.6
-    tol = 1.03
-    price_cap = 30.0
+    # ---------- 参数区 ----------
+    ma_win = 60        # 乖离率基准均线（约季线）
+    bias_win = 120     # 半年 ≈ 120个交易日
+    peak_win = 180     # 主升浪顶点搜索窗口
+    peak_shift = 10    # 顶点窗口后移：确保主升浪是"曾经"发生的，不含最近10天
+    start_win = 250    # 主升浪起点搜索窗口
+    start_shift = 60   # 起点窗口后移：锁定"起涨之前"的底部区域
 
-    base_low = low.rolling(base_win, min_periods=60).min().shift(gap_win)
-    peak = high.rolling(base_win + gap_win, min_periods=60).max()
-    rise = peak / base_low - 1.0
+    # ---------- 乖离率 ----------
+    ma60 = close.rolling(ma_win).mean()
+    bias = (close - ma60) / ma60
+    bias_max_halfyear = bias.rolling(bias_win).max()   # 半年内乖离率最大值
 
-    had_wave = rise >= rise_th
-    fell_back = close <= base_low * tol
-    cheap = close < price_cap
+    # ---------- 主升浪的顶点与起点 ----------
+    peak_price = high.shift(peak_shift).rolling(peak_win).max()     # 曾经的主升浪顶点
+    start_price = low.shift(start_shift).rolling(start_win).min()   # 起涨前的底部区域（主升浪起点）
+    main_wave_gain = peak_price / start_price - 1                   # 主升浪涨幅
 
-    if 'Volume' in df.columns:
-        vol = df.get('Volume', 0)
-        vol_now = vol.rolling(20, min_periods=5).mean()
-        vol_past = vol.rolling(base_win + gap_win, min_periods=60).mean()
-        dry_up = vol_now <= vol_past * 1.2
-    else:
-        dry_up = pd.Series(True, index=df.index)
+    # ---------- 买入条件 ----------
+    cond_price = close < 40                      # 股价小于40元
+    cond_bias  = bias_max_halfyear > 0.5         # 半年内乖离率曾超50% → 确认走过主升浪
+    cond_gain  = main_wave_gain >= 0.5           # 主升浪从起点到顶点涨幅≥50%（双确认）
+    cond_back  = close <= start_price * 1.05     # 跌回/跌破起点区域（5%容差，含"A杀"与"慢跌"两种路径）
 
-    buy_zone = had_wave & fell_back & cheap & dry_up
-    sell_zone = had_wave & (close > base_low * 1.3)
+    buy = cond_price & cond_bias & cond_gain & cond_back
 
-    buy_edge = buy_zone & (~buy_zone.shift(1, fill_value=False))
-    sell_edge = sell_zone & (~sell_zone.shift(1, fill_value=False))
+    # ---------- 卖出条件：反弹至60日线上方15%，超跌修复到位，落袋 ----------
+    sell = (close > ma60 * 1.15) & (~buy)
 
+    # ---------- 信号列 ----------
     df['Signal'] = 0
-    df.loc[buy_edge, 'Signal'] = 1
-    df.loc[sell_edge, 'Signal'] = -1
+    df.loc[buy, 'Signal'] = 1
+    df.loc[sell, 'Signal'] = -1
     df['Signal'] = df['Signal'].astype(int)
 
-    df['MAIN_起点线'] = base_low
-    df['MAIN_前高线'] = peak.where(had_wave)
-    df['SUB1_主升涨幅'] = (rise * 100.0).clip(lower=0.0)
-    df['SUB2_买入区域'] = np.where(buy_zone, 1, 0)
+    # ---------- 画图列 ----------
+    df['MAIN_MA60'] = ma60                 # 主图：60日均线
+    df['MAIN_StartPrice'] = start_price    # 主图：主升浪起点水平线
+    df['SUB1_BIAS'] = bias * 100           # 副图：乖离率（%）
 
     return df"""
 
