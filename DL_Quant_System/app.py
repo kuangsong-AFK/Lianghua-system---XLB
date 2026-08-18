@@ -168,18 +168,24 @@ with st.sidebar:
     theme_options = {"自动": "auto", "浅色": "light", "深色": "dark"}
     current_theme = st.session_state.get("visual_theme", "auto")
     current_label = next((label for label, value in theme_options.items() if value == current_theme), "自动")
+    if "theme_label_state" not in st.session_state:
+        st.session_state.theme_label_state = current_label
     theme_label = st.radio(
         "外观",
         list(theme_options.keys()),
-        index=list(theme_options.keys()).index(current_label),
+        key="theme_label_state",
         horizontal=True,
     )
     st.session_state.visual_theme = theme_options[theme_label]
     st.markdown("---")
+    # 🔧 修复“点两次才能切页”：用固定 key 管理导航状态，
+    #    避免 index 参数与前端点击状态冲突导致首次点击被吞。
+    if "nav_page" not in st.session_state:
+        st.session_state.nav_page = st.session_state.curr_page
     selected_page = st.radio(
         "导航菜单",
         PAGES,
-        index=PAGES.index(st.session_state.curr_page),
+        key="nav_page",
         label_visibility="collapsed",
     )
 
@@ -205,6 +211,7 @@ else:
 
 if st.session_state.curr_page not in PAGES:
     st.session_state.curr_page = PAGES[0]
+    st.session_state.nav_page = PAGES[0]
 if st.session_state.prev_page not in PAGES:
     st.session_state.prev_page = st.session_state.curr_page
 
