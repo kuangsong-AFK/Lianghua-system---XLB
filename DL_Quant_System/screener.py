@@ -13,7 +13,26 @@ import pandas as pd
 import streamlit as st
 
 from data_loader import fetch_stock_data, format_ts_code
-from strategy_sandbox import execute_strategy, prepare_strategy_source
+
+# 🔧 兼容云端"新旧文件混合"部署：沙盒模块可能还是旧版（缺 prepare_strategy_source）
+try:
+    import strategy_sandbox as _sandbox
+except Exception:
+    _sandbox = None
+execute_strategy = getattr(_sandbox, "execute_strategy", None)
+prepare_strategy_source = getattr(_sandbox, "prepare_strategy_source", None)
+if prepare_strategy_source is None:
+    import re as _re
+
+    def prepare_strategy_source(source):
+        safe_code = str(source).replace("pandas.np", "np")
+        _m = _re.search(r"`{3}(?:python)?\s*(.*?)\s*`{3}", safe_code, _re.DOTALL | _re.IGNORECASE)
+        if _m:
+            safe_code = _m.group(1).strip()
+        return "\n".join(
+            line for line in safe_code.splitlines()
+            if not line.strip().startswith(("import ", "from "))
+        ).strip()
 
 # 扫描范围 key -> (标签, stock_basic 过滤逻辑说明)
 MARKET_LABELS = {
@@ -81,6 +100,8 @@ def _scan_one(args):
     )
     if df is None or df.empty:
         return {"code": ts_code, "status": "no_data", "source": source}
+    if execute_strategy is None:
+        return {"code": ts_code, "status": "strategy_error"}
     try:
         res = execute_strategy(prepare_strategy_source(strategy_code), df)
     except Exception:

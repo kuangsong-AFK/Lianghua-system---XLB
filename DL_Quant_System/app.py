@@ -30,8 +30,46 @@ except ImportError:
 from backtester.engine import simple_backtest
 from data_loader import fetch_stock_data, format_ts_code as normalize_ts_code
 from secure_config import get_secret
-from strategy_sandbox import execute_strategy, prepare_strategy_source
-from ai_prompts import build_system_prompt, build_retry_user_message
+
+# 🔧 兼容云端"新旧文件混合"部署：沙盒模块可能还是旧版（缺 prepare_strategy_source）
+try:
+    import strategy_sandbox as _sandbox
+except Exception:
+    _sandbox = None
+execute_strategy = getattr(_sandbox, "execute_strategy", None)
+prepare_strategy_source = getattr(_sandbox, "prepare_strategy_source", None)
+if prepare_strategy_source is None:
+    def prepare_strategy_source(source):
+        safe_code = str(source).replace("pandas.np", "np")
+        _m = re.search(r"`{3}(?:python)?\s*(.*?)\s*`{3}", safe_code, re.DOTALL | re.IGNORECASE)
+        if _m:
+            safe_code = _m.group(1).strip()
+        return "\n".join(
+            line for line in safe_code.splitlines()
+            if not line.strip().startswith(("import ", "from "))
+        ).strip()
+if execute_strategy is None:
+    def execute_strategy(source, df, timeout_seconds=2.0):
+        raise RuntimeError(
+            "沙盒核心模块缺失：云端部署不完整。请在 Streamlit Cloud 中点击 Reboot app 重新部署后再试。")
+
+try:
+    from ai_prompts import build_system_prompt, build_retry_user_message
+except ImportError:
+    def build_system_prompt():
+        ticks = "`" * 3
+        return (
+            "你是一名顶级量化工程师。编写策略时必须遵守：只允许定义 def generate_signals(df): 一个函数；"
+            "禁止任何 import/from；禁止 for/while/try/lambda；必须全向量化（rolling/ewm/shift 等）；"
+            "有效列名 Open/High/Low/Close/Volume；必须返回含整数 Signal 列（1买/-1卖/0持有）的 df；"
+            "条件组合用 & | ~ 并加括号。"
+            f"代码骨架：{ticks}python\\ndef generate_signals(df):\\n    ...\\n    return df\\n{ticks}"
+        )
+
+    def build_retry_user_message(last_error):
+        return (
+            f"你的代码没有通过沙盒预检，报错如下：\n```\n{last_error}\n```\n"
+            "请修复并重新输出完整代码块（只允许 generate_signals 一个函数、禁止 import、必须全向量化）。")
 
 # 🔥 安全导入扩展先锋营 🔥
 try:
