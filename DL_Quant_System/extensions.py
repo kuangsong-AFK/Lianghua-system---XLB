@@ -589,6 +589,51 @@ def render_ide_page():
             console_ph.info(
                 "等待您下达编译指令...\n\n点击左侧【运行防爆沙盒测试】按钮，系统将凭空生成虚拟行情数据并安全执行您的代码，绝不会导致实盘引擎崩溃。")
 
+    # 💾 策略存档室：按名称保存/载入当前编辑器代码（密码保护）
+    with st.expander("💾 策略存档室（按名称保存/载入策略代码）", expanded=False):
+        from strategy_store import (save_strategy, list_strategies, get_strategy,
+                                    export_json, import_json)
+
+        st.caption("🔑 保存密码：688688（固定）。⚠️ 云端重新部署后存档可能丢失，重要策略请用「导出备份」下载到本地。")
+        s_name = st.text_input("📛 策略名称", key="store_name", placeholder="例如：主升浪V2")
+        s_pwd = st.text_input("🔑 保存密码", type="password", value="688688", key="store_pwd")
+        saved_list = list_strategies()
+        pick_name = st.selectbox("🗂️ 已保存策略", saved_list, key="store_pick") if saved_list else None
+        col_b1, col_b2, col_b3 = st.columns(3)
+        with col_b1:
+            if st.button("💾 保存当前代码", use_container_width=True, type="primary"):
+                err = save_strategy(s_name, s_pwd, user_code)
+                if err:
+                    st.error(f"保存失败：{err}")
+                else:
+                    st.success(f"✅ 策略「{s_name.strip()}」已存入存档室")
+                    st.rerun()
+        with col_b2:
+            if st.button("📥 载入所选策略", use_container_width=True, disabled=not bool(pick_name)):
+                code, err = get_strategy(pick_name, s_pwd)
+                if err:
+                    st.error(f"载入失败：{err}")
+                else:
+                    st.session_state.generated_code = code
+                    st.success(f"✅ 已把策略「{pick_name}」载入编辑器")
+                    st.rerun()
+        with col_b3:
+            st.download_button(
+                "📤 导出备份", data=export_json().encode("utf-8"),
+                file_name="strategies_backup.json", mime="application/json",
+                use_container_width=True)
+        uploaded_backup = st.file_uploader("📥 导入备份文件", type=["json"], key="store_import")
+        if uploaded_backup is not None:
+            try:
+                text = uploaded_backup.getvalue().decode("utf-8")
+            except Exception:
+                text = ""
+            if import_json(text):
+                st.success("✅ 备份导入成功")
+                st.rerun()
+            else:
+                st.error("备份文件格式不正确")
+
 
 def render_futures_backtest():
     ak = get_akshare_module()

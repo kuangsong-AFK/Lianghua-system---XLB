@@ -12,6 +12,8 @@ __pycache__/
 
 user_logs/
 *.log
+saved_strategies.json
+**/saved_strategies.json
 
 # Local binary/model artifacts. Use Git LFS or external storage when they must be versioned.
 *.glb

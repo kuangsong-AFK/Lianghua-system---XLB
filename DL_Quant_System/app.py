@@ -718,26 +718,22 @@ st.markdown("""
     }
     .stApp[data-custom-theme='dark']::before {
         width: 46vw; height: 46vw; top: -14vw; left: -10vw;
-        background: radial-gradient(circle, rgba(10, 132, 255, 0.38) 0%, transparent 65%);
-        filter: blur(64px);
+        background: radial-gradient(circle, rgba(10, 132, 255, 0.30) 0%, rgba(10, 132, 255, 0.12) 32%, transparent 68%);
         animation: blobDriftA 24s ease-in-out infinite alternate;
     }
     .stApp[data-custom-theme='dark']::after {
         width: 42vw; height: 42vw; bottom: -16vw; right: -8vw;
-        background: radial-gradient(circle, rgba(94, 92, 230, 0.36) 0%, transparent 65%);
-        filter: blur(72px);
+        background: radial-gradient(circle, rgba(94, 92, 230, 0.28) 0%, rgba(94, 92, 230, 0.10) 32%, transparent 68%);
         animation: blobDriftB 30s ease-in-out infinite alternate;
     }
     .stApp[data-custom-theme='light']::before {
         width: 44vw; height: 44vw; top: -12vw; left: -8vw;
-        background: radial-gradient(circle, rgba(10, 132, 255, 0.20) 0%, transparent 65%);
-        filter: blur(68px);
+        background: radial-gradient(circle, rgba(10, 132, 255, 0.16) 0%, rgba(10, 132, 255, 0.06) 32%, transparent 68%);
         animation: blobDriftA 26s ease-in-out infinite alternate;
     }
     .stApp[data-custom-theme='light']::after {
         width: 40vw; height: 40vw; bottom: -14vw; right: -6vw;
-        background: radial-gradient(circle, rgba(175, 82, 222, 0.18) 0%, transparent 65%);
-        filter: blur(72px);
+        background: radial-gradient(circle, rgba(175, 82, 222, 0.14) 0%, rgba(175, 82, 222, 0.05) 32%, transparent 68%);
         animation: blobDriftB 32s ease-in-out infinite alternate;
     }
 
@@ -994,8 +990,36 @@ def _screen_worker(job, code, codes, names, start_date, lookback, token, ts_modu
     job["status"] = "已停止（保留已扫描的部分结果）" if job["stop"] else "完成"
 
 
+def _finalize_job_state(job, key):
+    """把已完成/失败的任务结果写入 session_state。返回 True 表示需要整页重跑。"""
+    if job.get("finalized"):
+        return False
+    job["finalized"] = True
+    if key == "bt_job":
+        if job.get("error"):
+            st.session_state.bt_error = job["error"]
+            st.session_state.bt_result = None
+        else:
+            st.session_state.bt_error = ""
+            st.session_state.bt_result = job.get("result")
+    else:  # screen_job
+        if job.get("error"):
+            st.session_state.screen_error = job["error"]
+            st.session_state.screen_results = None
+            st.session_state.screen_stats = None
+        else:
+            st.session_state.screen_error = ""
+            st.session_state.screen_results = job.get("result")
+            st.session_state.screen_stats = job.get("stats")
+            st.session_state.screen_names = job.get("names") or {}
+            st.session_state.screen_stopped = bool(job.get("stop"))
+    return True
+
+
+# 🔧 速度优化：只在任务“运行中”时启用 run_every 定时片段；
+#    任务空闲/完成后用无轮询的普通函数，避免每 0.5 秒整页重跑导致卡顿。
 @st.fragment(run_every="0.5s")
-def _bt_job_fragment():
+def _bt_job_live_fragment():
     from bg_runner import get_job, request_stop
 
     job = get_job("bt_job")
@@ -1011,19 +1035,23 @@ def _bt_job_fragment():
                 if st.button("⏹️ 停止回测", use_container_width=True, key="bt_stop_btn"):
                     request_stop("bt_job")
                     st.rerun(scope="fragment")
-    elif not job["finalized"]:
-        job["finalized"] = True
-        if job.get("error"):
-            st.session_state.bt_error = job["error"]
-            st.session_state.bt_result = None
-        else:
-            st.session_state.bt_error = ""
-            st.session_state.bt_result = job.get("result")
+    elif _finalize_job_state(job, "bt_job"):
+        st.rerun()
+
+
+def _bt_job_idle_sync():
+    from bg_runner import get_job
+
+    job = get_job("bt_job")
+    if not job:
+        return
+    st.session_state.bt_job = dict(job)
+    if _finalize_job_state(job, "bt_job"):
         st.rerun()
 
 
 @st.fragment(run_every="0.5s")
-def _screen_job_fragment():
+def _screen_job_live_fragment():
     from bg_runner import get_job, request_stop
 
     job = get_job("screen_job")
@@ -1040,18 +1068,18 @@ def _screen_job_fragment():
                 if st.button("⏹️ 停止扫描", use_container_width=True, key="screen_stop_btn"):
                     request_stop("screen_job")
                     st.rerun(scope="fragment")
-    elif not job["finalized"]:
-        job["finalized"] = True
-        if job.get("error"):
-            st.session_state.screen_error = job["error"]
-            st.session_state.screen_results = None
-            st.session_state.screen_stats = None
-        else:
-            st.session_state.screen_error = ""
-            st.session_state.screen_results = job.get("result")
-            st.session_state.screen_stats = job.get("stats")
-            st.session_state.screen_names = job.get("names") or {}
-            st.session_state.screen_stopped = bool(job.get("stop"))
+    elif _finalize_job_state(job, "screen_job"):
+        st.rerun()
+
+
+def _screen_job_idle_sync():
+    from bg_runner import get_job
+
+    job = get_job("screen_job")
+    if not job:
+        return
+    st.session_state.screen_job = dict(job)
+    if _finalize_job_state(job, "screen_job"):
         st.rerun()
 
 
@@ -1261,7 +1289,11 @@ try:
                           st.session_state.generated_code),
                 )
                 st.rerun()
-            _bt_job_fragment()
+            from bg_runner import get_job as _get_job
+            if _get_job("bt_job") and _get_job("bt_job")["running"]:
+                _bt_job_live_fragment()
+            else:
+                _bt_job_idle_sync()
         with col_r:
             if st.session_state.get("bt_error"):
                 st.error(f"回测异常: {st.session_state.bt_error}")
@@ -1624,7 +1656,11 @@ try:
                                   TUSHARE_TOKEN, ts, workers),
                         )
                         st.rerun()
-                _screen_job_fragment()
+                from bg_runner import get_job as _get_job
+                if _get_job("screen_job") and _get_job("screen_job")["running"]:
+                    _screen_job_live_fragment()
+                else:
+                    _screen_job_idle_sync()
 
                 if st.session_state.get("screen_error"):
                     st.error(f"扫描异常: {st.session_state.screen_error}")
