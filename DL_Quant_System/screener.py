@@ -39,16 +39,21 @@ def _local_sample_codes():
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
-def get_stock_universe(tushare_token, tushare_module, market="LOCAL"):
-    """返回 (代码列表, {代码: 名称})。market 取值见 MARKET_LABELS。"""
+def get_stock_universe(tushare_token, market="LOCAL"):
+    """返回 (代码列表, {代码: 名称})。market 取值见 MARKET_LABELS。
+
+    注意：只用简单类型做缓存参数（不传 tushare 模块对象）。
+    """
     if market == "LOCAL":
         codes = _local_sample_codes()
         return codes, {}
-    if not tushare_token or tushare_module is None:
+    if not tushare_token:
         return [], {}
     try:
-        pro = tushare_module.pro_api(tushare_token)
-        df = pro.stock_basic(exchange="", list_status="L", fields="ts_code,name,list_date")
+        import tushare
+
+        df = tushare.pro_api(tushare_token).stock_basic(exchange="", list_status="L",
+                                                         fields="ts_code,name,list_date")
         if df is None or df.empty:
             return [], {}
         if market == "CYB":

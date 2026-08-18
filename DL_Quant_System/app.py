@@ -884,6 +884,15 @@ elif selected_page == PAGES[1]:
                             st.error(f"Word 读取异常: {e}")
 
     if raw_prompt := st.chat_input("向小吕布量化架构师发送军令..."):
+        if client is None:
+            with chat_container:
+                with st.chat_message("assistant"):
+                    st.error(
+                        "🔑 未检测到 Kimi 密钥，AI 战情室无法连线。\n\n"
+                        "• 本地运行：在项目根目录 `.streamlit/secrets.toml` 中填入 `KIMI_API_KEY = \"sk-...\"`\n"
+                        "• 云端运行：在 Streamlit Cloud → 你的应用 → Settings → Secrets 中填入同一行，保存后应用自动重启\n"
+                        "密钥配置好后刷新页面即可。")
+            st.stop()
         full_prompt_for_ai = f"以下是您需要重点参考的附件原始数据：\n{file_context_text}\n\n我的指令：{raw_prompt}" if file_context_text else raw_prompt
         st.session_state.messages.append({"role": "user", "content": raw_prompt})
         with chat_container:
@@ -1331,7 +1340,7 @@ elif selected_page == PAGES[9]:
 
         with col_r:
             if do_scan:
-                codes, names = get_stock_universe(TUSHARE_TOKEN, ts, market_key)
+                codes, names = get_stock_universe(TUSHARE_TOKEN, market_key)
                 if not codes:
                     st.error("没有可扫描的标的：TUSHARE_TOKEN 未配置或接口异常。请改用「本地样例」。")
                 else:
