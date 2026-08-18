@@ -4,16 +4,29 @@ import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
-from openai import OpenAI
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None
 import re
 import time
-import tushare as ts
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+try:
+    import tushare as ts
+except ImportError:
+    ts = None
+try:
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+except ImportError:
+    go = None
+    make_subplots = None
 from datetime import datetime
 import uuid
 import math
-from PIL import Image
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
 from backtester.engine import simple_backtest
 from data_loader import fetch_stock_data, format_ts_code as normalize_ts_code
 from secure_config import get_secret
@@ -74,7 +87,7 @@ st.set_page_config(
 
 KIMI_API_KEY = get_secret("KIMI_API_KEY", "MOONSHOT_API_KEY")
 TUSHARE_TOKEN = get_secret("TUSHARE_TOKEN")
-if TUSHARE_TOKEN:
+if TUSHARE_TOKEN and ts is not None:
     try:
         ts.set_token(TUSHARE_TOKEN)
     except Exception:
@@ -83,11 +96,13 @@ if TUSHARE_TOKEN:
 
 @st.cache_resource
 def get_ts_pro():
+    if ts is None:
+        return None
     return ts.pro_api(TUSHARE_TOKEN) if TUSHARE_TOKEN else None
 
 
 pro = get_ts_pro()
-client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=300.0) if KIMI_API_KEY else None
+client = OpenAI(api_key=KIMI_API_KEY, base_url="https://api.moonshot.cn/v1", timeout=300.0) if (KIMI_API_KEY and OpenAI) else None
 
 for key, val in {"user_id": f"User_{str(uuid.uuid4())[:6]}", "messages": [], "generated_code": "",
                  "strategy_explanation": "暂无策略解析，请先前往 AI 战情室下达军令。", "dl_result": None,
@@ -111,6 +126,7 @@ if "just_switched" not in st.session_state: st.session_state.just_switched = Fal
 with st.sidebar:
     st.markdown("### 🎓 小吕布量化 Pro")
     st.caption(f"🛡️ 节点 ID: {st.session_state.user_id}")
+    st.caption("版本: 2026.08.18-r3 (云端诊断版)")
     st.markdown("---")
     theme_options = {"自动": "auto", "浅色": "light", "深色": "dark"}
     current_theme = st.session_state.get("visual_theme", "auto")
@@ -790,620 +806,626 @@ def format_ts_code(raw):
 # ==========================================
 # 6. 各页面业务逻辑
 # ==========================================
-if selected_page == PAGES[0]:
-    st.markdown(
-        '<div class="glass-card"><h1 style="margin-bottom:0; color:var(--text-color);">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
-        unsafe_allow_html=True)
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.metric("活跃并发沙盒 (UUID)", st.session_state.user_id)
-    with c2:
-        st.metric("Tushare 行情链路", get_tushare_status())
-    with c3:
-        st.metric("大模型底层通信", "🟢 Moonshot-v1 正常")
-    with c4:
-        st.metric("AI 神经网络", "🟢 融合学习待命")
-
-    st.markdown("---")
-    c_arch, c_point = st.columns([2, 1])
-    with c_arch:
-        st.markdown("""
-        <div class="glass-card">
-            <h3 style="color:var(--text-color); margin-bottom: 15px;">🌟 平台简介 (Platform Intro)</h3>
-            <p style="color:var(--text-color); line-height: 1.8; font-size: 1.05rem;">
-                欢迎来到 <b>小吕布量化 Pro</b>，这是一个专为现代极客打造的智能投研终端。<br><br>
-                在这里，传统手写代码的繁琐已被彻底颠覆。您可以：<br>
-                • <b>📝 全模态投研</b>：一键无缝上传 PDF/Word 研报或 CSV 矩阵，让大模型直接提取精髓。<br>
-                • <b>🤖 零代码写策略</b>：通过自然语言对话，Agent 将自动为您生成并修复交易代码。<br>
-                • <b>📈 穿越牛熊回测</b>：长达 10 年的全局历史回测，并附带 AI 胜率归因与白话解析。<br>
-                • <b>🧠 时序张量预测</b>：利用 LSTM/GRU 融合矩阵，自回归推演未来 5 天的价格轨迹。<br>
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    with c_point:
+try:
+    if selected_page == PAGES[0]:
         st.markdown(
-            '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✨ <b>完美修复毛玻璃丢失及主题切换失败 Bug！</b><br>✅ 前端引擎防抖极速化<br>✅ <b>代码沙盒防 NoneType 拦截器</b><br>✅ 粉碎 iframe 幽灵占位防溢出</div>',
-            unsafe_allow_html=True
-        )
+            '<div class="glass-card"><h1 style="margin-bottom:0; color:var(--text-color);">🏛️ 全链路智能量化决策枢纽</h1><p class="highlight-text" style="font-size:1.1rem; margin-top:5px;">System Overview & Mid-term Inspection Dashboard</p></div>',
+            unsafe_allow_html=True)
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.metric("活跃并发沙盒 (UUID)", st.session_state.user_id)
+        with c2:
+            st.metric("Tushare 行情链路", get_tushare_status())
+        with c3:
+            st.metric("大模型底层通信", "🟢 Moonshot-v1 正常")
+        with c4:
+            st.metric("AI 神经网络", "🟢 融合学习待命")
 
-elif selected_page == PAGES[1]:
-    st.markdown(
-        '<div class="glass-card"><h3 style="margin-bottom:0; color:var(--text-color);">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与全域文档解析模块已就绪，体验沉浸式工作流。</p></div>',
-        unsafe_allow_html=True)
-
-    ctrl_col1, ctrl_col2 = st.columns([1, 1])
-    with ctrl_col1:
-        selected_model = MODEL_OPTIONS[st.selectbox("🧠 选择大模型算力通道", list(MODEL_OPTIONS.keys()), index=0)]
-    with ctrl_col2:
-        st.markdown("<div style='height: 32px;'></div>", unsafe_allow_html=True)
-        enable_deep_think = st.toggle("💡 强子注入：开启深度思考引擎 (CoT)", value=False)
-
-    chat_container = st.container()
-    with chat_container:
-        for m in st.session_state.messages:
-            with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
-
-    uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
-                                      type=['pdf', 'doc', 'docx', 'csv', 'txt', 'png', 'jpg', 'jpeg'],
-                                      label_visibility="collapsed")
-    file_context_text = ""
-    if 'uploaded_files' in locals() and uploaded_files:
-        cols = st.columns(3)
-        for idx, file in enumerate(uploaded_files):
-            with cols[idx % 3]:
-                fname_lower = file.name.lower()
-                if file.type.startswith('image/'):
-                    st.image(Image.open(file), use_container_width=True)
-                    file_context_text += f"[用户上传了一张图片: {file.name}。]\n"
-                elif fname_lower.endswith('.csv'):
-                    df_upload = pd.read_csv(file)
-                    st.dataframe(df_upload.head(2))
-                    file_context_text += f"【CSV 数据源 {file.name} (前100行特征)】:\n{df_upload.head(100).to_string()}\n"
-                elif fname_lower.endswith('.txt'):
-                    content = file.getvalue().decode('utf-8', errors='replace')
-                    st.success(f"📝 {file.name} 挂载成功")
-                    file_context_text += f"【TXT 研报核心片段 {file.name}】:\n{content[:5000]}\n"
-                elif fname_lower.endswith('.pdf'):
-                    if PyPDF2:
-                        try:
-                            pdf_reader = PyPDF2.PdfReader(file)
-                            text = "".join(
-                                [page.extract_text() for page in pdf_reader.pages[:10] if page.extract_text()])
-                            st.success(f"📄 PDF {file.name} 解析成功")
-                            file_context_text += f"【PDF 核心片段 {file.name}】:\n{text[:5000]}\n"
-                        except Exception as e:
-                            st.error(f"PDF 读取异常: {e}")
-                elif fname_lower.endswith(('.doc', '.docx')):
-                    if docx:
-                        try:
-                            doc_obj = docx.Document(file)
-                            text = "\n".join([para.text for para in doc_obj.paragraphs])
-                            st.success(f"📘 Word {file.name} 解析成功")
-                            file_context_text += f"【Word 核心片段 {file.name}】:\n{text[:5000]}\n"
-                        except Exception as e:
-                            st.error(f"Word 读取异常: {e}")
-
-    if raw_prompt := st.chat_input("向小吕布量化架构师发送军令..."):
-        if client is None:
-            with chat_container:
-                with st.chat_message("assistant"):
-                    st.error(
-                        "🔑 未检测到 Kimi 密钥，AI 战情室无法连线。\n\n"
-                        "• 本地运行：在项目根目录 `.streamlit/secrets.toml` 中填入 `KIMI_API_KEY = \"sk-...\"`\n"
-                        "• 云端运行：在 Streamlit Cloud → 你的应用 → Settings → Secrets 中填入同一行，保存后应用自动重启\n"
-                        "密钥配置好后刷新页面即可。")
-            st.stop()
-        full_prompt_for_ai = f"以下是您需要重点参考的附件原始数据：\n{file_context_text}\n\n我的指令：{raw_prompt}" if file_context_text else raw_prompt
-        st.session_state.messages.append({"role": "user", "content": raw_prompt})
-        with chat_container:
-            with st.chat_message("user"):
-                st.markdown(raw_prompt)
-            with st.chat_message("assistant"):
-                st.toast(f"🚀 连线底层算力集群: {selected_model}", icon="⚡")
-                sys_p = build_system_prompt()
-                messages_to_send = [{"role": "system", "content": sys_p}] + st.session_state.messages[:-1] + [
-                    {"role": "user", "content": full_prompt_for_ai}]
-                max_retries = 2;
-                agent_logs = [];
-                last_error = "";
-                full_resp = "";
-                msg_box = st.empty()
-                for attempt in range(max_retries + 1):
-                    if attempt > 0:
-                        agent_logs.append(
-                            f'<div class="agent-status-node retry">🔄 <b>尝试 {attempt}:</b> 沙盒拦截异常 (<code>{last_error}</code>) -> Agent 发起重构</div>')
-                        safe_resp = full_resp if full_resp and full_resp.strip() else "(API 前一次流响应为空，因引发沙盒报错被退回)"
-                        messages_to_send.extend([{"role": "assistant", "content": safe_resp}, {"role": "user",
-                                                                                               "content": build_retry_user_message(last_error)}])
-                    try:
-                        if client is None:
-                            raise RuntimeError("Missing KIMI_API_KEY or MOONSHOT_API_KEY")
-                        valid_messages = [m for m in messages_to_send if m.get("content") and str(m["content"]).strip()]
-                        # 🔧 kimi-k3 是推理模型，只允许 temperature=1（传其他值会 400），故对 K3 不传 temperature
-                        create_kwargs = {"model": selected_model, "messages": valid_messages, "stream": True}
-                        if selected_model != "kimi-k3":
-                            create_kwargs["temperature"] = 0.3 if enable_deep_think else 0.7
-                        stream = client.chat.completions.create(**create_kwargs)
-                        full_resp = ""
-                        for chunk in stream:
-                            if chunk.choices[0].delta.content:
-                                full_resp += chunk.choices[0].delta.content
-                                msg_box.markdown(full_resp.replace("<think>", "🧠 深度思考中...\n\n").replace("</think>",
-                                                                                                             "\n\n---\n") + "▌",
-                                                 unsafe_allow_html=True)
-                        msg_box.markdown(
-                            full_resp.replace("<think>", "🧠 深度思考过程：\n").replace("</think>", "\n---\n"),
-                            unsafe_allow_html=True)
-                        code_match = re.search(r"`{3}python\s*(.*?)\s*`{3}", full_resp, re.DOTALL)
-                        resp_clean = re.sub(r"<think>.*?</think>", "", full_resp, flags=re.DOTALL)
-                        explanation = re.sub(r"`{3}python\s*.*?\s*`{3}", "", resp_clean,
-                                             flags=re.DOTALL).strip().replace("【策略白话解析】", "").strip()
-                        st.session_state.strategy_explanation = explanation if explanation else "该策略完全由硬核代码驱动，未返回额外人话分析。"
-                        if not code_match: break
-                        extracted_code = code_match.group(1).strip()
-                        try:
-                            dummy_df = pd.DataFrame(
-                                {'trade_date': pd.date_range('20230101', periods=50), 'Open': np.random.rand(50) * 10,
-                                 'High': np.random.rand(50) * 12, 'Low': np.random.rand(50) * 8,
-                                 'Close': np.random.rand(50) * 10})
-                            _ = execute_safely(extracted_code, add_default_indicators(dummy_df))
-                            st.session_state.generated_code = extracted_code
-                            agent_logs.append(
-                                f'<div class="agent-status-node success">✅ <b>尝试 {attempt + 1}:</b> 代码通过沙盒预检 -> 策略已安全装载</div>')
-                            st.markdown("".join(agent_logs), unsafe_allow_html=True)
-                            break
-                        except Exception as e:
-                            last_error = str(e)
-                            if attempt == max_retries:
-                                agent_logs.append(
-                                    f'<div class="agent-status-node error">❌ <b>最终结果:</b> 失败，最终报错: <code>{last_error}</code></div>')
-                                st.markdown("".join(agent_logs), unsafe_allow_html=True)
-                    except Exception as e:
-                        st.error(f"链路断开: {e}")
-                        full_resp += f"\n\n❌ [异常阻断: 通信失败或超载 - {e}]"
-                        break
-                if not full_resp or not full_resp.strip(): full_resp = "❌ 大模型网络中断或未返回任何数据，请重试。"
-                if agent_logs: full_resp += "\n\n" + "".join(agent_logs)
-                st.session_state.messages.append({"role": "assistant", "content": full_resp})
-        st.rerun()
-
-elif selected_page == PAGES[2]:
-    if extensions: extensions.render_ide_page()
-
-elif selected_page == PAGES[3]:
-    st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">📊 历史回测全量审计与归因分析</h3></div>',
-        unsafe_allow_html=True)
-    col_l, col_r = st.columns([1, 3])
-    with col_l:
-        ts_code = format_ts_code(st.text_input("🎯 回测标的代码", value="000001"))
-        span_mapping = {"近1年": 1, "近3年": 3, "近5年": 5, "近10年 (极限穿越)": 10}
-        span_choice = st.selectbox("⏳ 回测时间跨度", list(span_mapping.keys()), index=1)
-        start_year = datetime.now().year - span_mapping[span_choice]
-        adj_p = st.selectbox("⚖️ 复权模式", ["qfq", "hfq", "None"]).split(" ")[0]
-        if st.button("🚀 启动全量归因回测", use_container_width=True, type="primary"):
-            with st.spinner("数据挂载中..."):
-                try:
-                    df_raw = fetch_and_clean_data(ts_code, adj_p if adj_p != "None" else None, f"{start_year}0101")
-                    st.session_state.bt_result = run_backtest_metrics(df_raw, st.session_state.generated_code)
-                except Exception as e:
-                    st.error(f"异常: {e}")
-    with col_r:
-        if st.session_state.bt_result:
-            m = st.session_state.bt_result['metrics']
-            df = st.session_state.bt_result['df']
-            if st.session_state.bt_result.get("strategy_status") == "fallback":
-                st.warning(
-                    "当前保存的策略代码不符合 generate_signals(df) 沙盒规范，"
-                    f"已自动改用内置双均线策略完成本次回测。原始错误：{st.session_state.bt_result.get('strategy_error', '')}"
-                )
-            elif st.session_state.bt_result.get("strategy_status") == "default":
-                st.info("本次未检测到已保存 AI/IDE 策略，已使用内置双均线策略完成回测。")
-            c1, c2, c3, c4 = st.columns(4)
-            c1.markdown(
-                f'<div class="metric-box"><p>累计收益</p><h2 style="color:#3b82f6;">{m["total"] * 100:.2f}%</h2></div>',
-                unsafe_allow_html=True)
-            c2.markdown(
-                f'<div class="metric-box"><p>年化收益</p><h2 style="color:#3b82f6;">{m["annual"] * 100:.2f}%</h2></div>',
-                unsafe_allow_html=True)
-            c3.markdown(
-                f'<div class="metric-box"><p>最大回撤</p><h2 style="color:#ef4444;">{m["max_dd"] * 100:.2f}%</h2></div>',
-                unsafe_allow_html=True)
-            c4.markdown(
-                f'<div class="metric-box"><p>夏普比率</p><h2 style="color:#3b82f6;">{m["sharpe"]:.2f}</h2></div>',
-                unsafe_allow_html=True)
-            st.markdown("<div style='clear: both; margin-bottom: 30px;'></div>", unsafe_allow_html=True)
-            if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
-                with st.expander("💡 展开：AI 策略白话解析", expanded=False): st.markdown(
-                    st.session_state.strategy_explanation)
-            st.plotly_chart(render_smart_charts(df), use_container_width=True, config={'scrollZoom': True})
-
-elif selected_page == PAGES[4]:
-    st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
-        unsafe_allow_html=True)
-    c_ctrl, c_chart = st.columns([1, 2.5])
-    with c_ctrl:
-        live_code = st.text_input("🎯 动态推送标的", value="000001")
-        freq = st.slider("⏱️ 刷新间隔 (秒)", 0.1, 2.0, 0.5)
-        st.button("▶️ 开启高频推演", on_click=lambda: st.session_state.update({"is_live_trading": True}),
-                  type="primary")
-        st.button("⏹️ 强行停止", on_click=lambda: st.session_state.update({"is_live_trading": False}))
-    with c_chart:
-        if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
-            with st.expander("💡 当前军令：策略白话解析", expanded=False): st.markdown(
-                st.session_state.strategy_explanation)
-        met_ph = st.empty();
-        cht_ph = st.empty()
-        if st.session_state.is_live_trading:
-            stream = fetch_and_clean_data(format_ts_code(live_code), 'qfq', '20230101').tail(120).reset_index(drop=True)
-            for i in range(20, len(stream)):
-                if not st.session_state.is_live_trading: break
-                sub = stream.iloc[:i].copy()
-                try:
-                    if st.session_state.generated_code:
-                        sub_ai = execute_safely(st.session_state.generated_code, sub)
-                        if sub_ai is not None and hasattr(sub_ai, 'columns'):
-                            for col in sub_ai.columns:
-                                if col == 'Signal' or col.startswith(('MAIN_', 'SUB')): sub[col] = sub_ai[col]
-                    sig_val = sub['Signal'].iloc[-1] if 'Signal' in sub.columns else 0
-                    with met_ph.container():
-                        c = st.columns(3)
-                        c[0].metric("Tick 现价", f"{sub['Close'].iloc[-1]:.2f}")
-                        c[1].metric("高频信号", "🟢 买" if sig_val == 1 else "🔴 卖" if sig_val == -1 else "⚪ 观望")
-                        c[2].metric("并发收益", f"{(sub['Close'].pct_change().iloc[-1] * 100):.2f}%")
-                    cht_ph.plotly_chart(render_smart_charts(sub), use_container_width=True)
-                except Exception as e:
-                    st.error(f"高频熔断: {e}");
-                    st.session_state.is_live_trading = False;
-                    break
-                time.sleep(freq)
-
-elif selected_page == PAGES[5]:
-    with st.spinner("唤醒深度学习底层张量引擎..."):
-        try:
-            import torch
-            import torch.nn as nn
-            from sklearn.preprocessing import MinMaxScaler
-        except ImportError:
-            st.error("🚨 需安装 torch 和 scikit-learn！")
-            st.stop()
-    st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>',
-        unsafe_allow_html=True)
-    col_l, col_r = st.columns([1, 2.5])
-    with col_l:
-        st_code = st.text_input("🎯 训练模型标的", value="000001")
-        span_mapping_dl = {"近1年 (极速)": 1, "近3年 (标准)": 3, "近5年 (深度)": 5}
-        span_choice_dl = st.selectbox("⏳ 训练集时间跨度", list(span_mapping_dl.keys()), index=1)
-        start_year_dl = datetime.now().year - span_mapping_dl[span_choice_dl]
         st.markdown("---")
-        run_mode = st.radio("⚙️ 引擎运行模式", ["🚀 在线动态训练", "📂 导入本地模型"], horizontal=True)
-        if "在线动态" in run_mode:
-            model_choices = st.multiselect("🧠 选择预测模型 (支持多选融合)", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"])
-            slen = st.slider("📏 滑窗长度", 5, 60, 20)
-            eps = st.slider("🔄 Epoch 迭代", 10, 50, 30)
-            uploaded_model = None;
-            btn_text = "🚀 启动张量训练"
-        else:
-            model_choices = st.multiselect("🧠 指定本地模型架构", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"],
-                                           max_selections=1)
-            slen = st.slider("📏 滑窗长度 (需与本地模型一致)", 5, 60, 20)
-            uploaded_model = st.file_uploader("📥 上传 PyTorch 权重文件 (.pth / .pt)", type=['pth', 'pt'])
-            eps = 0;
-            btn_text = "⚡ 挂载模型并推演"
+        c_arch, c_point = st.columns([2, 1])
+        with c_arch:
+            st.markdown("""
+            <div class="glass-card">
+                <h3 style="color:var(--text-color); margin-bottom: 15px;">🌟 平台简介 (Platform Intro)</h3>
+                <p style="color:var(--text-color); line-height: 1.8; font-size: 1.05rem;">
+                    欢迎来到 <b>小吕布量化 Pro</b>，这是一个专为现代极客打造的智能投研终端。<br><br>
+                    在这里，传统手写代码的繁琐已被彻底颠覆。您可以：<br>
+                    • <b>📝 全模态投研</b>：一键无缝上传 PDF/Word 研报或 CSV 矩阵，让大模型直接提取精髓。<br>
+                    • <b>🤖 零代码写策略</b>：通过自然语言对话，Agent 将自动为您生成并修复交易代码。<br>
+                    • <b>📈 穿越牛熊回测</b>：长达 10 年的全局历史回测，并附带 AI 胜率归因与白话解析。<br>
+                    • <b>🧠 时序张量预测</b>：利用 LSTM/GRU 融合矩阵，自回归推演未来 5 天的价格轨迹。<br>
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+        with c_point:
+            st.markdown(
+                '<div class="glass-card"><h4 style="color:var(--text-color);">📋 平台监控与杀手锏</h4>**云端依赖环境**<br>🟢 requirements.txt 托管<br><br>**核心架构升级：**<br>✨ <b>完美修复毛玻璃丢失及主题切换失败 Bug！</b><br>✅ 前端引擎防抖极速化<br>✅ <b>代码沙盒防 NoneType 拦截器</b><br>✅ 粉碎 iframe 幽灵占位防溢出</div>',
+                unsafe_allow_html=True
+            )
 
-        if st.button(btn_text, type="primary", use_container_width=True):
-            if "导入本地模型" in run_mode and not uploaded_model:
-                st.error("主公，请先上传本地训练好的权重文件！")
-            elif not model_choices:
-                st.error("主公，请至少选择一种预测模型！")
-            else:
-                with st.spinner("神经网络前向传播中..."):
+    elif selected_page == PAGES[1]:
+        st.markdown(
+            '<div class="glass-card"><h3 style="margin-bottom:0; color:var(--text-color);">🤖 LLM 策略战情室</h3><p class="sub-text">多模态视觉引擎与全域文档解析模块已就绪，体验沉浸式工作流。</p></div>',
+            unsafe_allow_html=True)
+
+        ctrl_col1, ctrl_col2 = st.columns([1, 1])
+        with ctrl_col1:
+            selected_model = MODEL_OPTIONS[st.selectbox("🧠 选择大模型算力通道", list(MODEL_OPTIONS.keys()), index=0)]
+        with ctrl_col2:
+            st.markdown("<div style='height: 32px;'></div>", unsafe_allow_html=True)
+            enable_deep_think = st.toggle("💡 强子注入：开启深度思考引擎 (CoT)", value=False)
+
+        chat_container = st.container()
+        with chat_container:
+            for m in st.session_state.messages:
+                with st.chat_message(m["role"]): st.markdown(m["content"], unsafe_allow_html=True)
+
+        uploaded_files = st.file_uploader("选择文件", accept_multiple_files=True,
+                                          type=['pdf', 'doc', 'docx', 'csv', 'txt', 'png', 'jpg', 'jpeg'],
+                                          label_visibility="collapsed")
+        file_context_text = ""
+        if 'uploaded_files' in locals() and uploaded_files:
+            cols = st.columns(3)
+            for idx, file in enumerate(uploaded_files):
+                with cols[idx % 3]:
+                    fname_lower = file.name.lower()
+                    if file.type.startswith('image/') and Image is not None:
+                        st.image(Image.open(file), use_container_width=True)
+                        file_context_text += f"[用户上传了一张图片: {file.name}。]\n"
+                    elif fname_lower.endswith('.csv'):
+                        df_upload = pd.read_csv(file)
+                        st.dataframe(df_upload.head(2))
+                        file_context_text += f"【CSV 数据源 {file.name} (前100行特征)】:\n{df_upload.head(100).to_string()}\n"
+                    elif fname_lower.endswith('.txt'):
+                        content = file.getvalue().decode('utf-8', errors='replace')
+                        st.success(f"📝 {file.name} 挂载成功")
+                        file_context_text += f"【TXT 研报核心片段 {file.name}】:\n{content[:5000]}\n"
+                    elif fname_lower.endswith('.pdf'):
+                        if PyPDF2:
+                            try:
+                                pdf_reader = PyPDF2.PdfReader(file)
+                                text = "".join(
+                                    [page.extract_text() for page in pdf_reader.pages[:10] if page.extract_text()])
+                                st.success(f"📄 PDF {file.name} 解析成功")
+                                file_context_text += f"【PDF 核心片段 {file.name}】:\n{text[:5000]}\n"
+                            except Exception as e:
+                                st.error(f"PDF 读取异常: {e}")
+                    elif fname_lower.endswith(('.doc', '.docx')):
+                        if docx:
+                            try:
+                                doc_obj = docx.Document(file)
+                                text = "\n".join([para.text for para in doc_obj.paragraphs])
+                                st.success(f"📘 Word {file.name} 解析成功")
+                                file_context_text += f"【Word 核心片段 {file.name}】:\n{text[:5000]}\n"
+                            except Exception as e:
+                                st.error(f"Word 读取异常: {e}")
+
+        if raw_prompt := st.chat_input("向小吕布量化架构师发送军令..."):
+            if client is None:
+                with chat_container:
+                    with st.chat_message("assistant"):
+                        st.error(
+                            "🔑 未检测到 Kimi 密钥，AI 战情室无法连线。\n\n"
+                            "• 本地运行：在项目根目录 `.streamlit/secrets.toml` 中填入 `KIMI_API_KEY = \"sk-...\"`\n"
+                            "• 云端运行：在 Streamlit Cloud → 你的应用 → Settings → Secrets 中填入同一行，保存后应用自动重启\n"
+                            "密钥配置好后刷新页面即可。")
+                st.stop()
+            full_prompt_for_ai = f"以下是您需要重点参考的附件原始数据：\n{file_context_text}\n\n我的指令：{raw_prompt}" if file_context_text else raw_prompt
+            st.session_state.messages.append({"role": "user", "content": raw_prompt})
+            with chat_container:
+                with st.chat_message("user"):
+                    st.markdown(raw_prompt)
+                with st.chat_message("assistant"):
+                    st.toast(f"🚀 连线底层算力集群: {selected_model}", icon="⚡")
+                    sys_p = build_system_prompt()
+                    messages_to_send = [{"role": "system", "content": sys_p}] + st.session_state.messages[:-1] + [
+                        {"role": "user", "content": full_prompt_for_ai}]
+                    max_retries = 2;
+                    agent_logs = [];
+                    last_error = "";
+                    full_resp = "";
+                    msg_box = st.empty()
+                    for attempt in range(max_retries + 1):
+                        if attempt > 0:
+                            agent_logs.append(
+                                f'<div class="agent-status-node retry">🔄 <b>尝试 {attempt}:</b> 沙盒拦截异常 (<code>{last_error}</code>) -> Agent 发起重构</div>')
+                            safe_resp = full_resp if full_resp and full_resp.strip() else "(API 前一次流响应为空，因引发沙盒报错被退回)"
+                            messages_to_send.extend([{"role": "assistant", "content": safe_resp}, {"role": "user",
+                                                                                                   "content": build_retry_user_message(last_error)}])
+                        try:
+                            if client is None:
+                                raise RuntimeError("Missing KIMI_API_KEY or MOONSHOT_API_KEY")
+                            valid_messages = [m for m in messages_to_send if m.get("content") and str(m["content"]).strip()]
+                            # 🔧 kimi-k3 是推理模型，只允许 temperature=1（传其他值会 400），故对 K3 不传 temperature
+                            create_kwargs = {"model": selected_model, "messages": valid_messages, "stream": True}
+                            if selected_model != "kimi-k3":
+                                create_kwargs["temperature"] = 0.3 if enable_deep_think else 0.7
+                            stream = client.chat.completions.create(**create_kwargs)
+                            full_resp = ""
+                            for chunk in stream:
+                                if chunk.choices[0].delta.content:
+                                    full_resp += chunk.choices[0].delta.content
+                                    msg_box.markdown(full_resp.replace("<think>", "🧠 深度思考中...\n\n").replace("</think>",
+                                                                                                                 "\n\n---\n") + "▌",
+                                                     unsafe_allow_html=True)
+                            msg_box.markdown(
+                                full_resp.replace("<think>", "🧠 深度思考过程：\n").replace("</think>", "\n---\n"),
+                                unsafe_allow_html=True)
+                            code_match = re.search(r"`{3}python\s*(.*?)\s*`{3}", full_resp, re.DOTALL)
+                            resp_clean = re.sub(r"<think>.*?</think>", "", full_resp, flags=re.DOTALL)
+                            explanation = re.sub(r"`{3}python\s*.*?\s*`{3}", "", resp_clean,
+                                                 flags=re.DOTALL).strip().replace("【策略白话解析】", "").strip()
+                            st.session_state.strategy_explanation = explanation if explanation else "该策略完全由硬核代码驱动，未返回额外人话分析。"
+                            if not code_match: break
+                            extracted_code = code_match.group(1).strip()
+                            try:
+                                dummy_df = pd.DataFrame(
+                                    {'trade_date': pd.date_range('20230101', periods=50), 'Open': np.random.rand(50) * 10,
+                                     'High': np.random.rand(50) * 12, 'Low': np.random.rand(50) * 8,
+                                     'Close': np.random.rand(50) * 10})
+                                _ = execute_safely(extracted_code, add_default_indicators(dummy_df))
+                                st.session_state.generated_code = extracted_code
+                                agent_logs.append(
+                                    f'<div class="agent-status-node success">✅ <b>尝试 {attempt + 1}:</b> 代码通过沙盒预检 -> 策略已安全装载</div>')
+                                st.markdown("".join(agent_logs), unsafe_allow_html=True)
+                                break
+                            except Exception as e:
+                                last_error = str(e)
+                                if attempt == max_retries:
+                                    agent_logs.append(
+                                        f'<div class="agent-status-node error">❌ <b>最终结果:</b> 失败，最终报错: <code>{last_error}</code></div>')
+                                    st.markdown("".join(agent_logs), unsafe_allow_html=True)
+                        except Exception as e:
+                            st.error(f"链路断开: {e}")
+                            full_resp += f"\n\n❌ [异常阻断: 通信失败或超载 - {e}]"
+                            break
+                    if not full_resp or not full_resp.strip(): full_resp = "❌ 大模型网络中断或未返回任何数据，请重试。"
+                    if agent_logs: full_resp += "\n\n" + "".join(agent_logs)
+                    st.session_state.messages.append({"role": "assistant", "content": full_resp})
+            st.rerun()
+
+    elif selected_page == PAGES[2]:
+        if extensions: extensions.render_ide_page()
+
+    elif selected_page == PAGES[3]:
+        st.markdown(
+            '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">📊 历史回测全量审计与归因分析</h3></div>',
+            unsafe_allow_html=True)
+        col_l, col_r = st.columns([1, 3])
+        with col_l:
+            ts_code = format_ts_code(st.text_input("🎯 回测标的代码", value="000001"))
+            span_mapping = {"近1年": 1, "近3年": 3, "近5年": 5, "近10年 (极限穿越)": 10}
+            span_choice = st.selectbox("⏳ 回测时间跨度", list(span_mapping.keys()), index=1)
+            start_year = datetime.now().year - span_mapping[span_choice]
+            adj_p = st.selectbox("⚖️ 复权模式", ["qfq", "hfq", "None"]).split(" ")[0]
+            if st.button("🚀 启动全量归因回测", use_container_width=True, type="primary"):
+                with st.spinner("数据挂载中..."):
                     try:
-                        df = fetch_and_clean_data(format_ts_code(st_code), 'qfq', f"{start_year_dl}0101")
-                        if df is None or df.empty or "Close" not in df.columns:
-                            raise ValueError("market data is empty; configure TUSHARE_TOKEN or keep a local CSV sample")
-                        if len(df) <= slen + 5:
-                            raise ValueError(f"not enough rows for sequence length {slen}; got {len(df)} rows")
-                        prices = df['Close'].values.reshape(-1, 1)
-                        split_idx = min(len(prices) - 1, max(slen + 1, int(len(prices) * 0.8)))
-                        scaler = MinMaxScaler()
-                        scaler.fit(prices[:split_idx])
-                        scaled = scaler.transform(prices)
-                        X, y = [], []
-                        for i in range(slen, len(scaled)): X.append(scaled[i - slen:i, 0]); y.append(scaled[i, 0])
-                        X_arr = np.array(X)
-                        y_arr = np.array(y)
-                        if len(X_arr) == 0:
-                            raise ValueError("not enough rows to build model windows")
-                        train_count = min(len(X_arr), max(1, split_idx - slen))
-                        X_train_t = torch.tensor(X_arr[:train_count], dtype=torch.float32).unsqueeze(-1)
-                        y_train_t = torch.tensor(y_arr[:train_count], dtype=torch.float32)
-                        X_t = torch.tensor(X_arr, dtype=torch.float32).unsqueeze(-1)
-                        y_t = torch.tensor(y_arr, dtype=torch.float32)
+                        df_raw = fetch_and_clean_data(ts_code, adj_p if adj_p != "None" else None, f"{start_year}0101")
+                        st.session_state.bt_result = run_backtest_metrics(df_raw, st.session_state.generated_code)
+                    except Exception as e:
+                        st.error(f"异常: {e}")
+        with col_r:
+            if st.session_state.bt_result:
+                m = st.session_state.bt_result['metrics']
+                df = st.session_state.bt_result['df']
+                if st.session_state.bt_result.get("strategy_status") == "fallback":
+                    st.warning(
+                        "当前保存的策略代码不符合 generate_signals(df) 沙盒规范，"
+                        f"已自动改用内置双均线策略完成本次回测。原始错误：{st.session_state.bt_result.get('strategy_error', '')}"
+                    )
+                elif st.session_state.bt_result.get("strategy_status") == "default":
+                    st.info("本次未检测到已保存 AI/IDE 策略，已使用内置双均线策略完成回测。")
+                c1, c2, c3, c4 = st.columns(4)
+                c1.markdown(
+                    f'<div class="metric-box"><p>累计收益</p><h2 style="color:#3b82f6;">{m["total"] * 100:.2f}%</h2></div>',
+                    unsafe_allow_html=True)
+                c2.markdown(
+                    f'<div class="metric-box"><p>年化收益</p><h2 style="color:#3b82f6;">{m["annual"] * 100:.2f}%</h2></div>',
+                    unsafe_allow_html=True)
+                c3.markdown(
+                    f'<div class="metric-box"><p>最大回撤</p><h2 style="color:#ef4444;">{m["max_dd"] * 100:.2f}%</h2></div>',
+                    unsafe_allow_html=True)
+                c4.markdown(
+                    f'<div class="metric-box"><p>夏普比率</p><h2 style="color:#3b82f6;">{m["sharpe"]:.2f}</h2></div>',
+                    unsafe_allow_html=True)
+                st.markdown("<div style='clear: both; margin-bottom: 30px;'></div>", unsafe_allow_html=True)
+                if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
+                    with st.expander("💡 展开：AI 策略白话解析", expanded=False): st.markdown(
+                        st.session_state.strategy_explanation)
+                st.plotly_chart(render_smart_charts(df), use_container_width=True, config={'scrollZoom': True})
+
+    elif selected_page == PAGES[4]:
+        st.markdown(
+            '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
+            unsafe_allow_html=True)
+        c_ctrl, c_chart = st.columns([1, 2.5])
+        with c_ctrl:
+            live_code = st.text_input("🎯 动态推送标的", value="000001")
+            freq = st.slider("⏱️ 刷新间隔 (秒)", 0.1, 2.0, 0.5)
+            st.button("▶️ 开启高频推演", on_click=lambda: st.session_state.update({"is_live_trading": True}),
+                      type="primary")
+            st.button("⏹️ 强行停止", on_click=lambda: st.session_state.update({"is_live_trading": False}))
+        with c_chart:
+            if st.session_state.generated_code and st.session_state.strategy_explanation != "暂无策略解析，请先前往 AI 战情室下达军令。":
+                with st.expander("💡 当前军令：策略白话解析", expanded=False): st.markdown(
+                    st.session_state.strategy_explanation)
+            met_ph = st.empty();
+            cht_ph = st.empty()
+            if st.session_state.is_live_trading:
+                stream = fetch_and_clean_data(format_ts_code(live_code), 'qfq', '20230101').tail(120).reset_index(drop=True)
+                for i in range(20, len(stream)):
+                    if not st.session_state.is_live_trading: break
+                    sub = stream.iloc[:i].copy()
+                    try:
+                        if st.session_state.generated_code:
+                            sub_ai = execute_safely(st.session_state.generated_code, sub)
+                            if sub_ai is not None and hasattr(sub_ai, 'columns'):
+                                for col in sub_ai.columns:
+                                    if col == 'Signal' or col.startswith(('MAIN_', 'SUB')): sub[col] = sub_ai[col]
+                        sig_val = sub['Signal'].iloc[-1] if 'Signal' in sub.columns else 0
+                        with met_ph.container():
+                            c = st.columns(3)
+                            c[0].metric("Tick 现价", f"{sub['Close'].iloc[-1]:.2f}")
+                            c[1].metric("高频信号", "🟢 买" if sig_val == 1 else "🔴 卖" if sig_val == -1 else "⚪ 观望")
+                            c[2].metric("并发收益", f"{(sub['Close'].pct_change().iloc[-1] * 100):.2f}%")
+                        cht_ph.plotly_chart(render_smart_charts(sub), use_container_width=True)
+                    except Exception as e:
+                        st.error(f"高频熔断: {e}");
+                        st.session_state.is_live_trading = False;
+                        break
+                    time.sleep(freq)
+
+    elif selected_page == PAGES[5]:
+        with st.spinner("唤醒深度学习底层张量引擎..."):
+            try:
+                import torch
+                import torch.nn as nn
+                from sklearn.preprocessing import MinMaxScaler
+            except ImportError:
+                st.error("🚨 需安装 torch 和 scikit-learn！")
+                st.stop()
+        st.markdown(
+            '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🧠 深度神经网络时序建模矩阵 (白盒透视版)</h3></div>',
+            unsafe_allow_html=True)
+        col_l, col_r = st.columns([1, 2.5])
+        with col_l:
+            st_code = st.text_input("🎯 训练模型标的", value="000001")
+            span_mapping_dl = {"近1年 (极速)": 1, "近3年 (标准)": 3, "近5年 (深度)": 5}
+            span_choice_dl = st.selectbox("⏳ 训练集时间跨度", list(span_mapping_dl.keys()), index=1)
+            start_year_dl = datetime.now().year - span_mapping_dl[span_choice_dl]
+            st.markdown("---")
+            run_mode = st.radio("⚙️ 引擎运行模式", ["🚀 在线动态训练", "📂 导入本地模型"], horizontal=True)
+            if "在线动态" in run_mode:
+                model_choices = st.multiselect("🧠 选择预测模型 (支持多选融合)", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"])
+                slen = st.slider("📏 滑窗长度", 5, 60, 20)
+                eps = st.slider("🔄 Epoch 迭代", 10, 50, 30)
+                uploaded_model = None;
+                btn_text = "🚀 启动张量训练"
+            else:
+                model_choices = st.multiselect("🧠 指定本地模型架构", ["LSTM", "GRU", "1D-CNN"], default=["LSTM"],
+                                               max_selections=1)
+                slen = st.slider("📏 滑窗长度 (需与本地模型一致)", 5, 60, 20)
+                uploaded_model = st.file_uploader("📥 上传 PyTorch 权重文件 (.pth / .pt)", type=['pth', 'pt'])
+                eps = 0;
+                btn_text = "⚡ 挂载模型并推演"
+
+            if st.button(btn_text, type="primary", use_container_width=True):
+                if "导入本地模型" in run_mode and not uploaded_model:
+                    st.error("主公，请先上传本地训练好的权重文件！")
+                elif not model_choices:
+                    st.error("主公，请至少选择一种预测模型！")
+                else:
+                    with st.spinner("神经网络前向传播中..."):
+                        try:
+                            df = fetch_and_clean_data(format_ts_code(st_code), 'qfq', f"{start_year_dl}0101")
+                            if df is None or df.empty or "Close" not in df.columns:
+                                raise ValueError("market data is empty; configure TUSHARE_TOKEN or keep a local CSV sample")
+                            if len(df) <= slen + 5:
+                                raise ValueError(f"not enough rows for sequence length {slen}; got {len(df)} rows")
+                            prices = df['Close'].values.reshape(-1, 1)
+                            split_idx = min(len(prices) - 1, max(slen + 1, int(len(prices) * 0.8)))
+                            scaler = MinMaxScaler()
+                            scaler.fit(prices[:split_idx])
+                            scaled = scaler.transform(prices)
+                            X, y = [], []
+                            for i in range(slen, len(scaled)): X.append(scaled[i - slen:i, 0]); y.append(scaled[i, 0])
+                            X_arr = np.array(X)
+                            y_arr = np.array(y)
+                            if len(X_arr) == 0:
+                                raise ValueError("not enough rows to build model windows")
+                            train_count = min(len(X_arr), max(1, split_idx - slen))
+                            X_train_t = torch.tensor(X_arr[:train_count], dtype=torch.float32).unsqueeze(-1)
+                            y_train_t = torch.tensor(y_arr[:train_count], dtype=torch.float32)
+                            X_t = torch.tensor(X_arr, dtype=torch.float32).unsqueeze(-1)
+                            y_t = torch.tensor(y_arr, dtype=torch.float32)
 
 
-                        class LSTM_Model(nn.Module):
-                            def __init__(self):
-                                super().__init__();
-                                self.lstm = nn.LSTM(1, 64, 2, batch_first=True);
-                                self.fc = nn.Linear(64, 1)
+                            class LSTM_Model(nn.Module):
+                                def __init__(self):
+                                    super().__init__();
+                                    self.lstm = nn.LSTM(1, 64, 2, batch_first=True);
+                                    self.fc = nn.Linear(64, 1)
 
-                            def forward(self, x): out, _ = self.lstm(x); return self.fc(out[:, -1, :])
-
-
-                        class GRU_Model(nn.Module):
-                            def __init__(self):
-                                super().__init__();
-                                self.gru = nn.GRU(1, 64, 2, batch_first=True);
-                                self.fc = nn.Linear(64, 1)
-
-                            def forward(self, x): out, _ = self.gru(x); return self.fc(out[:, -1, :])
+                                def forward(self, x): out, _ = self.lstm(x); return self.fc(out[:, -1, :])
 
 
-                        class CNN_1D_Model(nn.Module):
-                            def __init__(self, seq_len):
-                                super().__init__();
-                                self.conv = nn.Conv1d(in_channels=1, out_channels=32, kernel_size=3, padding=1);
-                                self.fc = nn.Linear(32 * seq_len, 1)
+                            class GRU_Model(nn.Module):
+                                def __init__(self):
+                                    super().__init__();
+                                    self.gru = nn.GRU(1, 64, 2, batch_first=True);
+                                    self.fc = nn.Linear(64, 1)
 
-                            def forward(self, x): x = x.permute(0, 2, 1); x = torch.relu(self.conv(x)); x = x.reshape(
-                                x.size(0), -1); return self.fc(x)
+                                def forward(self, x): out, _ = self.gru(x); return self.fc(out[:, -1, :])
 
 
-                        preds_dict, future_preds_dict = {}, {}
-                        lbox = st.empty();
-                        pbar = st.progress(0);
-                        last_window_orig = X_t[-1].clone().unsqueeze(0)
+                            class CNN_1D_Model(nn.Module):
+                                def __init__(self, seq_len):
+                                    super().__init__();
+                                    self.conv = nn.Conv1d(in_channels=1, out_channels=32, kernel_size=3, padding=1);
+                                    self.fc = nn.Linear(32 * seq_len, 1)
 
-                        for m_idx, m_name in enumerate(model_choices):
-                            if m_name == "LSTM":
-                                model = LSTM_Model()
-                            elif m_name == "GRU":
-                                model = GRU_Model()
-                            elif m_name == "1D-CNN":
-                                model = CNN_1D_Model(slen)
+                                def forward(self, x): x = x.permute(0, 2, 1); x = torch.relu(self.conv(x)); x = x.reshape(
+                                    x.size(0), -1); return self.fc(x)
 
-                            if "导入本地模型" in run_mode:
-                                lbox.markdown(f"**正在解析并挂载本地 {m_name} 模型权重...**")
-                                try:
-                                    model.load_state_dict(torch.load(uploaded_model, map_location=torch.device('cpu'), weights_only=True))
-                                    lbox.success(f"**{m_name}** | 权重校验通过，挂载成功！");
-                                    pbar.progress(1.0)
-                                except Exception as load_e:
-                                    st.warning(f"⚠️ 模型架构不匹配，极速重训练... ({load_e})")
+
+                            preds_dict, future_preds_dict = {}, {}
+                            lbox = st.empty();
+                            pbar = st.progress(0);
+                            last_window_orig = X_t[-1].clone().unsqueeze(0)
+
+                            for m_idx, m_name in enumerate(model_choices):
+                                if m_name == "LSTM":
+                                    model = LSTM_Model()
+                                elif m_name == "GRU":
+                                    model = GRU_Model()
+                                elif m_name == "1D-CNN":
+                                    model = CNN_1D_Model(slen)
+
+                                if "导入本地模型" in run_mode:
+                                    lbox.markdown(f"**正在解析并挂载本地 {m_name} 模型权重...**")
+                                    try:
+                                        model.load_state_dict(torch.load(uploaded_model, map_location=torch.device('cpu'), weights_only=True))
+                                        lbox.success(f"**{m_name}** | 权重校验通过，挂载成功！");
+                                        pbar.progress(1.0)
+                                    except Exception as load_e:
+                                        st.warning(f"⚠️ 模型架构不匹配，极速重训练... ({load_e})")
+                                        opt = torch.optim.Adam(model.parameters(), lr=0.01);
+                                        crit = nn.MSELoss()
+                                        for e in range(10): model.train(); opt.zero_grad(); loss = crit(
+                                            model(X_train_t).squeeze(), y_train_t); loss.backward(); opt.step()
+                                else:
+                                    lbox.markdown(f"**正在在线训练 {m_name} 模型...**")
                                     opt = torch.optim.Adam(model.parameters(), lr=0.01);
                                     crit = nn.MSELoss()
-                                    for e in range(10): model.train(); opt.zero_grad(); loss = crit(
-                                        model(X_train_t).squeeze(), y_train_t); loss.backward(); opt.step()
-                            else:
-                                lbox.markdown(f"**正在在线训练 {m_name} 模型...**")
-                                opt = torch.optim.Adam(model.parameters(), lr=0.01);
-                                crit = nn.MSELoss()
-                                for e in range(eps):
-                                    model.train();
-                                    opt.zero_grad();
-                                    pred = model(X_train_t);
-                                    loss = crit(pred.squeeze(), y_train_t);
-                                    loss.backward();
-                                    opt.step()
-                                    pbar.progress((m_idx * eps + e + 1) / (len(model_choices) * eps))
-                                    lbox.markdown(f"**{m_name}** | Epoch {e + 1}/{eps} | Loss: {loss.item():.6f}")
+                                    for e in range(eps):
+                                        model.train();
+                                        opt.zero_grad();
+                                        pred = model(X_train_t);
+                                        loss = crit(pred.squeeze(), y_train_t);
+                                        loss.backward();
+                                        opt.step()
+                                        pbar.progress((m_idx * eps + e + 1) / (len(model_choices) * eps))
+                                        lbox.markdown(f"**{m_name}** | Epoch {e + 1}/{eps} | Loss: {loss.item():.6f}")
 
-                            model.eval()
-                            test_p = model(X_t[-100:]).detach().numpy()
-                            preds_dict[m_name] = scaler.inverse_transform(test_p).flatten()
-                            curr_win = last_window_orig.clone()
-                            m_future = []
-                            for _ in range(5):
-                                with torch.no_grad(): p_future = model(curr_win)
-                                m_future.append(p_future.item())
-                                curr_win = torch.cat((curr_win[:, 1:, :], p_future.unsqueeze(-1)), dim=1)
-                            future_preds_dict[m_name] = scaler.inverse_transform(
-                                np.array(m_future).reshape(-1, 1)).flatten()
+                                model.eval()
+                                test_p = model(X_t[-100:]).detach().numpy()
+                                preds_dict[m_name] = scaler.inverse_transform(test_p).flatten()
+                                curr_win = last_window_orig.clone()
+                                m_future = []
+                                for _ in range(5):
+                                    with torch.no_grad(): p_future = model(curr_win)
+                                    m_future.append(p_future.item())
+                                    curr_win = torch.cat((curr_win[:, 1:, :], p_future.unsqueeze(-1)), dim=1)
+                                future_preds_dict[m_name] = scaler.inverse_transform(
+                                    np.array(m_future).reshape(-1, 1)).flatten()
 
-                        lbox.success("✅ 矩阵模型装载完毕，时空推演已就绪！")
-                        st.session_state.dl_result = {"dates": df['trade_date'].iloc[-100:],
-                                                      "actual": df['Close'].iloc[-100:], "preds": preds_dict,
-                                                      "future": future_preds_dict, "models_used": model_choices}
-                    except Exception as e:
-                        st.error(f"DL 张量异常: {e}")
-
-    with col_r:
-        if st.session_state.dl_result:
-            res = st.session_state.dl_result
-            latest_price = res['actual'].iloc[-1];
-            actual_vals = res['actual'].values
-            if len(res['models_used']) > 1:
-                f_preds = np.mean(list(res['future'].values()), axis=0);
-                h_preds = np.mean(list(res['preds'].values()), axis=0)
-                model_desc = f"LSTM/GRU/CNN 均值集成 ({len(res['models_used'])}模型)"
-            else:
-                f_preds = list(res['future'].values())[0];
-                h_preds = list(res['preds'].values())[0]
-                model_desc = res['models_used'][0]
-
-            act_diff = np.diff(actual_vals);
-            pred_diff = np.diff(h_preds)
-            success_rate = np.mean(np.sign(act_diff) == np.sign(pred_diff)) * 100
-            mape = np.mean(np.abs((actual_vals - h_preds) / (actual_vals + 1e-8))) * 100
-            day1_pred = f_preds[0];
-            day5_pred = f_preds[4]
-
-            with st.expander("🤖 AI 深度预测白盒解析舱 (点击展开/收起)", expanded=True):
-                st.markdown(
-                    f"**📈 极速解盘预览**：当前实盘价 `<span class='highlight-text'>{latest_price:.2f}</span>` | 驱动核心: {model_desc}",
-                    unsafe_allow_html=True)
-                c_f1, c_f2, c_f3, c_f4 = st.columns(4)
-                c_f1.metric("未来 1 天预测 (T+1)", f"{day1_pred:.2f}",
-                            f"{(day1_pred - latest_price) / latest_price * 100:.2f}%")
-                c_f2.metric("未来 5 天预测 (T+5)", f"{day5_pred:.2f}",
-                            f"{(day5_pred - latest_price) / latest_price * 100:.2f}%")
-                c_f3.metric("🎯 历史方向胜率", f"{success_rate:.1f}%", "涨跌准确度")
-                c_f4.metric("⚖️ 平均预测偏差", f"{mape:.2f}%", "绝对偏离度", delta_color="inverse")
-
-                if st.button("✨ 召唤 Kimi 结合胜率生成人话解盘", use_container_width=True):
-                    ai_ph = st.empty()
-                    prompt = f"你是一个顶级的量化分析师，为小白解盘。当前收盘价 {latest_price:.2f}元。基于【{model_desc}】推演，未来1天预测价为 {day1_pred:.2f}元，未来5天为 {day5_pred:.2f}元。模型胜率为 {success_rate:.1f}%，偏差为 {mape:.2f}%。请用大白话（限200字以内，不要代码），向小白解释并给出建议。"
-                    try:
-                        if client is None:
-                            raise RuntimeError("Missing KIMI_API_KEY or MOONSHOT_API_KEY")
-                        stream = client.chat.completions.create(model="kimi-k3",
-                                                                messages=[{"role": "user", "content": prompt}],
-                                                                stream=True)
-                        full_txt = ""
-                        for chunk in stream:
-                            if chunk.choices[0].delta.content: full_txt += chunk.choices[0].delta.content; ai_ph.info(
-                                full_txt + "▌")
-                        ai_ph.info(full_txt)
-                    except Exception as e:
-                        ai_ph.error(f"Kimi 连线中断: {e}")
-
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹 (Actual)',
-                                     line=dict(color='#10b981', width=2)))
-            color_map = {"LSTM": "#3b82f6", "GRU": "#f59e0b", "1D-CNN": "#8b5cf6"}
-            for m_name, pred_array in res['preds'].items(): fig.add_trace(
-                go.Scatter(x=res['dates'], y=pred_array, name=f'{m_name} 历史拟合',
-                           line=dict(color=color_map.get(m_name, '#94a3b8'), dash='dot', width=1.5)))
-            if len(res['preds']) > 1: fig.add_trace(
-                go.Scatter(x=res['dates'], y=np.mean(list(res['preds'].values()), axis=0), name='🔥 均值集成 (Ensemble)',
-                           line=dict(color='#ef4444', width=3)))
-            fig.update_layout(height=450, template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                              dragmode='pan', hovermode='x',
-                              legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-            fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)');
-            fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
-            st.plotly_chart(fig, use_container_width=True)
-
-elif selected_page == PAGES[6]:
-    st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>',
-        unsafe_allow_html=True)
-    c1, c2 = st.columns([1, 1.2])
-    with c1:
-        if os.path.exists("user_logs/global_master_log.csv"): st.download_button("📁 导出审计日志", data=pd.read_csv(
-            "user_logs/global_master_log.csv").to_csv(index=False).encode('utf-8'), file_name='Audit_Logs.csv',
-                                                                                 type="primary")
-    with c2:
-        st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
-
-elif selected_page == PAGES[7]:
-    if extensions: extensions.render_futures_backtest()
-
-elif selected_page == PAGES[8]:
-    if extensions: extensions.render_futures_sandbox()
-
-elif selected_page == PAGES[9]:
-    from screener import get_stock_universe, run_screen, MARKET_LABELS
-
-    st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🔍 选股神器 (全市场扫描)</h3>'
-        '<p class="sub-text">用当前策略代码的买点条件扫描整个市场 —— 哪只股票今天出现买点，就把它捞出来。策略代码不用改，直接复用 AI/IDE 里那份。</p></div>',
-        unsafe_allow_html=True)
-
-    # 1. 策略来源
-    src_choice = st.radio(
-        "🧬 策略来源",
-        ["全局已保存策略 (AI/IDE)", "🏔️ 主升浪模型", "💡 经典双均线"],
-        horizontal=True,
-    )
-    if src_choice == "🏔️ 主升浪模型":
-        zsl = getattr(extensions, "ZHU_SHENG_LANG_CODE", "") if extensions else ""
-        active_code = zsl or st.session_state.generated_code or DEFAULT_BACKTEST_STRATEGY
-    elif src_choice == "💡 经典双均线":
-        active_code = DEFAULT_BACKTEST_STRATEGY
-    else:
-        active_code = st.session_state.generated_code
-
-    with st.expander("🧬 查看/修改当前策略代码（扫描即用它找买点）", expanded=False):
-        active_code = st.text_area(
-            "策略代码", value=active_code if active_code else DEFAULT_BACKTEST_STRATEGY,
-            height=280, label_visibility="collapsed")
-
-    if not active_code or not active_code.strip():
-        st.warning("还没有策略代码。请先到 AI 战情室生成策略、或在 IDE 里载入模板，再回来扫描。")
-    else:
-        col_l, col_r = st.columns([1, 2.4])
-        with col_l:
-            universe_label = st.selectbox("🌐 扫描范围", list(MARKET_LABELS.values()), index=0)
-            market_key = {v: k for k, v in MARKET_LABELS.items()}[universe_label]
-            lookback_label = st.selectbox("⏱️ 买点新鲜度", ["仅最新一天", "近 3 日内", "近 5 日内"], index=1)
-            lookback_days = {"仅最新一天": 1, "近 3 日内": 3, "近 5 日内": 5}[lookback_label]
-            span_years = {"近1年": 1, "近2年": 2, "近3年": 3}[
-                st.selectbox("📅 数据深度", ["近1年", "近2年", "近3年"], index=1)]
-            workers = st.slider("⚙️ 并发线程", 1, 6, 3,
-                                help="全市场扫描建议 3~4；网络慢或触发限流时降到 1~2。")
-            do_scan = st.button("🚀 开始全市场扫描", type="primary", use_container_width=True)
-            st.caption("⚠️ 全市场约 5400 只，耗时可能 20 分钟以上；建议先用本地样例/板块测试。")
+                            lbox.success("✅ 矩阵模型装载完毕，时空推演已就绪！")
+                            st.session_state.dl_result = {"dates": df['trade_date'].iloc[-100:],
+                                                          "actual": df['Close'].iloc[-100:], "preds": preds_dict,
+                                                          "future": future_preds_dict, "models_used": model_choices}
+                        except Exception as e:
+                            st.error(f"DL 张量异常: {e}")
 
         with col_r:
-            if do_scan:
-                codes, names = get_stock_universe(TUSHARE_TOKEN, market_key)
-                if not codes:
-                    st.error("没有可扫描的标的：TUSHARE_TOKEN 未配置或接口异常。请改用「本地样例」。")
+            if st.session_state.dl_result:
+                res = st.session_state.dl_result
+                latest_price = res['actual'].iloc[-1];
+                actual_vals = res['actual'].values
+                if len(res['models_used']) > 1:
+                    f_preds = np.mean(list(res['future'].values()), axis=0);
+                    h_preds = np.mean(list(res['preds'].values()), axis=0)
+                    model_desc = f"LSTM/GRU/CNN 均值集成 ({len(res['models_used'])}模型)"
                 else:
-                    prog = st.progress(0.0)
-                    status_line = st.empty()
-                    start_date = f"{datetime.now().year - span_years}0101"
+                    f_preds = list(res['future'].values())[0];
+                    h_preds = list(res['preds'].values())[0]
+                    model_desc = res['models_used'][0]
 
-                    def _cb(done, total, code):
-                        prog.progress(done / max(1, total))
-                        status_line.caption(f"🔭 扫描中 {done}/{total} … 刚完成: {code}")
+                act_diff = np.diff(actual_vals);
+                pred_diff = np.diff(h_preds)
+                success_rate = np.mean(np.sign(act_diff) == np.sign(pred_diff)) * 100
+                mape = np.mean(np.abs((actual_vals - h_preds) / (actual_vals + 1e-8))) * 100
+                day1_pred = f_preds[0];
+                day5_pred = f_preds[4]
 
-                    with st.spinner(f"正在扫描 {len(codes)} 只标的..."):
-                        results, stats = run_screen(
-                            active_code, codes, start_date, lookback_days,
-                            TUSHARE_TOKEN, ts, max_workers=workers, progress_cb=_cb)
-                    st.session_state.screen_results = results
-                    st.session_state.screen_stats = stats
-                    st.session_state.screen_names = names
+                with st.expander("🤖 AI 深度预测白盒解析舱 (点击展开/收起)", expanded=True):
+                    st.markdown(
+                        f"**📈 极速解盘预览**：当前实盘价 `<span class='highlight-text'>{latest_price:.2f}</span>` | 驱动核心: {model_desc}",
+                        unsafe_allow_html=True)
+                    c_f1, c_f2, c_f3, c_f4 = st.columns(4)
+                    c_f1.metric("未来 1 天预测 (T+1)", f"{day1_pred:.2f}",
+                                f"{(day1_pred - latest_price) / latest_price * 100:.2f}%")
+                    c_f2.metric("未来 5 天预测 (T+5)", f"{day5_pred:.2f}",
+                                f"{(day5_pred - latest_price) / latest_price * 100:.2f}%")
+                    c_f3.metric("🎯 历史方向胜率", f"{success_rate:.1f}%", "涨跌准确度")
+                    c_f4.metric("⚖️ 平均预测偏差", f"{mape:.2f}%", "绝对偏离度", delta_color="inverse")
 
-            if st.session_state.get("screen_results") is not None:
-                res = st.session_state.screen_results
-                stats = st.session_state.screen_stats
-                st.success(
-                    f"✅ 扫描完成：共 {stats['total']} 只 | 命中买点 {len(res)} 只 | "
-                    f"无数据 {stats['no_data']} | 接口失败 {stats['failed']} | 策略报错 {stats['strategy_errors']}")
-                if not res:
-                    st.info("本次没有股票满足策略买点条件。可放宽「买点新鲜度」或换数据深度再试。")
-                else:
-                    names = st.session_state.screen_names
-                    table = pd.DataFrame([{
-                        "代码": r["code"],
-                        "名称": names.get(r["code"], ""),
-                        "买点日期": r["buy_date"],
-                        "最新收盘": round(r["close"], 2),
-                        "近5日涨跌%": round(r.get("pct5") or 0, 2),
-                        "数据行数": r.get("rows", 0),
-                    } for r in res])
-                    st.dataframe(table, use_container_width=True, hide_index=True)
+                    if st.button("✨ 召唤 Kimi 结合胜率生成人话解盘", use_container_width=True):
+                        ai_ph = st.empty()
+                        prompt = f"你是一个顶级的量化分析师，为小白解盘。当前收盘价 {latest_price:.2f}元。基于【{model_desc}】推演，未来1天预测价为 {day1_pred:.2f}元，未来5天为 {day5_pred:.2f}元。模型胜率为 {success_rate:.1f}%，偏差为 {mape:.2f}%。请用大白话（限200字以内，不要代码），向小白解释并给出建议。"
+                        try:
+                            if client is None:
+                                raise RuntimeError("Missing KIMI_API_KEY or MOONSHOT_API_KEY")
+                            stream = client.chat.completions.create(model="kimi-k3",
+                                                                    messages=[{"role": "user", "content": prompt}],
+                                                                    stream=True)
+                            full_txt = ""
+                            for chunk in stream:
+                                if chunk.choices[0].delta.content: full_txt += chunk.choices[0].delta.content; ai_ph.info(
+                                    full_txt + "▌")
+                            ai_ph.info(full_txt)
+                        except Exception as e:
+                            ai_ph.error(f"Kimi 连线中断: {e}")
 
-                    picked = st.selectbox(
-                        "📈 查看个股买点K线",
-                        [f"{r['code']} {names.get(r['code'], '')}" for r in res])
-                    if picked:
-                        pick_code = picked.split()[0]
-                        df_chart = fetch_and_clean_data(pick_code, 'qfq', f"{datetime.now().year - 2}0101")
-                        if df_chart is not None and not df_chart.empty:
-                            try:
-                                df_ai = execute_safely(active_code, df_chart)
-                                if df_ai is not None and hasattr(df_ai, 'columns'):
-                                    for col in df_ai.columns:
-                                        if col == 'Signal' or col.startswith(('MAIN_', 'SUB')):
-                                            df_chart[col] = df_ai[col]
-                            except Exception:
-                                pass
-                            st.plotly_chart(render_smart_charts(df_chart), use_container_width=True,
-                                            config={'scrollZoom': True})
-            elif not do_scan:
-                st.markdown(
-                    """<div class="metric-box" style="height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center;"><p>等待主公下达扫描指令</p><h2 style="color: #3b82f6;">点击 [开始全市场扫描]</h2><p class="sub-text" style="margin-top: 10px;">命中买点的股票会自动列出，支持查看K线与买点标记</p></div>""",
-                    unsafe_allow_html=True)
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=res['dates'], y=res['actual'], name='真实轨迹 (Actual)',
+                                         line=dict(color='#10b981', width=2)))
+                color_map = {"LSTM": "#3b82f6", "GRU": "#f59e0b", "1D-CNN": "#8b5cf6"}
+                for m_name, pred_array in res['preds'].items(): fig.add_trace(
+                    go.Scatter(x=res['dates'], y=pred_array, name=f'{m_name} 历史拟合',
+                               line=dict(color=color_map.get(m_name, '#94a3b8'), dash='dot', width=1.5)))
+                if len(res['preds']) > 1: fig.add_trace(
+                    go.Scatter(x=res['dates'], y=np.mean(list(res['preds'].values()), axis=0), name='🔥 均值集成 (Ensemble)',
+                               line=dict(color='#ef4444', width=3)))
+                fig.update_layout(height=450, template="none", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                                  dragmode='pan', hovermode='x',
+                                  legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+                fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)');
+                fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
+                st.plotly_chart(fig, use_container_width=True)
 
-elif selected_page == PAGES[10]:
-    if extensions: extensions.render_new_features_page()
+    elif selected_page == PAGES[6]:
+        st.markdown(
+            '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>',
+            unsafe_allow_html=True)
+        c1, c2 = st.columns([1, 1.2])
+        with c1:
+            if os.path.exists("user_logs/global_master_log.csv"): st.download_button("📁 导出审计日志", data=pd.read_csv(
+                "user_logs/global_master_log.csv").to_csv(index=False).encode('utf-8'), file_name='Audit_Logs.csv',
+                                                                                     type="primary")
+        with c2:
+            st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
 
-else:
-    if custom_plugins and hasattr(custom_plugins, 'route_and_render'): custom_plugins.route_and_render(selected_page)
+    elif selected_page == PAGES[7]:
+        if extensions: extensions.render_futures_backtest()
+
+    elif selected_page == PAGES[8]:
+        if extensions: extensions.render_futures_sandbox()
+
+    elif selected_page == PAGES[9]:
+        from screener import get_stock_universe, run_screen, MARKET_LABELS
+
+        st.markdown(
+            '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🔍 选股神器 (全市场扫描)</h3>'
+            '<p class="sub-text">用当前策略代码的买点条件扫描整个市场 —— 哪只股票今天出现买点，就把它捞出来。策略代码不用改，直接复用 AI/IDE 里那份。</p></div>',
+            unsafe_allow_html=True)
+
+        # 1. 策略来源
+        src_choice = st.radio(
+            "🧬 策略来源",
+            ["全局已保存策略 (AI/IDE)", "🏔️ 主升浪模型", "💡 经典双均线"],
+            horizontal=True,
+        )
+        if src_choice == "🏔️ 主升浪模型":
+            zsl = getattr(extensions, "ZHU_SHENG_LANG_CODE", "") if extensions else ""
+            active_code = zsl or st.session_state.generated_code or DEFAULT_BACKTEST_STRATEGY
+        elif src_choice == "💡 经典双均线":
+            active_code = DEFAULT_BACKTEST_STRATEGY
+        else:
+            active_code = st.session_state.generated_code
+
+        with st.expander("🧬 查看/修改当前策略代码（扫描即用它找买点）", expanded=False):
+            active_code = st.text_area(
+                "策略代码", value=active_code if active_code else DEFAULT_BACKTEST_STRATEGY,
+                height=280, label_visibility="collapsed")
+
+        if not active_code or not active_code.strip():
+            st.warning("还没有策略代码。请先到 AI 战情室生成策略、或在 IDE 里载入模板，再回来扫描。")
+        else:
+            col_l, col_r = st.columns([1, 2.4])
+            with col_l:
+                universe_label = st.selectbox("🌐 扫描范围", list(MARKET_LABELS.values()), index=0)
+                market_key = {v: k for k, v in MARKET_LABELS.items()}[universe_label]
+                lookback_label = st.selectbox("⏱️ 买点新鲜度", ["仅最新一天", "近 3 日内", "近 5 日内"], index=1)
+                lookback_days = {"仅最新一天": 1, "近 3 日内": 3, "近 5 日内": 5}[lookback_label]
+                span_years = {"近1年": 1, "近2年": 2, "近3年": 3}[
+                    st.selectbox("📅 数据深度", ["近1年", "近2年", "近3年"], index=1)]
+                workers = st.slider("⚙️ 并发线程", 1, 6, 3,
+                                    help="全市场扫描建议 3~4；网络慢或触发限流时降到 1~2。")
+                do_scan = st.button("🚀 开始全市场扫描", type="primary", use_container_width=True)
+                st.caption("⚠️ 全市场约 5400 只，耗时可能 20 分钟以上；建议先用本地样例/板块测试。")
+
+            with col_r:
+                if do_scan:
+                    codes, names = get_stock_universe(TUSHARE_TOKEN, market_key)
+                    if not codes:
+                        st.error("没有可扫描的标的：TUSHARE_TOKEN 未配置或接口异常。请改用「本地样例」。")
+                    else:
+                        prog = st.progress(0.0)
+                        status_line = st.empty()
+                        start_date = f"{datetime.now().year - span_years}0101"
+
+                        def _cb(done, total, code):
+                            prog.progress(done / max(1, total))
+                            status_line.caption(f"🔭 扫描中 {done}/{total} … 刚完成: {code}")
+
+                        with st.spinner(f"正在扫描 {len(codes)} 只标的..."):
+                            results, stats = run_screen(
+                                active_code, codes, start_date, lookback_days,
+                                TUSHARE_TOKEN, ts, max_workers=workers, progress_cb=_cb)
+                        st.session_state.screen_results = results
+                        st.session_state.screen_stats = stats
+                        st.session_state.screen_names = names
+
+                if st.session_state.get("screen_results") is not None:
+                    res = st.session_state.screen_results
+                    stats = st.session_state.screen_stats
+                    st.success(
+                        f"✅ 扫描完成：共 {stats['total']} 只 | 命中买点 {len(res)} 只 | "
+                        f"无数据 {stats['no_data']} | 接口失败 {stats['failed']} | 策略报错 {stats['strategy_errors']}")
+                    if not res:
+                        st.info("本次没有股票满足策略买点条件。可放宽「买点新鲜度」或换数据深度再试。")
+                    else:
+                        names = st.session_state.screen_names
+                        table = pd.DataFrame([{
+                            "代码": r["code"],
+                            "名称": names.get(r["code"], ""),
+                            "买点日期": r["buy_date"],
+                            "最新收盘": round(r["close"], 2),
+                            "近5日涨跌%": round(r.get("pct5") or 0, 2),
+                            "数据行数": r.get("rows", 0),
+                        } for r in res])
+                        st.dataframe(table, use_container_width=True, hide_index=True)
+
+                        picked = st.selectbox(
+                            "📈 查看个股买点K线",
+                            [f"{r['code']} {names.get(r['code'], '')}" for r in res])
+                        if picked:
+                            pick_code = picked.split()[0]
+                            df_chart = fetch_and_clean_data(pick_code, 'qfq', f"{datetime.now().year - 2}0101")
+                            if df_chart is not None and not df_chart.empty:
+                                try:
+                                    df_ai = execute_safely(active_code, df_chart)
+                                    if df_ai is not None and hasattr(df_ai, 'columns'):
+                                        for col in df_ai.columns:
+                                            if col == 'Signal' or col.startswith(('MAIN_', 'SUB')):
+                                                df_chart[col] = df_ai[col]
+                                except Exception:
+                                    pass
+                                st.plotly_chart(render_smart_charts(df_chart), use_container_width=True,
+                                                config={'scrollZoom': True})
+                elif not do_scan:
+                    st.markdown(
+                        """<div class="metric-box" style="height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center;"><p>等待主公下达扫描指令</p><h2 style="color: #3b82f6;">点击 [开始全市场扫描]</h2><p class="sub-text" style="margin-top: 10px;">命中买点的股票会自动列出，支持查看K线与买点标记</p></div>""",
+                        unsafe_allow_html=True)
+
+    elif selected_page == PAGES[10]:
+        if extensions: extensions.render_new_features_page()
+
+    else:
+        if custom_plugins and hasattr(custom_plugins, 'route_and_render'): custom_plugins.route_and_render(selected_page)
+except Exception:
+    # 🔍 云端诊断：未处理异常直接在页面上展示完整 traceback（Streamlit 默认会打码）
+    import traceback
+    st.error("⚠️ 应用运行中遇到未处理异常，完整错误如下（请把这段发给开发者以便修复）：")
+    st.code(traceback.format_exc(), language="python")
