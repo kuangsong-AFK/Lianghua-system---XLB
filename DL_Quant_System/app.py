@@ -151,8 +151,7 @@ for key, val in {"user_id": f"User_{str(uuid.uuid4())[:6]}", "messages": [], "ge
 # 2. 空间流形导航逻辑
 # ==========================================
 PAGES = ["🏠 系统总览 (监控中控)", "🤖 AI 策略引擎 (LLM)", "💻 极客量化 IDE (代码编译)", "📈 深度静态全量回测",
-         "⚡ 实时高频交易 (Live)", "🧠 深度学习预测矩阵", "🛡️ 论文审计日志", "🔗 期货全量审计 (归因)", "🌪️ 期货高频沙盘",
-         "🔍 选股神器 (全市场扫描)", "🧩 扩展插件中心"]
+         "🔍 选股神器 (全市场扫描)", "⚡ 实时高频交易 (Live)", "🧠 深度学习预测矩阵", "🔗 期货全量审计 (归因)", "🌪️ 期货高频沙盘"]
 if custom_plugins and hasattr(custom_plugins, 'EXTRA_PAGES'): PAGES.extend(custom_plugins.EXTRA_PAGES)
 
 if st.session_state.get("curr_page") not in PAGES:
@@ -655,6 +654,90 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ==========================================
+# 4.5 流体动态背景（黑白双主题，置于所有样式之后以确保生效）
+# ==========================================
+st.markdown("""
+<style>
+    /* 🌀 流体背景动画：复用项目自带的 fluidFlow 关键帧，让背景缓慢流动 */
+    @keyframes fluidFlow {
+        0%   { background-position: 0% 50%; }
+        25%  { background-position: 50% 100%; }
+        50%  { background-position: 100% 50%; }
+        75%  { background-position: 50% 0%; }
+        100% { background-position: 0% 50%; }
+    }
+
+    /* 让内容容器透明，露出应用层流体背景 */
+    .stApp[data-custom-theme] [data-testid="stAppViewContainer"],
+    .stApp:not([data-custom-theme]) [data-testid="stAppViewContainer"] {
+        background: transparent !important;
+    }
+    .stApp[data-custom-theme] [data-testid="stHeader"],
+    .stApp[data-custom-theme] [data-testid="stBottom"],
+    .stApp:not([data-custom-theme]) [data-testid="stHeader"],
+    .stApp:not([data-custom-theme]) [data-testid="stBottom"] {
+        background: transparent !important;
+    }
+
+    /* 🌙 深色主题：深空星云流体 */
+    .stApp[data-custom-theme='dark'] {
+        background-image:
+            radial-gradient(ellipse at 18% 18%, rgba(10, 132, 255, 0.32) 0%, transparent 52%),
+            radial-gradient(ellipse at 82% 12%, rgba(94, 92, 230, 0.30) 0%, transparent 50%),
+            radial-gradient(ellipse at 88% 82%, rgba(0, 255, 204, 0.16) 0%, transparent 55%),
+            radial-gradient(ellipse at 12% 88%, rgba(255, 59, 48, 0.14) 0%, transparent 50%),
+            linear-gradient(132deg, #02040a, #03102c, #0a1a3f, #0d2b6b, #071536, #02040a) !important;
+        background-size: 320% 320% !important;
+        background-attachment: fixed !important;
+        animation: fluidFlow 26s ease-in-out infinite !important;
+    }
+
+    /* ☀️ 浅色主题：晨雾流光流体 */
+    .stApp[data-custom-theme='light'] {
+        background-image:
+            radial-gradient(ellipse at 16% 14%, rgba(10, 132, 255, 0.16) 0%, transparent 50%),
+            radial-gradient(ellipse at 84% 10%, rgba(175, 82, 222, 0.14) 0%, transparent 50%),
+            radial-gradient(ellipse at 88% 82%, rgba(52, 199, 89, 0.12) 0%, transparent 52%),
+            radial-gradient(ellipse at 10% 86%, rgba(255, 149, 0, 0.11) 0%, transparent 50%),
+            linear-gradient(135deg, #fdfbfd, #eef3ff, #f6ecff, #e9f6ff, #fdfbfd) !important;
+        background-size: 320% 320% !important;
+        background-attachment: fixed !important;
+        animation: fluidFlow 26s ease-in-out infinite !important;
+    }
+
+    /* 未挂主题时的兜底（JS 探针挂载前的瞬间） */
+    .stApp:not([data-custom-theme]) {
+        background-image:
+            radial-gradient(ellipse at 16% 14%, rgba(10, 132, 255, 0.16) 0%, transparent 50%),
+            radial-gradient(ellipse at 84% 10%, rgba(175, 82, 222, 0.14) 0%, transparent 50%),
+            radial-gradient(ellipse at 88% 82%, rgba(52, 199, 89, 0.12) 0%, transparent 52%),
+            linear-gradient(135deg, #fdfbfd, #eef3ff, #f6ecff, #e9f6ff, #fdfbfd) !important;
+        background-size: 320% 320% !important;
+        background-attachment: fixed !important;
+        animation: fluidFlow 26s ease-in-out infinite !important;
+    }
+    @media (prefers-color-scheme: dark) {
+        .stApp:not([data-custom-theme]) {
+            background-image:
+                radial-gradient(ellipse at 18% 18%, rgba(10, 132, 255, 0.32) 0%, transparent 52%),
+                radial-gradient(ellipse at 82% 12%, rgba(94, 92, 230, 0.30) 0%, transparent 50%),
+                radial-gradient(ellipse at 88% 82%, rgba(0, 255, 204, 0.16) 0%, transparent 55%),
+                linear-gradient(132deg, #02040a, #03102c, #0a1a3f, #0d2b6b, #071536, #02040a) !important;
+        }
+    }
+
+    /* 尊重系统减少动态偏好 */
+    @media (prefers-reduced-motion: reduce) {
+        .stApp[data-custom-theme='dark'],
+        .stApp[data-custom-theme='light'],
+        .stApp:not([data-custom-theme]) {
+            animation: none !important;
+        }
+    }
+</style>
+""", unsafe_allow_html=True)
+
 
 # ==========================================
 # 5. 高速缓存装甲：分离复杂计算
@@ -1073,7 +1156,7 @@ try:
                         st.session_state.strategy_explanation)
                 st.plotly_chart(render_smart_charts(df), use_container_width=True, config={'scrollZoom': True})
 
-    elif selected_page == PAGES[4]:
+    elif selected_page == PAGES[5]:
         st.markdown(
             '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">⚡ 高频沙盘模拟推演 (Real-time Flow)</h3></div>',
             unsafe_allow_html=True)
@@ -1114,7 +1197,7 @@ try:
                         break
                     time.sleep(freq)
 
-    elif selected_page == PAGES[5]:
+    elif selected_page == PAGES[6]:
         with st.spinner("唤醒深度学习底层张量引擎..."):
             try:
                 import torch
@@ -1332,25 +1415,13 @@ try:
                 fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128,128,128,0.2)')
                 st.plotly_chart(fig, use_container_width=True)
 
-    elif selected_page == PAGES[6]:
-        st.markdown(
-            '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🛡️ 实验数据采集与多维审计中心</h3></div>',
-            unsafe_allow_html=True)
-        c1, c2 = st.columns([1, 1.2])
-        with c1:
-            if os.path.exists("user_logs/global_master_log.csv"): st.download_button("📁 导出审计日志", data=pd.read_csv(
-                "user_logs/global_master_log.csv").to_csv(index=False).encode('utf-8'), file_name='Audit_Logs.csv',
-                                                                                     type="primary")
-        with c2:
-            st.text_area("实时工作流终端", value="\n".join(st.session_state.sys_logs), height=350)
-
     elif selected_page == PAGES[7]:
         if extensions: extensions.render_futures_backtest()
 
     elif selected_page == PAGES[8]:
         if extensions: extensions.render_futures_sandbox()
 
-    elif selected_page == PAGES[9]:
+    elif selected_page == PAGES[4]:
         from screener import get_stock_universe, run_screen, MARKET_LABELS
 
         st.markdown(
@@ -1456,9 +1527,6 @@ try:
                     st.markdown(
                         """<div class="metric-box" style="height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center;"><p>等待主公下达扫描指令</p><h2 style="color: #3b82f6;">点击 [开始全市场扫描]</h2><p class="sub-text" style="margin-top: 10px;">命中买点的股票会自动列出，支持查看K线与买点标记</p></div>""",
                         unsafe_allow_html=True)
-
-    elif selected_page == PAGES[10]:
-        if extensions: extensions.render_new_features_page()
 
     else:
         if custom_plugins and hasattr(custom_plugins, 'route_and_render'): custom_plugins.route_and_render(selected_page)
