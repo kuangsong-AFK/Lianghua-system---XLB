@@ -165,6 +165,17 @@ shutil.copy(ROOT / ".streamlit" / "config.toml", proj / ".streamlit" / "config.t
 (proj / "DL_Quant_System" / "strategy_sandbox.py").write_text(OLD_SANDBOX, encoding="utf-8")
 # 删除 ai_prompts.py（模拟新文件缺失）
 (proj / "DL_Quant_System" / "ai_prompts.py").unlink()
+# 把 screener.py 降级为旧版（无 should_stop 参数与中断逻辑），
+# 精确复现云端混合部署的 run_screen() unexpected keyword 报错场景
+scr = (proj / "DL_Quant_System" / "screener.py").read_text(encoding="utf-8")
+scr = scr.replace("progress_cb=None, log_cb=None, should_stop=None):", "progress_cb=None, log_cb=None):")
+scr = scr.replace("""            if should_stop and should_stop():
+                for f in futures:
+                    f.cancel()
+                break
+""", "")
+(proj / "DL_Quant_System" / "screener.py").write_text(scr, encoding="utf-8")
+print("已模拟: 旧沙盒 + 缺 ai_prompts + 旧 screener")
 
 os.chdir(str(proj))
 sys.path.insert(0, str(proj))

@@ -71,6 +71,32 @@ except ImportError:
             f"你的代码没有通过沙盒预检，报错如下：\n```\n{last_error}\n```\n"
             "请修复并重新输出完整代码块（只允许 generate_signals 一个函数、禁止 import、必须全向量化）。")
 
+# bg_runner 兜底（云端新旧混合部署时新文件可能缺失）
+try:
+    import bg_runner as _bg_runner
+except Exception:
+    _bg_runner = None
+
+
+def _bg_start_job(key, worker, args=(), kwargs=None):
+    if _bg_runner is None:
+        return {"running": False, "stop": False, "progress": 0.0, "done": 0, "total": 0,
+                "status": "后台任务模块缺失：云端部署不完整，请在 Streamlit Cloud 中点击 Reboot app 重新部署。",
+                "result": None, "stats": None, "error": "bg_runner missing", "finalized": False}
+    return _bg_runner.start_job(key, worker, args=args, kwargs=kwargs)
+
+
+def _bg_get_job(key):
+    if _bg_runner is None:
+        return None
+    return _bg_runner.get_job(key)
+
+
+def _bg_request_stop(key):
+    if _bg_runner is None:
+        return False
+    return _bg_runner.request_stop(key)
+
 # 🔥 安全导入扩展先锋营 🔥
 try:
     import extensions
@@ -969,7 +995,8 @@ def _bt_worker(job, ts_code, adj, start_date, code):
 
 
 def _screen_worker(job, code, codes, names, start_date, lookback, token, ts_module, workers):
-    from screener import run_screen
+    from screener import run_screen as _run_screen
+    import inspect as _inspect
 
     job["total"] = len(codes)
 
@@ -979,11 +1006,19 @@ def _screen_worker(job, code, codes, names, start_date, lookback, token, ts_modu
         job["progress"] = done / max(1, total)
         job["status"] = f"扫描中 {done}/{total}：{c}"
 
-    results, stats = run_screen(
-        code, codes, start_date, lookback, token, ts_module,
-        max_workers=workers, progress_cb=_cb,
-        should_stop=lambda: job["stop"],
-    )
+    # 🔧 兼容云端新旧混合部署：旧版 screener 没有 should_stop 参数，
+    #    先探测签名再决定调用方式（旧版只是不支持手动停止，不影响扫描本身）。
+    if "should_stop" in _inspect.signature(_run_screen).parameters:
+        results, stats = _run_screen(
+            code, codes, start_date, lookback, token, ts_module,
+            max_workers=workers, progress_cb=_cb,
+            should_stop=lambda: job["stop"],
+        )
+    else:
+        results, stats = _run_screen(
+            code, codes, start_date, lookback, token, ts_module,
+            max_workers=workers, progress_cb=_cb,
+        )
     job["result"] = results
     job["stats"] = stats
     job["names"] = names
@@ -1020,9 +1055,8 @@ def _finalize_job_state(job, key):
 #    任务空闲/完成后用无轮询的普通函数，避免每 0.5 秒整页重跑导致卡顿。
 @st.fragment(run_every="0.5s")
 def _bt_job_live_fragment():
-    from bg_runner import get_job, request_stop
-
-    job = get_job("bt_job")
+    
+    job = _bg_get_job("bt_job")
     if not job:
         return
     st.session_state.bt_job = dict(job)
@@ -1033,16 +1067,15 @@ def _bt_job_live_fragment():
                 st.info(f"⏳ 回测进行中：{job['status']}")
             with c2:
                 if st.button("⏹️ 停止回测", use_container_width=True, key="bt_stop_btn"):
-                    request_stop("bt_job")
+                    _bg_request_stop("bt_job")
                     st.rerun(scope="fragment")
     elif _finalize_job_state(job, "bt_job"):
         st.rerun()
 
 
 def _bt_job_idle_sync():
-    from bg_runner import get_job
-
-    job = get_job("bt_job")
+    
+    job = _bg_get_job("bt_job")
     if not job:
         return
     st.session_state.bt_job = dict(job)
@@ -1052,9 +1085,8 @@ def _bt_job_idle_sync():
 
 @st.fragment(run_every="0.5s")
 def _screen_job_live_fragment():
-    from bg_runner import get_job, request_stop
-
-    job = get_job("screen_job")
+    
+    job = _bg_get_job("screen_job")
     if not job:
         return
     st.session_state.screen_job = dict(job)
@@ -1066,16 +1098,15 @@ def _screen_job_live_fragment():
                 st.caption(f"⏳ {job['status']}")
             with p2:
                 if st.button("⏹️ 停止扫描", use_container_width=True, key="screen_stop_btn"):
-                    request_stop("screen_job")
+                    _bg_request_stop("screen_job")
                     st.rerun(scope="fragment")
     elif _finalize_job_state(job, "screen_job"):
         st.rerun()
 
 
 def _screen_job_idle_sync():
-    from bg_runner import get_job
-
-    job = get_job("screen_job")
+    
+    job = _bg_get_job("screen_job")
     if not job:
         return
     st.session_state.screen_job = dict(job)
@@ -1187,9 +1218,8 @@ def _finalize_chat_job(job):
 
 @st.fragment(run_every="0.3s")
 def _chat_live_fragment():
-    from bg_runner import get_job
-
-    job = get_job("chat_job")
+    
+    job = _bg_get_job("chat_job")
     if not job:
         return
     st.session_state.chat_job = dict(job)
@@ -1210,9 +1240,8 @@ def _chat_live_fragment():
 
 
 def _chat_idle_sync():
-    from bg_runner import get_job
-
-    job = get_job("chat_job")
+    
+    job = _bg_get_job("chat_job")
     if not job:
         return
     st.session_state.chat_job = dict(job)
@@ -1333,12 +1362,10 @@ try:
             messages_to_send = [{"role": "system", "content": sys_p}] + st.session_state.messages[:-1] + [
                 {"role": "user", "content": full_prompt_for_ai}]
             # 🔥 实时生成：Kimi 流式输出放到后台线程，页面用 0.3s 片段实时展示
-            from bg_runner import start_job
-            start_job("chat_job", _chat_worker, args=(selected_model, enable_deep_think, messages_to_send))
+            _bg_start_job("chat_job", _chat_worker, args=(selected_model, enable_deep_think, messages_to_send))
             st.rerun()
 
-        from bg_runner import get_job as _gj
-        if _gj("chat_job") and _gj("chat_job")["running"]:
+        if _bg_get_job("chat_job") and _bg_get_job("chat_job")["running"]:
             _chat_live_fragment()
         else:
             _chat_idle_sync()
@@ -1358,18 +1385,16 @@ try:
             start_year = datetime.now().year - span_mapping[span_choice]
             adj_p = st.selectbox("⚖️ 复权模式", ["qfq", "hfq", "None"]).split(" ")[0]
             if st.button("🚀 启动全量归因回测", use_container_width=True, type="primary"):
-                from bg_runner import start_job
                 st.session_state.bt_result = None
                 st.session_state.bt_error = ""
-                start_job(
+                _bg_start_job(
                     "bt_job",
                     _bt_worker,
                     args=(ts_code, adj_p if adj_p != "None" else None, f"{start_year}0101",
                           st.session_state.generated_code),
                 )
                 st.rerun()
-            from bg_runner import get_job as _get_job
-            if _get_job("bt_job") and _get_job("bt_job")["running"]:
+            if _bg_get_job("bt_job") and _bg_get_job("bt_job")["running"]:
                 _bt_job_live_fragment()
             else:
                 _bt_job_idle_sync()
@@ -1717,7 +1742,6 @@ try:
 
             with col_r:
                 if do_scan:
-                    from bg_runner import start_job
                     codes, names = get_stock_universe(TUSHARE_TOKEN, market_key)
                     if not codes:
                         st.error("没有可扫描的标的：TUSHARE_TOKEN 未配置或接口异常。请改用「本地样例」。")
@@ -1728,15 +1752,14 @@ try:
                         st.session_state.screen_error = ""
                         st.session_state.screen_stopped = False
                         start_date = f"{datetime.now().year - span_years}0101"
-                        start_job(
+                        _bg_start_job(
                             "screen_job",
                             _screen_worker,
                             args=(active_code, codes, names, start_date, lookback_days,
                                   TUSHARE_TOKEN, ts, workers),
                         )
                         st.rerun()
-                from bg_runner import get_job as _get_job
-                if _get_job("screen_job") and _get_job("screen_job")["running"]:
+                if _bg_get_job("screen_job") and _bg_get_job("screen_job")["running"]:
                     _screen_job_live_fragment()
                 else:
                     _screen_job_idle_sync()
