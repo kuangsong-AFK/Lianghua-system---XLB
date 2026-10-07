@@ -1212,7 +1212,7 @@ def render_futures_sandbox():
     m1, m2, m3, m4, m5, m6 = st.columns(6)
     m1.metric('总权益', f"{acct.equity():,.0f}")
     m2.metric('浮动盈亏', f"{acct.floating_pnl():+,.0f}")
-    m3.metric('已实现盈亏', f"{acct.realized_pnl():+,.0f}")
+    m3.metric('已实现盈亏', f"{acct.realized_pnl:+,.0f}")
     m4.metric('可用资金', f"{acct.available():,.0f}")
     m5.metric('占用保证金', f"{acct.margin_used():,.0f}")
     m6.metric('风险度', f"{acct.risk_ratio():.1f}%")
@@ -1257,7 +1257,8 @@ def render_futures_sandbox():
                 if p == '1':
                     b = fs.merge_tick(b, quote) if b is not None else None
                 st.plotly_chart(fs.build_sim_chart(b, acct, kind='candle'),
-                                use_container_width=True, config={'scrollZoom': True})
+                                use_container_width=True, config={'scrollZoom': True},
+                                key=f'fs_chart_{p}')
         with tabs[0]:
             b1m = _cached_minute_bars(symbol, '1') if ak is not None else None
             if b1m is not None:
@@ -1267,10 +1268,12 @@ def render_futures_sandbox():
             else:
                 b1m = bars
             st.plotly_chart(fs.build_sim_chart(b1m, acct, kind='line'),
-                            use_container_width=True, config={'scrollZoom': True})
+                            use_container_width=True, config={'scrollZoom': True},
+                            key='fs_chart_line')
     with cc2:
         st.markdown('#### 💰 资金曲线')
-        st.plotly_chart(fs.build_equity_chart(acct.equity_curve), use_container_width=True)
+        st.plotly_chart(fs.build_equity_chart(acct.equity_curve), use_container_width=True,
+                        key='fs_chart_equity')
         st.markdown('#### 📊 交易统计')
         stc = acct.stats()
         st.markdown(
