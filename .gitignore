@@ -15,6 +15,10 @@ user_logs/
 saved_strategies.json
 **/saved_strategies.json
 
+# 期货高频沙盘：模拟账户本地存档（个人模拟资金数据，不入库）
+sim_accounts.json
+**/sim_accounts.json
+
 # IDE / 系统噪音
 .idea/
 .vscode/
