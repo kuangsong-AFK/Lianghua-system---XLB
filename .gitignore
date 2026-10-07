@@ -15,9 +15,11 @@ user_logs/
 saved_strategies.json
 **/saved_strategies.json
 
-# Local binary/model artifacts. Use Git LFS or external storage when they must be versioned.
-*.glb
-*.h5
-*.mp4
-*.pt
-*.pth
+# IDE / 系统噪音
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# 提示：仓库中已跟踪的 *.glb/*.pt/*.pth/*.mp4 等大文件（3D 桌宠、训练权重、背景视频）
+# 属于运行时必需资产，请保持跟踪。后续如需新增更大文件，建议改用 Git LFS 或外部存储。

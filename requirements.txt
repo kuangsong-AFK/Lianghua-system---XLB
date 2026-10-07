@@ -7,3 +7,10 @@ plotly==6.5.2
 Pillow==10.4.0
 PyPDF2==3.0.1
 python-docx==1.1.2
+scikit-learn==1.5.2
+matplotlib==3.9.2
+
+# torch / akshare 不锁版本：本机与云端按平台自动匹配对应 wheel。
+# 云端若因 torch 体积超限，请改用 CPU 版：--index-url https://download.pytorch.org/whl/cpu
+torch
+akshare
