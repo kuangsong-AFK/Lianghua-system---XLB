@@ -15,6 +15,8 @@ import numpy as np
 from datetime import datetime
 from strategy_sandbox import execute_strategy
 
+import futures_sim
+
 try:
     from streamlit import fragment as st_fragment
 except ImportError:
@@ -22,6 +24,26 @@ except ImportError:
         from streamlit import experimental_fragment as st_fragment
     except ImportError:
         st_fragment = lambda f: f
+
+
+def _notify(msg):
+    """兼容旧版 Streamlit 的提示方式。"""
+    try:
+        if hasattr(st, 'toast'):
+            st.toast(msg)
+        else:
+            st.info(msg)
+    except Exception:
+        st.info(msg)
+
+
+def _rerun_fragment():
+    """仅重跑当前 fragment；旧版 Streamlit 降级为整页重跑。"""
+    try:
+        st.rerun(scope='fragment')
+    except TypeError:
+        st.rerun()
+
 
 SUB_PATTERN = re.compile(r'^SUB(\d+)_')
 
@@ -446,6 +468,18 @@ def get_akshare_module():
     return ak
 
 
+@st.cache_data(ttl=1, show_spinner=False)
+def _cached_live_quote(symbol, force_sim):
+    """实时报价缓存 1 秒，避免同一秒内重复请求新浪接口。"""
+    return futures_sim.fetch_live_quote(get_akshare_module(), symbol, force_sim=bool(force_sim))
+
+
+@st.cache_data(ttl=20, show_spinner=False)
+def _cached_minute_bars(symbol, limit=240):
+    """分钟K线缓存 20 秒。"""
+    return futures_sim.fetch_minute_bars(get_akshare_module(), symbol, int(limit))
+
+
 def safe_exec_fut_strategy(code, df):
     if not code: return df
     safe_code = str(code).replace("pandas.np", "np")
@@ -813,84 +847,301 @@ def render_futures_backtest():
 
 @st_fragment
 def render_futures_sandbox():
+    import futures_sim as fs
+
     st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🌪️ 期货高频沙盘模拟推演</h3><p class="sub-text">Tick 级盘口模拟、毫秒级信号响应测试与动态滑点侦测。</p></div>',
+        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🌪️ 期货高频沙盘 · 模拟交易终端</h3>'
+        '<p class="sub-text">实时行情（对价盘口）→ 模拟账户撮合 → 全局策略自动交易。全部为模拟成交，不接入实盘。</p></div>',
         unsafe_allow_html=True)
-    c_ctrl1, c_ctrl2, c_ctrl3, c_ctrl4 = st.columns(4)
-    with c_ctrl1:
-        sandbox_code = st.text_input("推演标的", value="SA2409")
-    with c_ctrl2:
-        base_price = st.number_input("初始基准价", value=2000.0)
-    with c_ctrl3:
-        speed = st.slider("脉冲频率 (秒)", 0.1, 2.0, 0.5)
-    with c_ctrl4:
+
+    ak = get_akshare_module()
+    if ak is None:
+        st.info('未安装 AkShare，行情将以「随机模拟」模式运行（休市 / 离线也能玩）。安装：pip install akshare')
+
+    # ---------------- 顶部控制 ----------------
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        symbol = st.text_input('🎯 合约代码', value='SA0', key='fs_symbol',
+                               help='支持连续合约（SA0 / RB0 / I0）或具体合约（如 SA2501）')
+    with c2:
+        speed = st.slider('⏱️ 刷新间隔(秒)', 1, 5, 1, key='fs_speed')
+    with c3:
+        tick_size = st.number_input('📐 最小变动价位', min_value=0.01, value=1.0, step=0.5, key='fs_tick')
+    with c4:
         st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-        is_running = st.toggle("🚀 启动高频脉冲引擎")
+        running = st.toggle('🚀 启动行情引擎', key='fs_running')
 
-    st.markdown("---")
-    c_left, c_right = st.columns([1, 2.5])
-    dom_placeholder = c_left.empty();
-    chart_placeholder = c_right.empty()
+    symbol = fs.normalize_symbol(symbol)
+    letters = fs.symbol_letters(symbol)
+    default_mult = fs.DEFAULT_MULT.get(letters, 10.0)
 
-    if is_running:
-        if "sb_history" not in st.session_state:
-            st.session_state.sb_history = []
-            st.session_state.sb_current_price = base_price
+    # ---------------- 账户与撮合设置 ----------------
+    with st.expander('⚙️ 账户与撮合设置', expanded=False):
+        s1, s2, s3, s4 = st.columns(4)
+        with s1:
+            st.number_input('保证金率(%)', min_value=1.0, max_value=100.0, value=12.0, step=1.0, key='fs_margin')
+        with s2:
+            st.number_input('手续费(万分之)', min_value=0.0, max_value=100.0, value=1.0, step=0.1, key='fs_fee')
+        with s3:
+            st.number_input('滑点(跳)', min_value=0, max_value=20, value=0, step=1, key='fs_slip')
+        with s4:
+            st.toggle('🎲 强制模拟行情（休市也能玩）', key='fs_sim_mode')
+        r1, r2 = st.columns([2, 1])
+        with r1:
+            st.number_input('初始资金', min_value=10000, max_value=100000000, value=1000000,
+                            step=10000, key='fs_init_cash')
+        with r2:
+            if st.button('🔄 重置模拟账户', use_container_width=True, key='fs_reset'):
+                st.session_state.fs_account = fs.SimAccount(
+                    symbol=symbol,
+                    initial_cash=float(st.session_state.get('fs_init_cash', 1000000)),
+                    multiplier=default_mult,
+                    margin_rate=float(st.session_state.get('fs_margin', 12.0)) / 100.0,
+                    commission_rate=float(st.session_state.get('fs_fee', 1.0)) / 10000.0,
+                    slippage=float(st.session_state.get('fs_slip', 0)) * float(tick_size),
+                    tick_size=float(tick_size))
+                st.session_state.fs_ticks = []
+                _notify('🔄 模拟账户已重置（恢复初始资金与空仓）')
 
-        current_price = st.session_state.sb_current_price
-        price_change = np.random.choice([-3, -2, -1, 0, 1, 2, 3])
-        current_price += price_change
+    # ---------------- 账户初始化 / 标的切换 ----------------
+    if 'fs_account' not in st.session_state:
+        st.session_state.fs_account = None
+    if 'fs_last_symbol' not in st.session_state:
+        st.session_state.fs_last_symbol = ''
+    if 'fs_ticks' not in st.session_state:
+        st.session_state.fs_ticks = []
+    acct = st.session_state.fs_account
+    if acct is None or getattr(acct, 'symbol', '') != symbol:
+        st.session_state.fs_account = fs.SimAccount(
+            symbol=symbol, multiplier=default_mult,
+            margin_rate=float(st.session_state.get('fs_margin', 12.0)) / 100.0,
+            commission_rate=float(st.session_state.get('fs_fee', 1.0)) / 10000.0,
+            tick_size=float(tick_size))
+        acct = st.session_state.fs_account
+        st.session_state.fs_ticks = []
+        if st.session_state.fs_last_symbol and st.session_state.fs_last_symbol != symbol:
+            _notify(f'已切换标的 {symbol}，模拟账户已重置')
+        st.session_state.fs_last_symbol = symbol
 
-        st.session_state.sb_history.append(current_price)
-        if len(st.session_state.sb_history) > 100:
-            st.session_state.sb_history.pop(0)
+    # ---------------- 行情 tick ----------------
+    quote = _cached_live_quote(symbol, bool(st.session_state.get('fs_sim_mode', False)))
+    acct.multiplier = float(default_mult)
+    acct.margin_rate = float(st.session_state.get('fs_margin', 12.0)) / 100.0
+    acct.commission_rate = float(st.session_state.get('fs_fee', 1.0)) / 10000.0
+    acct.slippage = float(st.session_state.get('fs_slip', 0)) * float(tick_size)
+    acct.tick_size = float(tick_size)
+    if quote['price'] > 0:
+        acct.mark(quote['price'])
+    for m in acct.check_sltp(quote['price'], quote['bid'], quote['ask']):
+        _notify(m)
+    for m in acct.check_pending(quote['price'], quote['bid'], quote['ask']):
+        _notify(m)
 
-        st.session_state.sb_current_price = current_price
-
-        asks = [(current_price + i, np.random.randint(10, 500)) for i in range(5, 0, -1)]
-        bids = [(current_price - i, np.random.randint(10, 500)) for i in range(1, 6)]
-
-        with dom_placeholder.container():
-            st.markdown('<div class="glass-card" style="padding: 15px;">', unsafe_allow_html=True)
-            st.markdown('<h4 style="margin-top:0; color:#ef4444;">卖盘 (Ask)</h4>', unsafe_allow_html=True)
-            for i, (p, v) in enumerate(asks): st.markdown(
-                f'<div style="display:flex; justify-content:space-between; color:#64748b;"><span>卖{5 - i}</span><span>{p:.0f}</span><span>{v}</span></div>',
-                unsafe_allow_html=True)
-            st.markdown('<hr style="margin: 10px 0; border-color: rgba(128,128,128,0.2);">', unsafe_allow_html=True)
-            color = "#ef4444" if price_change >= 0 else "#10b981"
-            st.markdown(
-                f'<h3 style="margin:0; text-align:center; color:{color}; text-shadow: 0 0 10px rgba(0,0,0,0.1);">现价: {current_price:.0f}</h3>',
-                unsafe_allow_html=True)
-            st.markdown('<hr style="margin: 10px 0; border-color: rgba(128,128,128,0.2);">', unsafe_allow_html=True)
-            st.markdown('<h4 style="margin-top:0; color:#10b981;">买盘 (Bid)</h4>', unsafe_allow_html=True)
-            for i, (p, v) in enumerate(bids): st.markdown(
-                f'<div style="display:flex; justify-content:space-between; color:#64748b;"><span>买{i + 1}</span><span>{p:.0f}</span><span>{v}</span></div>',
-                unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        with chart_placeholder.container():
-            import plotly.graph_objects as go
-            fig = go.Figure(
-                data=go.Scatter(y=st.session_state.sb_history, mode='lines', line=dict(color='#3b82f6', width=2),
-                                fill='tozeroy',
-                                fillcolor='rgba(59, 130, 246, 0.1)'))
-            fig.update_layout(height=380, template="none", paper_bgcolor='rgba(0,0,0,0)',
-                              plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=0, r=0, t=10, b=0),
-                              xaxis=dict(showgrid=False, visible=False),
-                              yaxis=dict(showgrid=True, gridcolor='rgba(128,128,128,0.2)'))
-            st.plotly_chart(fig, use_container_width=True)
-
-        time.sleep(speed)
-        st.rerun()  # 触发心跳循环
+    # ---------------- K线（真实分钟线 / 内存 tick 合成） ----------------
+    bars = _cached_minute_bars(symbol) if ak is not None else None
+    if bars is None:
+        ticks = st.session_state.fs_ticks
+        if quote['price'] > 0:
+            ticks.append((datetime.now().strftime('%H:%M:%S'), float(quote['price'])))
+            if len(ticks) > 300:
+                del ticks[:len(ticks) - 300]
+        if ticks:
+            tdf = pd.DataFrame(ticks, columns=['t', 'Close'])
+            bars = pd.DataFrame({
+                'trade_date': pd.to_datetime(tdf['t'], format='%H:%M:%S'),
+                'Open': tdf['Close'], 'High': tdf['Close'],
+                'Low': tdf['Close'], 'Close': tdf['Close'],
+                'Volume': 0.0})
     else:
-        if "sb_history" in st.session_state:
-            del st.session_state.sb_history
-            del st.session_state.sb_current_price
+        bars = fs.merge_tick(bars, quote)
 
-        dom_placeholder.info("请打开上方的【启动高频脉冲引擎】开关，唤醒沙盘。")
-        chart_placeholder.markdown(
-            """<div class="metric-box" style="height: 380px; display: flex; flex-direction: column; justify-content: center; align-items: center;"><p>高频推演</p><h2 style="color: #3b82f6;">等待引擎唤醒...</h2></div>""",
-            unsafe_allow_html=True)
+    # ---------------- 策略自动交易 ----------------
+    strat_code = st.session_state.get('generated_code', '') or ''
+    signal_df, last_signal, strat_err = None, 0, ''
+    with st.expander('🤖 策略自动交易（复用全局已载入策略）', expanded=bool(strat_code)):
+        if not strat_code:
+            st.info('尚未载入策略：请先到「AI 战情室」生成，或在「极客量化 IDE」载入模板并【同步保存至全局引擎】。')
+        else:
+            a1, a2, a3, a4 = st.columns(4)
+            with a1:
+                auto_on = st.toggle('⚡ 启用自动交易', key='fs_auto')
+            with a2:
+                auto_lots = st.number_input('每次交易手数', min_value=1, max_value=100, value=1, step=1,
+                                            key='fs_auto_lots')
+            with a3:
+                sig0_act = st.radio('信号0处理', ['维持持仓', '平仓观望'], key='fs_sig0', horizontal=True)
+            with a4:
+                long_only = st.toggle('只做多（空信号→平仓）', key='fs_long_only')
+            if bars is not None and len(bars) >= 60:
+                signal_df, last_signal, strat_err = fs.run_strategy_tick(strat_code, bars)
+            else:
+                strat_err = 'K线不足60根，暂不执行策略（继续积累中…）'
+            if strat_err:
+                st.caption(f'⚠️ 策略提示：{strat_err}')
+            if auto_on and signal_df is not None and quote['price'] > 0:
+                if last_signal == 1:
+                    target = int(auto_lots)
+                elif last_signal == -1:
+                    target = 0 if long_only else -int(auto_lots)
+                else:
+                    target = 0 if sig0_act == '平仓观望' else acct.position
+                if target != acct.position:
+                    ok, msg = acct.adjust_to(target, quote['price'], quote['bid'], quote['ask'], 'opposite')
+                    if ok and msg:
+                        _notify('🤖 自动交易：' + msg)
+
+    # ---------------- 盘口 + 下单 ----------------
+    col_dom, col_trade = st.columns([1, 1.7])
+    with col_dom:
+        st.markdown('#### 📊 实时盘口')
+        src_map = {'live': '🟢 实时快照', 'minute': '🟡 分钟K线兜底', 'sim': '🎲 随机模拟'}
+        prev = st.session_state.get('fs_prev_price', 0.0)
+        delta = quote['price'] - prev if (prev and quote['price']) else 0.0
+        st.session_state.fs_prev_price = quote['price']
+        up_color = '#ef4444' if delta >= 0 else '#10b981'
+        st.markdown(
+            f'<div class="metric-box" style="padding:18px;">'
+            f'<p style="margin:0;">{symbol} · {src_map.get(quote["source"], "？")} · {quote["time"] or "--:--:--"}</p>'
+            f'<h2 style="margin:6px 0; color:{up_color};">{quote["price"]:.2f}</h2>'
+            f'<p class="sub-text" style="margin:0;">买一 {quote["bid"]:.2f} ｜ 卖一 {quote["ask"]:.2f} '
+            f'｜ 成交 {quote["volume"]:,.0f} ｜ 持仓 {quote["hold"]:,.0f}</p>'
+            f'</div>', unsafe_allow_html=True)
+        asks, bids = fs.build_depth(quote, tick_size)
+        depth_rows = []
+        for i, (p, v) in enumerate(reversed(asks)):
+            depth_rows.append(
+                f'<div style="display:flex;justify-content:space-between;color:#ef4444;">'
+                f'<span>卖{len(asks) - i}</span><span style="font-weight:600;">{p}</span><span>{v}</span></div>')
+        depth_rows.append('<hr style="margin:8px 0;border-color:rgba(128,128,128,0.2);">')
+        for i, (p, v) in enumerate(bids):
+            depth_rows.append(
+                f'<div style="display:flex;justify-content:space-between;color:#10b981;">'
+                f'<span>买{i + 1}</span><span style="font-weight:600;">{p}</span><span>{v}</span></div>')
+        st.markdown('<div class="glass-card" style="padding:14px;">' + ''.join(depth_rows) + '</div>',
+                    unsafe_allow_html=True)
+        st.caption('盘口说明：卖一 / 买一为真实对价，其余四档按最小变动价位合成（沙盘演示）。非交易时段行情不跳动属正常。')
+
+    with col_trade:
+        st.markdown('#### 🎛️ 模拟下单')
+        o1, o2 = st.columns([1, 2])
+        with o1:
+            lots = st.number_input('手数', min_value=1, max_value=100, value=1, step=1, key='fs_lots')
+        with o2:
+            otype = st.radio('下单方式', ['对价', '市价', '限价'], key='fs_otype', horizontal=True,
+                             help='对价：买入按卖一、卖出按买一（推荐）；市价：对手价+滑点；限价：挂单等待触及')
+        limit_price = None
+        if otype == '限价':
+            limit_price = st.number_input('限价', min_value=0.01,
+                                          value=float(quote['price'] or 1.0),
+                                          step=float(tick_size), key='fs_lprice')
+        ot_map = {'对价': 'opposite', '市价': 'market', '限价': 'limit'}
+        b1, b2, b3, b4 = st.columns(4)
+        if b1.button('🔴 开多', use_container_width=True, key='fs_b1'):
+            ok, msg = acct.open_long(int(lots), ot_map[otype], quote['price'], quote['bid'], quote['ask'],
+                                     limit_price)
+            _notify(('✅ ' if ok else '⛔ ') + msg)
+        if b2.button('🟢 开空', use_container_width=True, key='fs_b2'):
+            ok, msg = acct.open_short(int(lots), ot_map[otype], quote['price'], quote['bid'], quote['ask'],
+                                      limit_price)
+            _notify(('✅ ' if ok else '⛔ ') + msg)
+        if b3.button('🟡 平仓', use_container_width=True, key='fs_b3'):
+            if acct.position > 0:
+                ok, msg = acct.close_long(int(lots), ot_map[otype], quote['price'], quote['bid'],
+                                          quote['ask'], limit_price)
+            elif acct.position < 0:
+                ok, msg = acct.close_short(int(lots), ot_map[otype], quote['price'], quote['bid'],
+                                           quote['ask'], limit_price)
+            else:
+                ok, msg = False, '当前无持仓'
+            _notify(('✅ ' if ok else '⛔ ') + msg)
+        if b4.button('⚪ 一键全平', use_container_width=True, key='fs_b4'):
+            # 全平必须即时成交，固定按对价执行
+            ok, msg = acct.close_all(quote['price'], quote['bid'], quote['ask'], 'opposite')
+            _notify(('✅ ' if ok else '⛔ ') + msg)
+        with st.expander('🛡️ 止盈止损（触发即按对价平仓）', expanded=False):
+            s1, s2, s3 = st.columns(3)
+            with s1:
+                st.toggle('启用', key='fs_sltp_on')
+            with s2:
+                st.number_input('止损价', min_value=0.01,
+                                value=float(max(0.01, quote['price'] - 20 * tick_size)),
+                                step=float(tick_size), key='fs_sl')
+            with s3:
+                st.number_input('止盈价', min_value=0.01,
+                                value=float(max(0.01, quote['price'] + 20 * tick_size)),
+                                step=float(tick_size), key='fs_tp')
+        if st.session_state.get('fs_sltp_on', False):
+            acct.sl_price = st.session_state.get('fs_sl') or None
+            acct.tp_price = st.session_state.get('fs_tp') or None
+        else:
+            acct.sl_price = None
+            acct.tp_price = None
+
+    # ---------------- 账户指标 ----------------
+    m1, m2, m3, m4, m5, m6 = st.columns(6)
+    m1.metric('总权益', f"{acct.equity():,.0f}")
+    m2.metric('浮动盈亏', f"{acct.floating_pnl():+,.0f}")
+    m3.metric('已实现盈亏', f"{acct.realized_pnl():+,.0f}")
+    m4.metric('可用资金', f"{acct.available():,.0f}")
+    m5.metric('占用保证金', f"{acct.margin_used():,.0f}")
+    m6.metric('风险度', f"{acct.risk_ratio():.1f}%")
+    if acct.position > 0:
+        pos_txt = f'🔴 持多 {acct.position} 手'
+    elif acct.position < 0:
+        pos_txt = f'🟢 持空 {-acct.position} 手'
+    else:
+        pos_txt = '🈳 空仓'
+    sig_txt = '多' if last_signal == 1 else ('空' if last_signal == -1 else ('观望' if strat_code else '--'))
+    st.caption(f"{pos_txt} ｜ 开仓均价 {acct.avg_price:.2f} ｜ 累计手续费 {acct.total_fee:,.2f} ｜ 策略信号 {sig_txt}")
+    risk = acct.risk_ratio()
+    if risk >= 100:
+        st.error(f'⚠️ 风险度 {risk:.1f}% 已超过 100%，模拟账户穿仓！请减仓或点击「重置模拟账户」。')
+    elif risk >= 80:
+        st.warning(f'⚠️ 风险度 {risk:.1f}% 偏高，注意控制仓位。')
+
+    # ---------------- 图表 ----------------
+    cc1, cc2 = st.columns([1.7, 1])
+    with cc1:
+        st.markdown('#### 📈 K线 · 策略信号')
+        chart_df = signal_df if signal_df is not None else bars
+        st.plotly_chart(fs.build_sim_chart(chart_df, acct), use_container_width=True,
+                        config={'scrollZoom': True})
+    with cc2:
+        st.markdown('#### 💰 资金曲线')
+        st.plotly_chart(fs.build_equity_chart(acct.equity_curve), use_container_width=True)
+
+    # ---------------- 记录 ----------------
+    r1, r2 = st.columns([1.6, 1])
+    with r1:
+        st.markdown('#### 📋 成交记录')
+        if acct.trades:
+            tdf = pd.DataFrame(acct.trades)[['time', 'action', 'lots', 'price', 'fee', 'pnl']]
+            tdf.columns = ['时间', '动作', '手数', '成交价', '手续费', '平仓盈亏']
+            st.dataframe(tdf.tail(20), use_container_width=True, hide_index=True)
+        else:
+            st.caption('暂无成交，点击上方按钮开仓试试。')
+    with r2:
+        st.markdown('#### 📌 限价挂单')
+        if acct.pending:
+            pdf = pd.DataFrame(acct.pending)[['time', 'side', 'lots', 'price']]
+            pdf.columns = ['挂单时间', '方向', '手数', '价格']
+            st.dataframe(pdf, use_container_width=True, hide_index=True)
+            if st.button('🗑️ 撤销全部挂单', key='fs_cancel'):
+                n = acct.cancel_pending()
+                _notify(f'已撤销 {n} 笔挂单')
+        else:
+            st.caption('暂无挂单。')
+
+    st.markdown(
+        '<div class="glass-card" style="padding:14px;"><p class="sub-text" style="margin:0;">'
+        '📖 玩法说明：<b>对价</b>＝买入按卖一价、卖出按买一价即时成交；<b>市价</b>＝对手价+滑点；<b>限价</b>＝挂单等待价格触及。'
+        '行情优先级：新浪实时快照 → 分钟K线兜底 → 随机模拟；策略信号由全局已载入策略经沙盒计算。'
+        '本沙盘全部为模拟撮合，不接入实盘、不构成投资建议。</p></div>',
+        unsafe_allow_html=True)
+
+    if running:
+        time.sleep(float(speed))
+        _rerun_fragment()
 
 
 def render_new_features_page():
