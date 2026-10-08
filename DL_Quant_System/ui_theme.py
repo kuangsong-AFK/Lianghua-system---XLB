@@ -147,8 +147,8 @@ V3_CSS = """
     background:
         linear-gradient(var(--lg-fill), var(--lg-fill)) padding-box,
         var(--lg-rim) border-box !important;
-    backdrop-filter: blur(26px) saturate(190%) !important;
-    -webkit-backdrop-filter: blur(26px) saturate(190%) !important;
+    backdrop-filter: blur(14px) saturate(150%) !important;
+    -webkit-backdrop-filter: blur(14px) saturate(150%) !important;
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.24),
         inset 0 -1px 0 rgba(255, 255, 255, 0.05),
@@ -202,6 +202,13 @@ V3_CSS = """
 .stApp[data-custom-theme] .highlight-text {
     color: var(--v2-accent) !important;
     text-shadow: 0 0 22px var(--v2-glow);
+}
+
+/* 高频刷新区用纯色卡（无 backdrop-filter，避免每秒重建带动周边背景虚化闪烁） */
+.glass-flat {
+    background: var(--lg-fill) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
 }
 
 /* ---------- 3. 液态玻璃按钮（光扫 + 涟漪 + 弹性按压） ---------- */
@@ -277,8 +284,8 @@ V3_CSS = """
     background: var(--lg-fill) !important;
     border-right: 1px solid transparent !important;
     border-image: linear-gradient(180deg, rgba(255, 255, 255, 0.4), transparent 40%, transparent 60%, rgba(56, 189, 248, 0.3)) 1 !important;
-    backdrop-filter: blur(30px) saturate(190%) !important;
-    -webkit-backdrop-filter: blur(30px) saturate(190%) !important;
+    backdrop-filter: blur(16px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(160%) !important;
     box-shadow: 12px 0 44px rgba(2, 6, 23, 0.2) !important;
 }
 .stApp[data-custom-theme] div[role="radiogroup"] > label {
@@ -440,24 +447,7 @@ V3_JS = """
     const doc = win.document;
     const reduceMotion = win.matchMedia && win.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    /* ---------- 1. 光标光晕（缓动跟随） ---------- */
-    const glow = doc.createElement('div');
-    glow.style.cssText = 'position:fixed;width:380px;height:380px;border-radius:50%;pointer-events:none;z-index:2;'
-        + 'background:radial-gradient(circle, rgba(56,189,248,0.14), rgba(139,92,246,0.08) 42%, transparent 70%);'
-        + 'transform:translate(-50%,-50%);opacity:0;transition:opacity .45s ease;';
-    doc.body.appendChild(glow);
-    let tx = -9999, ty = -9999, cx = -9999, cy = -9999;
-    win.addEventListener('mousemove', (e) => { tx = e.clientX; ty = e.clientY; glow.style.opacity = '1'; }, { passive: true });
-    win.addEventListener('mouseleave', () => { glow.style.opacity = '0'; });
-    (function follow() {
-        cx += (tx - cx) * 0.12;
-        cy += (ty - cy) * 0.12;
-        glow.style.left = cx + 'px';
-        glow.style.top = cy + 'px';
-        requestAnimationFrame(follow);
-    })();
-
-    /* ---------- 2. 按钮涟漪 + 按压反馈 ---------- */
+    /* ---------- 1. 按钮涟漪 + 按压反馈 ---------- */
     const rippleKey = doc.createElement('style');
     rippleKey.textContent = '@keyframes v3ripple{to{transform:scale(1);opacity:0;}}';
     doc.head.appendChild(rippleKey);

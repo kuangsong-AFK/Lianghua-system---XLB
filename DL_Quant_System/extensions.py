@@ -1040,7 +1040,7 @@ def render_futures_sandbox():
     pos_badge = ('🔴 持多' if acct.position > 0 else '🟢 持空' if acct.position < 0 else '🈳 空仓')
     period_badge = f'策略 {st.session_state.get("fs_period", "1")}分' if strat_code else '策略 --'
     st.markdown(
-        f'<div class="glass-card" style="padding:10px 16px;margin-bottom:8px;">'
+        f'<div class="glass-card glass-flat" style="padding:10px 16px;margin-bottom:8px;">'
         f'<span style="font-weight:700;">{symbol}</span>　'
         f'现价 <b style="font-size:1.15rem;color:{chg_color};">{quote["price"]:.2f}</b> '
         f'<span style="color:{chg_color};">{chg:+.2f} ({pct:+.2f}%)</span>'
@@ -1067,7 +1067,7 @@ def render_futures_sandbox():
             depth_rows.append(
                 f'<div style="display:flex;justify-content:space-between;color:#10b981;">'
                 f'<span>买{i + 1}</span><span style="font-weight:600;">{p}</span><span>{v}</span></div>')
-        st.markdown('<div class="glass-card" style="padding:14px;">' + ''.join(depth_rows) + '</div>',
+        st.markdown('<div class="glass-card glass-flat" style="padding:14px;">' + ''.join(depth_rows) + '</div>',
                     unsafe_allow_html=True)
         st.caption('卖一 / 买一为真实对价，其余四档按最小变动价位合成。')
         tape = fs.gen_tape(quote, 8)
@@ -1078,7 +1078,7 @@ def render_futures_sandbox():
                 f'<span style="color:{"#ef4444" if t["side"] == "B" else "#10b981"};font-weight:600;">{t["price"]:.2f}</span>'
                 f'<span>{"买入" if t["side"] == "B" else "卖出"} {t["vol"]}手</span></div>'
                 for t in tape)
-            st.markdown('<div class="glass-card" style="padding:10px;">'
+            st.markdown('<div class="glass-card glass-flat" style="padding:10px;">'
                         '<p style="margin:0 0 6px;">⚡ 逐笔成交（模拟）</p>' + tape_rows + '</div>',
                         unsafe_allow_html=True)
 
@@ -1246,6 +1246,23 @@ def render_futures_sandbox():
                         icon = '🟢 多' if s == 1 else ('🔴 空' if s == -1 else '⚪ 观望')
                         log_lines.append(f'{t} {icon} @ {px}')
                     st.caption('📜 信号日志：\n' + '　|　'.join(log_lines))
+                with st.expander('❓ 自动交易数据逻辑说明', expanded=False):
+                    st.markdown(
+                        '**① 数据来源**：顶栏所选周期的K线，来自 AkShare 新浪分钟线'
+                        '（`futures_zh_minute_sina`，20 秒缓存，最多 240 根）。'
+                        '1 分钟周期会把实时快照合并成"进行中"的最新一根K线；'
+                        '5/15/30/60 分钟周期用最近一根已收盘K线。\n\n'
+                        '**② 数据列**：`Open / High / Low / Close / Volume / trade_date`，'
+                        '策略只能基于这些列计算（沙盒约束与回测页一致）。\n\n'
+                        '**③ 信号**：每个刷新 tick 把最新K线交给策略 `generate_signals(df)` 跑一遍，'
+                        '取最后一行的 `Signal`：1=做多 / -1=做空 / 0=观望。\n\n'
+                        '**④ 下单执行**：\n'
+                        '- 目标持仓模式：把信号换算成目标手数（信号1→+N、信号-1→-N、信号0→按"信号0处理"），'
+                        '持仓与目标不一致时按所选下单方式补一笔，使持仓对齐目标；\n'
+                        '- 逐信号下单模式：只在信号变化时下一笔固定手数（同向可加仓至持仓上限）；\n'
+                        '- 成交价：对价=按卖一买/买一卖、超价=对手价+N跳、市价=最新价±滑点；'
+                        '受冷却秒数与保证金校验约束，开仓后按跳数自动挂止盈止损。'
+                    )
         # ---------- 设置标签 ----------
         with rt3:
             s1, s2 = st.columns(2)
@@ -1356,7 +1373,7 @@ def render_futures_sandbox():
                     f'<div style="display:flex;justify-content:space-between;">'
                     f'<span>{dir_txt} {e["lots"]}手 @ {e["price"]:.2f}（{e["time"]}）</span>'
                     f'<span style="color:{fp_color};">{fp:+,.0f}</span></div>')
-            st.markdown('<div class="glass-card" style="padding:12px;">' + ''.join(pos_rows) + '</div>',
+            st.markdown('<div class="glass-card glass-flat" style="padding:12px;">' + ''.join(pos_rows) + '</div>',
                         unsafe_allow_html=True)
         else:
             st.caption('暂无持仓。')
@@ -1368,7 +1385,7 @@ def render_futures_sandbox():
         st.markdown('#### 📊 交易统计')
         stc = acct.stats()
         st.markdown(
-            f'<div class="metric-box" style="padding:12px;">'
+            f'<div class="metric-box glass-flat" style="padding:12px;">'
             f'<p style="margin:0;">平仓交易 {stc["trades"]} 次 ｜ 胜率 <b>{stc["win_rate"] * 100:.1f}%</b></p>'
             f'<p style="margin:4px 0;">盈亏比 <b>{stc["profit_factor"]:.2f}</b> ｜ 最大回撤 <b>{stc["max_dd"] * 100:.2f}%</b></p>'
             f'<p style="margin:4px 0;">平均盈利 <span style="color:#ef4444;">{stc["avg_win"]:+,.0f}</span>'
