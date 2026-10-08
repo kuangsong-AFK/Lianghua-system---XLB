@@ -1,75 +1,94 @@
 # -*- coding: utf-8 -*-
-"""UI 2.0 视觉主题层（小吕布量化 Pro）
+"""UI 3.0 视觉主题层 —— 液态玻璃（Liquid Glass）
 
-独立于业务代码的全局视觉系统，在 app.py 顶部注入：
-- 动态极光背景（多层渐变 + 缓慢漂移光斑 + 噪点质感）
-- 星尘粒子画布（跟随光标的微光粒子 + 连线，尊重"减少动态"偏好）
-- 玻璃拟态卡片（毛玻璃 + 悬停浮起 + 边框辉光）
-- 按钮系统：渐变底色、悬停光扫、按压涟漪 + 缩放反馈、聚焦光环
-- 导航/输入框/表格/进度条/滚动条/Toast 全套重绘
-- 深色/浅色双主题（跟随 st.session_state.visual_theme 挂载的 data-custom-theme 属性）
+设计语言参考 GitHub 开源项目 rdev/liquid-glass-react（Apple Liquid Glass 效果）。
+该项目用 WebGL 着色器实现边缘折射/色差/弹性变形；本模块用 CSS + JS 复刻同等视觉语言：
+
+- 液态玻璃卡片：霜化磨砂（blur+saturate）、渐变"棱光"描边（双 background 技法）、
+  顶部高光缘线、光标跟随折射光斑（JS 缓动）、悬停色差边缘、弹性回弹动画
+- 液态背景：多层高饱和色团 + 旋转色轮层（@property 角度动画）+ 光斑色相漂移 + 星尘粒子
+- 液态按钮：玻璃渐变填充 + 渐变描边 + 光扫 + 涟漪 + 弹性按压
+- 深色/浅色双主题；所有脚本带幂等守卫
 """
 
 import streamlit as st
 import streamlit.components.v1 as components
 
-V2_CSS = """
+V3_CSS = """
 <style>
-/* ================= UI 2.0 · 小吕布量化 Pro ================= */
+/* ================= UI 3.0 · 液态玻璃 Liquid Glass ================= */
 
 /* ---------- 0. 主题变量 ---------- */
 .stApp[data-custom-theme='dark'] {
     --v2-accent: #38bdf8;
     --v2-accent2: #a78bfa;
-    --v2-glow: rgba(56, 189, 248, 0.45);
-    --v2-card: rgba(17, 24, 39, 0.60);
-    --v2-card-brd: rgba(148, 163, 184, 0.16);
+    --v2-glow: rgba(56, 189, 248, 0.5);
     --v2-text: #e2e8f0;
     --v2-muted: #94a3b8;
     --v2-input: rgba(30, 41, 59, 0.72);
     --v2-ripple: rgba(255, 255, 255, 0.35);
+    /* 液态玻璃 */
+    --lg-fill: rgba(13, 20, 38, 0.52);
+    --lg-rim: linear-gradient(135deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.10) 32%,
+        rgba(56, 189, 248, 0.38) 68%, rgba(167, 139, 250, 0.5) 100%);
+    --lg-btn-fill: rgba(56, 189, 248, 0.10);
+    --lg-sheen: rgba(255, 255, 255, 0.17);
 }
 .stApp[data-custom-theme='light'], .stApp:not([data-custom-theme]) {
     --v2-accent: #3b82f6;
     --v2-accent2: #8b5cf6;
-    --v2-glow: rgba(59, 130, 246, 0.30);
-    --v2-card: rgba(255, 255, 255, 0.66);
-    --v2-card-brd: rgba(30, 41, 59, 0.10);
+    --v2-glow: rgba(59, 130, 246, 0.32);
     --v2-text: #1e293b;
     --v2-muted: #64748b;
     --v2-input: rgba(255, 255, 255, 0.88);
     --v2-ripple: rgba(59, 130, 246, 0.28);
+    --lg-fill: rgba(255, 255, 255, 0.5);
+    --lg-rim: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.22) 34%,
+        rgba(59, 130, 246, 0.42) 70%, rgba(139, 92, 246, 0.42) 100%);
+    --lg-btn-fill: rgba(59, 130, 246, 0.08);
+    --lg-sheen: rgba(255, 255, 255, 0.55);
 }
 
-/* ---------- 1. 动态极光背景 ---------- */
+/* ---------- 1. 液态背景（色轮旋转 + 高饱和色团 + 极光漂移） ---------- */
+@property --v2-spin {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+}
 .stApp[data-custom-theme='dark'],
 .stApp[data-custom-theme='dark'] [data-testid="stAppViewContainer"] {
     background:
-        radial-gradient(62% 46% at 12% 6%, rgba(56, 189, 248, 0.20), transparent 62%),
-        radial-gradient(56% 44% at 88% 10%, rgba(167, 139, 250, 0.18), transparent 62%),
-        radial-gradient(52% 42% at 80% 90%, rgba(34, 211, 238, 0.14), transparent 60%),
-        radial-gradient(46% 38% at 18% 94%, rgba(244, 114, 182, 0.12), transparent 60%),
+        conic-gradient(from var(--v2-spin, 0deg) at 50% 46%,
+            rgba(56, 189, 248, 0.12), rgba(167, 139, 250, 0.12), rgba(236, 72, 153, 0.09),
+            rgba(34, 211, 238, 0.12), rgba(56, 189, 248, 0.12)),
+        radial-gradient(62% 48% at 12% 4%, rgba(56, 189, 248, 0.32), transparent 62%),
+        radial-gradient(56% 46% at 88% 8%, rgba(167, 139, 250, 0.30), transparent 62%),
+        radial-gradient(52% 44% at 82% 92%, rgba(34, 211, 238, 0.24), transparent 60%),
+        radial-gradient(46% 40% at 16% 96%, rgba(244, 114, 182, 0.20), transparent 60%),
         linear-gradient(165deg, #04060d 0%, #0a1024 34%, #0c1330 64%, #060812 100%) !important;
     background-size: 100% 100% !important;
     background-attachment: fixed !important;
-    animation: v2AuroraA 46s ease-in-out infinite alternate !important;
+    animation: v3AuroraA 40s ease-in-out infinite alternate, v3Spin 70s linear infinite !important;
 }
 .stApp[data-custom-theme='light'],
 .stApp[data-custom-theme='light'] [data-testid="stAppViewContainer"],
 .stApp:not([data-custom-theme]),
 .stApp:not([data-custom-theme]) [data-testid="stAppViewContainer"] {
     background:
-        radial-gradient(60% 46% at 12% 4%, rgba(59, 130, 246, 0.14), transparent 62%),
-        radial-gradient(56% 44% at 88% 8%, rgba(139, 92, 246, 0.12), transparent 62%),
-        radial-gradient(52% 42% at 82% 92%, rgba(14, 165, 233, 0.10), transparent 60%),
-        radial-gradient(46% 38% at 16% 96%, rgba(236, 72, 153, 0.08), transparent 60%),
+        conic-gradient(from var(--v2-spin, 0deg) at 50% 46%,
+            rgba(59, 130, 246, 0.10), rgba(139, 92, 246, 0.10), rgba(236, 72, 153, 0.07),
+            rgba(14, 165, 233, 0.10), rgba(59, 130, 246, 0.10)),
+        radial-gradient(60% 48% at 12% 4%, rgba(59, 130, 246, 0.24), transparent 62%),
+        radial-gradient(56% 46% at 88% 8%, rgba(139, 92, 246, 0.22), transparent 62%),
+        radial-gradient(52% 44% at 82% 92%, rgba(14, 165, 233, 0.18), transparent 60%),
+        radial-gradient(46% 40% at 16% 96%, rgba(236, 72, 153, 0.14), transparent 60%),
         linear-gradient(160deg, #f6f8fd 0%, #eef2fb 38%, #f3effd 68%, #f7f9fe 100%) !important;
     background-size: 100% 100% !important;
     background-attachment: fixed !important;
-    animation: v2AuroraA 52s ease-in-out infinite alternate !important;
+    animation: v3AuroraA 44s ease-in-out infinite alternate, v3Spin 80s linear infinite !important;
 }
 
-/* 漂移光斑（GPU 合成） */
+/* 光斑：色相漂移 + 大范围游走 */
 .stApp[data-custom-theme]::before,
 .stApp[data-custom-theme]::after {
     content: "";
@@ -77,97 +96,145 @@ V2_CSS = """
     z-index: 0;
     pointer-events: none;
     border-radius: 50%;
-    filter: blur(60px);
     mix-blend-mode: screen;
-    will-change: transform;
+    will-change: transform, filter;
 }
 .stApp[data-custom-theme='dark']::before {
-    width: 48vw; height: 48vw; top: -16vw; left: -12vw;
-    background: radial-gradient(circle, rgba(56, 189, 248, 0.34) 0%, rgba(56, 189, 248, 0.10) 36%, transparent 70%);
-    animation: v2BlobA 26s ease-in-out infinite alternate;
+    width: 50vw; height: 50vw; top: -17vw; left: -13vw;
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.5) 0%, rgba(56, 189, 248, 0.14) 36%, transparent 70%);
+    animation: v3BlobA 24s ease-in-out infinite alternate, v3Hue 15s linear infinite alternate;
 }
 .stApp[data-custom-theme='dark']::after {
-    width: 44vw; height: 44vw; bottom: -18vw; right: -10vw;
-    background: radial-gradient(circle, rgba(167, 139, 250, 0.30) 0%, rgba(167, 139, 250, 0.08) 36%, transparent 70%);
-    animation: v2BlobB 32s ease-in-out infinite alternate;
+    width: 46vw; height: 46vw; bottom: -19vw; right: -11vw;
+    background: radial-gradient(circle, rgba(167, 139, 250, 0.46) 0%, rgba(167, 139, 250, 0.12) 36%, transparent 70%);
+    animation: v3BlobB 30s ease-in-out infinite alternate, v3Hue 21s linear infinite alternate;
 }
 .stApp[data-custom-theme='light']::before {
-    width: 46vw; height: 46vw; top: -14vw; left: -10vw;
-    background: radial-gradient(circle, rgba(59, 130, 246, 0.18) 0%, rgba(59, 130, 246, 0.05) 36%, transparent 70%);
-    animation: v2BlobA 30s ease-in-out infinite alternate;
+    width: 48vw; height: 48vw; top: -15vw; left: -11vw;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.28) 0%, rgba(59, 130, 246, 0.08) 36%, transparent 70%);
+    animation: v3BlobA 28s ease-in-out infinite alternate, v3Hue 18s linear infinite alternate;
 }
 .stApp[data-custom-theme='light']::after {
-    width: 42vw; height: 42vw; bottom: -16vw; right: -8vw;
-    background: radial-gradient(circle, rgba(139, 92, 246, 0.16) 0%, rgba(139, 92, 246, 0.04) 36%, transparent 70%);
-    animation: v2BlobB 36s ease-in-out infinite alternate;
+    width: 44vw; height: 44vw; bottom: -17vw; right: -9vw;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.24) 0%, rgba(139, 92, 246, 0.07) 36%, transparent 70%);
+    animation: v3BlobB 34s ease-in-out infinite alternate, v3Hue 24s linear infinite alternate;
 }
 
-@keyframes v2AuroraA {
-    0% { background-position: 0% 0%, 100% 0%, 100% 100%, 0% 100%, 0 0; }
-    50% { background-position: 6% 8%, 92% 6%, 94% 92%, 8% 94%, 0 0; }
-    100% { background-position: 0% 14%, 88% 0%, 100% 88%, 2% 98%, 0 0; }
+@keyframes v3AuroraA {
+    0% { background-position: 50% 46%, 0% 0%, 100% 0%, 100% 100%, 0% 100%, 0 0; }
+    50% { background-position: 50% 46%, 6% 8%, 92% 6%, 94% 92%, 8% 94%, 0 0; }
+    100% { background-position: 50% 46%, 0% 14%, 88% 0%, 100% 88%, 2% 98%, 0 0; }
 }
-@keyframes v2BlobA {
-    from { transform: translate(0, 0) scale(1); opacity: .8; }
-    to { transform: translate(13vw, 10vh) scale(1.18); opacity: 1; }
+@keyframes v3Spin { to { --v2-spin: 360deg; } }
+@keyframes v3BlobA {
+    from { transform: translate(0, 0) scale(1); }
+    to { transform: translate(14vw, 11vh) scale(1.2); }
 }
-@keyframes v2BlobB {
-    from { transform: translate(0, 0) scale(1.1); opacity: .75; }
-    to { transform: translate(-11vw, -9vh) scale(0.95); opacity: 1; }
+@keyframes v3BlobB {
+    from { transform: translate(0, 0) scale(1.12); }
+    to { transform: translate(-12vw, -10vh) scale(0.94); }
+}
+@keyframes v3Hue {
+    from { filter: blur(60px) hue-rotate(0deg); }
+    to { filter: blur(60px) hue-rotate(70deg); }
 }
 
-/* ---------- 2. 玻璃卡片 ---------- */
-.glass-card, .metric-box, [data-testid="stExpander"] {
-    background: var(--v2-card) !important;
-    backdrop-filter: blur(22px) saturate(170%) !important;
-    -webkit-backdrop-filter: blur(22px) saturate(170%) !important;
-    border: 1px solid var(--v2-card-brd) !important;
-    border-radius: 22px !important;
-    box-shadow: 0 18px 50px rgba(2, 6, 23, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
-    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease !important;
+/* ---------- 2. 液态玻璃卡片 ---------- */
+.glass-card, .metric-box {
+    position: relative;
+    border-radius: 24px !important;
+    border: 1px solid transparent !important;
+    background:
+        linear-gradient(var(--lg-fill), var(--lg-fill)) padding-box,
+        var(--lg-rim) border-box !important;
+    backdrop-filter: blur(26px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(26px) saturate(190%) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.24),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+        0 20px 55px rgba(2, 6, 23, 0.26) !important;
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+        box-shadow 0.3s ease !important;
 }
 .glass-card:hover, .metric-box:hover {
-    border-color: rgba(56, 189, 248, 0.35) !important;
-    border-color: color-mix(in srgb, var(--v2-accent) 45%, transparent) !important;
-    box-shadow: 0 24px 62px rgba(2, 6, 23, 0.32), 0 0 0 1px color-mix(in srgb, var(--v2-accent) 18%, transparent),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
-    transform: translateY(-2px);
+    transform: translateY(-3px) scale(1.012);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.34),
+        0 28px 70px rgba(2, 6, 23, 0.4),
+        0 0 36px var(--v2-glow) !important;
 }
+.glass-card:active, .metric-box:active {
+    transform: translateY(-1px) scale(0.985);
+    transition-duration: 0.12s !important;
+}
+
+/* 棱光色差边缘（hover 时红/青微光，模拟折射色差） */
+.glass-card::before, .metric-box::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow:
+        inset 1.5px 0 0 rgba(255, 96, 130, 0.16),
+        inset -1.5px 0 0 rgba(96, 200, 255, 0.16);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.glass-card:hover::before, .metric-box:hover::before { opacity: 1; }
+
+/* 光标折射光斑（--mx/--my 由 JS 缓动注入） */
+.glass-card::after, .metric-box::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(430px circle at var(--mx, 50%) var(--my, 50%),
+        var(--lg-sheen), rgba(255, 255, 255, 0.03) 45%, transparent 66%);
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    pointer-events: none;
+}
+.glass-card:hover::after, .metric-box:hover::after { opacity: 1; }
+
+/* 指标卡数值辉光 */
 .stApp[data-custom-theme] .metric-box h2,
 .stApp[data-custom-theme] .highlight-text {
     color: var(--v2-accent) !important;
-    text-shadow: 0 0 20px var(--v2-glow);
+    text-shadow: 0 0 22px var(--v2-glow);
 }
 
-/* ---------- 3. 按钮系统（光扫 + 按压反馈 + 涟漪） ---------- */
+/* ---------- 3. 液态玻璃按钮（光扫 + 涟漪 + 弹性按压） ---------- */
 .stButton > button, .stDownloadButton button, [data-testid="stFormSubmitButton"] button,
 .stApp[data-custom-theme] button[kind="secondary"] {
     position: relative;
     overflow: hidden;
     border-radius: 14px !important;
-    border: 1px solid rgba(56, 189, 248, 0.30) !important;
-    border-color: color-mix(in srgb, var(--v2-accent) 36%, transparent) !important;
-    background: linear-gradient(135deg,
-        color-mix(in srgb, var(--v2-accent) 14%, transparent),
-        color-mix(in srgb, var(--v2-accent2) 14%, transparent)) !important;
+    border: 1px solid transparent !important;
+    background:
+        linear-gradient(var(--lg-btn-fill), var(--lg-btn-fill)) padding-box,
+        linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.08) 35%,
+            color-mix(in srgb, var(--v2-accent) 45%, transparent)) border-box !important;
+    backdrop-filter: blur(10px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(10px) saturate(160%) !important;
     color: var(--v2-text) !important;
     font-weight: 600 !important;
     letter-spacing: 0.02em;
     box-shadow: 0 4px 14px rgba(2, 6, 23, 0.18) !important;
-    transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.3, 1.2),
-        box-shadow 0.22s ease, border-color 0.22s ease, filter 0.22s ease !important;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+        box-shadow 0.25s ease, filter 0.25s ease !important;
 }
 .stButton > button:hover, .stDownloadButton button:hover, [data-testid="stFormSubmitButton"] button:hover {
-    transform: translateY(-2px);
-    border-color: var(--v2-accent) !important;
-    box-shadow: 0 10px 28px var(--v2-glow), 0 0 0 1px color-mix(in srgb, var(--v2-accent) 30%, transparent) !important;
-    filter: brightness(1.06);
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 12px 30px var(--v2-glow), 0 0 0 1px color-mix(in srgb, var(--v2-accent) 32%, transparent) !important;
+    filter: brightness(1.07);
 }
 .stButton > button:active, .stDownloadButton button:active, [data-testid="stFormSubmitButton"] button:active,
 .stApp[data-custom-theme] button[kind="primary"]:active {
-    transform: translateY(1px) scale(0.97) !important;
+    transform: translateY(1px) scale(0.94) !important;
     box-shadow: 0 2px 8px rgba(2, 6, 23, 0.28) !important;
     filter: brightness(0.9);
+    transition-duration: 0.1s !important;
 }
 .stButton > button:focus-visible, .stDownloadButton button:focus-visible,
 .stApp[data-custom-theme] button[kind="primary"]:focus-visible {
@@ -179,14 +246,14 @@ V2_CSS = """
     position: absolute;
     top: 0; left: -160%;
     width: 55%; height: 100%;
-    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.3), transparent);
     transform: skewX(-22deg);
     transition: left 0.55s ease;
     pointer-events: none;
 }
 .stButton > button:hover::after, .stDownloadButton button:hover::after { left: 170%; }
 
-/* 主按钮：渐变色 + 辉光 */
+/* 主按钮 */
 .stApp[data-custom-theme] button[kind="primary"],
 .stApp[data-custom-theme] .stButton > button[kind="primary"] {
     background: linear-gradient(135deg, var(--v2-accent), var(--v2-accent2)) !important;
@@ -194,12 +261,12 @@ V2_CSS = """
     color: #ffffff !important;
     border: none !important;
     box-shadow: 0 6px 22px var(--v2-glow) !important;
-    transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.3, 1.2), box-shadow 0.25s ease,
-        background-position 0.5s ease, filter 0.22s ease !important;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease,
+        background-position 0.5s ease, filter 0.25s ease !important;
 }
 .stApp[data-custom-theme] button[kind="primary"]:hover,
 .stApp[data-custom-theme] .stButton > button[kind="primary"]:hover {
-    transform: translateY(-2px);
+    transform: translateY(-2px) scale(1.02);
     background-position: 100% 50% !important;
     box-shadow: 0 14px 36px var(--v2-glow), 0 0 0 1px color-mix(in srgb, var(--v2-accent) 40%, transparent) !important;
     filter: brightness(1.08);
@@ -207,22 +274,24 @@ V2_CSS = """
 
 /* ---------- 4. 侧边栏与导航 ---------- */
 .stApp[data-custom-theme] [data-testid="stSidebar"] {
-    background: var(--v2-card) !important;
-    border-right: 1px solid var(--v2-card-brd) !important;
-    backdrop-filter: blur(26px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(26px) saturate(180%) !important;
-    box-shadow: 12px 0 40px rgba(2, 6, 23, 0.18) !important;
+    background: var(--lg-fill) !important;
+    border-right: 1px solid transparent !important;
+    border-image: linear-gradient(180deg, rgba(255, 255, 255, 0.4), transparent 40%, transparent 60%, rgba(56, 189, 248, 0.3)) 1 !important;
+    backdrop-filter: blur(30px) saturate(190%) !important;
+    -webkit-backdrop-filter: blur(30px) saturate(190%) !important;
+    box-shadow: 12px 0 44px rgba(2, 6, 23, 0.2) !important;
 }
 .stApp[data-custom-theme] div[role="radiogroup"] > label {
     border-radius: 14px !important;
     margin-bottom: 8px !important;
     padding: 9px 12px !important;
     border: 1px solid transparent !important;
-    transition: transform 0.22s ease, background 0.22s ease, box-shadow 0.22s ease !important;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.22s ease,
+        box-shadow 0.22s ease !important;
     cursor: pointer;
 }
 .stApp[data-custom-theme] div[role="radiogroup"] > label:hover {
-    transform: translateX(4px);
+    transform: translateX(5px) scale(1.02);
     background: color-mix(in srgb, var(--v2-accent) 8%, transparent) !important;
 }
 .stApp[data-custom-theme] div[role="radiogroup"] > label:has(input:checked) {
@@ -239,7 +308,7 @@ V2_CSS = """
 .stApp[data-custom-theme] [data-baseweb="select"] > div,
 .stApp[data-custom-theme] [data-baseweb="input"] > div {
     background: var(--v2-input) !important;
-    border: 1px solid var(--v2-card-brd) !important;
+    border: 1px solid color-mix(in srgb, var(--v2-accent) 22%, transparent) !important;
     border-radius: 14px !important;
     color: var(--v2-text) !important;
     transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
@@ -255,7 +324,7 @@ V2_CSS = """
 /* ---------- 6. 对话输入 ---------- */
 .stApp[data-custom-theme] [data-testid="stChatInput"] > div:first-child {
     border-radius: 999px !important;
-    border: 1px solid var(--v2-card-brd) !important;
+    border: 1px solid color-mix(in srgb, var(--v2-accent) 25%, transparent) !important;
     background: var(--v2-input) !important;
     transition: border-color 0.25s ease, box-shadow 0.25s ease !important;
 }
@@ -269,15 +338,15 @@ V2_CSS = """
 .stApp[data-custom-theme] [data-testid="stProgress"] > div > div > div {
     background: linear-gradient(90deg, var(--v2-accent), var(--v2-accent2), var(--v2-accent)) !important;
     background-size: 200% 100% !important;
-    animation: v2Shimmer 2.2s linear infinite !important;
+    animation: v3Shimmer 2.2s linear infinite !important;
 }
-@keyframes v2Shimmer { 0% { background-position: 0% 0; } 100% { background-position: 200% 0; } }
+@keyframes v3Shimmer { 0% { background-position: 0% 0; } 100% { background-position: 200% 0; } }
 
 /* ---------- 8. 数据表 ---------- */
 .stApp[data-custom-theme] [data-testid="stDataFrame"] {
     border-radius: 16px !important;
     overflow: hidden !important;
-    border: 1px solid var(--v2-card-brd) !important;
+    border: 1px solid color-mix(in srgb, var(--v2-accent) 24%, transparent) !important;
     box-shadow: 0 10px 30px rgba(2, 6, 23, 0.14) !important;
 }
 .stApp[data-custom-theme] [data-testid="stDataFrame"] [role="columnheader"] {
@@ -304,7 +373,7 @@ V2_CSS = """
 /* ---------- 10. Toast / 提示 ---------- */
 .stApp[data-custom-theme] [data-testid="stToast"] {
     border-radius: 14px !important;
-    border: 1px solid var(--v2-card-brd) !important;
+    border: 1px solid color-mix(in srgb, var(--v2-accent) 30%, transparent) !important;
     border-left: 3px solid var(--v2-accent) !important;
     backdrop-filter: blur(16px);
     box-shadow: 0 12px 34px rgba(2, 6, 23, 0.4) !important;
@@ -312,7 +381,7 @@ V2_CSS = """
 
 /* ---------- 11. 标题与分隔线 ---------- */
 .stApp[data-custom-theme='dark'] h1, .stApp[data-custom-theme='dark'] h2 {
-    text-shadow: 0 0 26px rgba(56, 189, 248, 0.28);
+    text-shadow: 0 0 26px rgba(56, 189, 248, 0.3);
 }
 .stApp[data-custom-theme] hr {
     border-color: color-mix(in srgb, var(--v2-accent) 22%, transparent) !important;
@@ -320,9 +389,9 @@ V2_CSS = """
 
 /* ---------- 12. 页面入场动效 ---------- */
 .block-container {
-    animation: v2PageIn 0.45s cubic-bezier(0.2, 0.8, 0.3, 1) both !important;
+    animation: v3PageIn 0.45s cubic-bezier(0.34, 1.3, 0.64, 1) both !important;
 }
-@keyframes v2PageIn {
+@keyframes v3PageIn {
     from { opacity: 0; transform: translateY(16px) scale(0.995); }
     to { opacity: 1; transform: none; }
 }
@@ -338,19 +407,19 @@ V2_CSS = """
 </style>
 """
 
-V2_JS = """
+V3_JS = """
 <script>
 (() => {
     const win = window.parent;
-    if (!win || win.__V2_UI_BOOT__) return;
-    win.__V2_UI_BOOT__ = true;
+    if (!win || win.__V3_UI_BOOT__) return;
+    win.__V3_UI_BOOT__ = true;
     const doc = win.document;
     const reduceMotion = win.matchMedia && win.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     /* ---------- 1. 光标光晕（缓动跟随） ---------- */
     const glow = doc.createElement('div');
-    glow.style.cssText = 'position:fixed;width:360px;height:360px;border-radius:50%;pointer-events:none;z-index:2;'
-        + 'background:radial-gradient(circle, rgba(56,189,248,0.13), rgba(139,92,246,0.07) 42%, transparent 70%);'
+    glow.style.cssText = 'position:fixed;width:380px;height:380px;border-radius:50%;pointer-events:none;z-index:2;'
+        + 'background:radial-gradient(circle, rgba(56,189,248,0.14), rgba(139,92,246,0.08) 42%, transparent 70%);'
         + 'transform:translate(-50%,-50%);opacity:0;transition:opacity .45s ease;';
     doc.body.appendChild(glow);
     let tx = -9999, ty = -9999, cx = -9999, cy = -9999;
@@ -366,7 +435,7 @@ V2_JS = """
 
     /* ---------- 2. 按钮涟漪 + 按压反馈 ---------- */
     const rippleKey = doc.createElement('style');
-    rippleKey.textContent = '@keyframes v2ripple{to{transform:scale(1);opacity:0;}}';
+    rippleKey.textContent = '@keyframes v3ripple{to{transform:scale(1);opacity:0;}}';
     doc.head.appendChild(rippleKey);
     doc.addEventListener('pointerdown', (e) => {
         const btn = e.target.closest('button');
@@ -378,14 +447,50 @@ V2_JS = """
             + 'width:' + size + 'px;height:' + size + 'px;'
             + 'left:' + (e.clientX - rect.left - size / 2) + 'px;'
             + 'top:' + (e.clientY - rect.top - size / 2) + 'px;'
-            + 'background:radial-gradient(circle, rgba(255,255,255,0.4), transparent 65%);'
-            + 'transform:scale(0);opacity:.9;animation:v2ripple .5s ease-out forwards;';
+            + 'background:radial-gradient(circle, rgba(255,255,255,0.42), transparent 65%);'
+            + 'transform:scale(0);opacity:.9;animation:v3ripple .5s ease-out forwards;';
         if (!btn.style.position || btn.style.position === 'static') btn.style.position = 'relative';
         btn.appendChild(rip);
         setTimeout(() => { if (rip.parentNode) rip.parentNode.removeChild(rip); }, 560);
     }, { passive: true });
 
-    /* ---------- 3. 星尘粒子画布 ---------- */
+    /* ---------- 3. 液态玻璃：光标折射光斑（--mx/--my 缓动注入） ---------- */
+    const CARD_SEL = '.glass-card, .metric-box';
+    const glassState = new WeakMap();
+    let glassList = [];
+    const gatherGlass = () => {
+        glassList = Array.prototype.slice.call(doc.querySelectorAll(CARD_SEL));
+        for (const el of glassList) {
+            if (!glassState.has(el)) glassState.set(el, { cx: 0, cy: 0, tx: 0, ty: 0 });
+        }
+    };
+    gatherGlass();
+    setInterval(gatherGlass, 2500);
+    doc.addEventListener('mousemove', (e) => {
+        for (const el of glassList) {
+            const st = glassState.get(el);
+            if (!st) continue;
+            const r = el.getBoundingClientRect();
+            if (!r.width || !r.height) continue;
+            const px = e.clientX - r.left, py = e.clientY - r.top;
+            if (px >= -30 && px <= r.width + 30 && py >= -30 && py <= r.height + 30) {
+                st.tx = px; st.ty = py;
+            }
+        }
+    }, { passive: true });
+    (function glassLoop() {
+        for (const el of glassList) {
+            const st = glassState.get(el);
+            if (!st) continue;
+            st.cx += (st.tx - st.cx) * 0.14;
+            st.cy += (st.ty - st.cy) * 0.14;
+            el.style.setProperty('--mx', st.cx + 'px');
+            el.style.setProperty('--my', st.cy + 'px');
+        }
+        requestAnimationFrame(glassLoop);
+    })();
+
+    /* ---------- 4. 星尘粒子画布 ---------- */
     if (!reduceMotion) {
         const cv = doc.createElement('canvas');
         cv.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;z-index:1;pointer-events:none;';
@@ -467,6 +572,6 @@ V2_JS = """
 
 
 def inject_ui_v2():
-    """向页面注入 UI 2.0 样式与交互脚本（每页执行，脚本自带幂等守卫）。"""
-    st.markdown(V2_CSS, unsafe_allow_html=True)
-    components.html(V2_JS, height=0, width=0)
+    """向页面注入 UI 3.0 液态玻璃样式与交互脚本（每页执行，脚本自带幂等守卫）。"""
+    st.markdown(V3_CSS, unsafe_allow_html=True)
+    components.html(V3_JS, height=0, width=0)
