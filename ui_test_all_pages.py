@@ -69,6 +69,8 @@ try:
     at = AppTest.from_file(APP, default_timeout=240)
     at.session_state['nav_page'] = SAND
     at.session_state['curr_page'] = SAND
+    # 隔离测试：预置空账户容器，跳过本地存档载入，保证每次测试从空仓开始
+    at.session_state['fs_accounts'] = {}
     at.run()
     if at.exception:
         print('[FAIL] 沙盘初始渲染:', at.exception[0].message)

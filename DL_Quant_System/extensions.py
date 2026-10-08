@@ -862,15 +862,18 @@ def render_futures_sandbox():
     ACCOUNT_PATH = fs.default_account_path()
 
     # ---------------- 顶栏 ----------------
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
         symbol = st.text_input('🎯 合约代码', value='SA0', key='fs_symbol',
                                help='支持连续合约（SA0 / RB0 / I0）或具体合约（如 SA2501）；每个标的的模拟账户独立保存')
     with c2:
-        speed = st.slider('⏱️ 刷新间隔(秒)', 1, 5, 1, key='fs_speed')
+        st.selectbox('📊 策略K线周期', ['1', '5', '15', '30', '60'], index=0, key='fs_period',
+                     help='自动交易时策略用哪一根K线计算信号（1/5/15/30/60 分钟）')
     with c3:
-        tick_size = st.number_input('📐 最小变动价位', min_value=0.01, value=1.0, step=0.5, key='fs_tick')
+        speed = st.slider('⏱️ 刷新间隔(秒)', 1, 5, 1, key='fs_speed')
     with c4:
+        tick_size = st.number_input('📐 最小变动价位', min_value=0.01, value=1.0, step=0.5, key='fs_tick')
+    with c5:
         st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
         running = st.toggle('🚀 启动行情引擎', key='fs_running')
 
@@ -1035,6 +1038,7 @@ def render_futures_sandbox():
     sig_badge = ('🟢 信号多' if last_signal == 1 else '🔴 信号空' if last_signal == -1
                  else ('⚪ 信号观望' if strat_code else '信号--'))
     pos_badge = ('🔴 持多' if acct.position > 0 else '🟢 持空' if acct.position < 0 else '🈳 空仓')
+    period_badge = f'策略 {st.session_state.get("fs_period", "1")}分' if strat_code else '策略 --'
     st.markdown(
         f'<div class="glass-card" style="padding:10px 16px;margin-bottom:8px;">'
         f'<span style="font-weight:700;">{symbol}</span>　'
@@ -1044,7 +1048,7 @@ def render_futures_sandbox():
         f'　｜　成交量 {quote["volume"]:,.0f}　持仓量 {quote["hold"]:,.0f}'
         f'　｜　{src_map.get(quote["source"], "？")} · {quote["time"] or "--:--:--"}'
         f'　｜　<span class="{live_dot}"></span>{"行情引擎运行中" if running else "引擎已暂停"}'
-        f'　｜　{sig_badge} · {pos_badge}'
+        f'　｜　{period_badge} · {sig_badge} · {pos_badge}'
         f'</div>', unsafe_allow_html=True)
 
     # ---------------- 主区三列：盘口 | 图表 | 下单/策略/设置 ----------------
@@ -1198,8 +1202,8 @@ def render_futures_sandbox():
             if not strat_code:
                 st.info('尚未载入策略：请先到「AI 战情室」生成，或在「极客量化 IDE」载入模板并【同步保存至全局引擎】。')
             else:
-                st.selectbox('📊 行情周期（策略看哪根K线）', ['1', '5', '15', '30', '60'],
-                             index=0, key='fs_period')
+                st.caption('📊 策略K线周期请在顶部顶栏选择（当前：'
+                           f'{st.session_state.get("fs_period", "1")} 分钟）')
                 st.toggle('⚡ 启用自动交易', key='fs_auto')
                 a1, a2 = st.columns(2)
                 with a1:
