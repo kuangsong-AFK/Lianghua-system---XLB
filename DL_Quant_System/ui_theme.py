@@ -387,13 +387,37 @@ V3_CSS = """
     border-color: color-mix(in srgb, var(--v2-accent) 22%, transparent) !important;
 }
 
-/* ---------- 12. 页面入场动效 ---------- */
+/* ---------- 12. 局部刷新反馈（整页不做入场动画，避免每次刷新全屏虚化） ---------- */
 .block-container {
-    animation: v3PageIn 0.45s cubic-bezier(0.34, 1.3, 0.64, 1) both !important;
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
 }
-@keyframes v3PageIn {
-    from { opacity: 0; transform: translateY(16px) scale(0.995); }
-    to { opacity: 1; transform: none; }
+/* LIVE 呼吸灯：行情刷新状态指示 */
+.live-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 10px #10b981;
+    margin-right: 6px;
+    vertical-align: middle;
+    animation: v3Pulse 1.6s ease-in-out infinite;
+}
+.live-dot.paused {
+    background: #94a3b8;
+    box-shadow: 0 0 6px rgba(148, 163, 184, 0.5);
+    animation: none;
+}
+@keyframes v3Pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.3; transform: scale(0.7); }
+}
+/* 数据卡片内容更新的轻微闪烁（配合局部刷新） */
+@keyframes v3FlashIn {
+    from { filter: brightness(1.6); }
+    to { filter: brightness(1); }
 }
 
 /* ---------- 13. 降低动态偏好 ---------- */
