@@ -847,7 +847,7 @@ def build_sim_chart(bars_df, account=None, kind='candle'):
                         row_heights=[0.72, 0.28])
     if bars_df is not None and not bars_df.empty:
         df = bars_df.tail(500)
-        x = df['trade_date'].astype(str).str[11:16]
+        x = df['trade_date']
         fig.add_trace(go.Candlestick(
             x=x, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],
             increasing_line_color='#ef4444', decreasing_line_color='#10b981',
@@ -859,14 +859,12 @@ def build_sim_chart(bars_df, account=None, kind='candle'):
             buys = df[df['Signal'] == 1]
             sells = df[df['Signal'] == -1]
             if not buys.empty:
-                fig.add_trace(go.Scatter(x=buys['trade_date'].astype(str).str[11:16],
-                                         y=buys['Low'] * 0.998, mode='markers',
+                fig.add_trace(go.Scatter(x=buys['trade_date'], y=buys['Low'] * 0.998, mode='markers',
                                          marker=dict(symbol='triangle-up', size=13,
                                                      color='#3b82f6'),
                                          name='策略买点'), row=1, col=1)
             if not sells.empty:
-                fig.add_trace(go.Scatter(x=sells['trade_date'].astype(str).str[11:16],
-                                         y=sells['High'] * 1.002, mode='markers',
+                fig.add_trace(go.Scatter(x=sells['trade_date'], y=sells['High'] * 1.002, mode='markers',
                                          marker=dict(symbol='triangle-down', size=13,
                                                      color='#f59e0b'),
                                          name='策略卖点'), row=1, col=1)
@@ -883,10 +881,37 @@ def build_sim_chart(bars_df, account=None, kind='candle'):
                       plot_bgcolor='rgba(0,0,0,0)', xaxis_rangeslider_visible=False,
                       dragmode='pan', hovermode='x', showlegend=False,
                       margin=dict(l=10, r=10, t=10, b=10))
-    fig.update_xaxes(type='category', nticks=8, showgrid=True,
-                     gridcolor='rgba(128,128,128,0.2)')
+    # 真正的时间轴 + 自动隐藏休市时段（避免跨日K线首尾相接显得"乱"）
+    xbreaks = _intraday_rangebreaks(bars_df['trade_date']) if bars_df is not None and not bars_df.empty else []
+    fig.update_xaxes(type='date', rangebreaks=xbreaks, tickformat='%m-%d %H:%M',
+                     nticks=10, showgrid=True, gridcolor='rgba(128,128,128,0.2)')
     fig.update_yaxes(showgrid=True, gridcolor='rgba(128,128,128,0.2)')
     return fig
+
+
+def _intraday_rangebreaks(dt_series):
+    """按数据中实际出现的整点，自动推断休市区间（午休 / 夜盘结束 / 收盘到次日开盘 / 周末）。"""
+    try:
+        import pandas as pd
+        hours = {int(h) for h in pd.Series(dt_series).dt.hour.dropna().unique()}
+    except Exception:
+        return []
+    breaks = [dict(bounds=['sat', 'mon'])]
+    # 午休 11:30-13:30
+    if 12 not in hours and 11 in hours and 13 in hours:
+        breaks.append(dict(bounds=[11.5, 13.5], pattern='hour'))
+    # 下午收盘到夜盘开盘 15:30-21:00
+    if not any(h in hours for h in (16, 17, 18, 19, 20)):
+        breaks.append(dict(bounds=[15.5, 21], pattern='hour'))
+    # 夜盘结束到次日早盘
+    if any(h in hours for h in (0, 1, 2)):
+        breaks.append(dict(bounds=[2.5, 9], pattern='hour'))
+    elif any(h in hours for h in (21, 22, 23)):
+        breaks.append(dict(bounds=[23, 9], pattern='hour'))
+    else:
+        breaks.append(dict(bounds=[15.5, 23.99], pattern='hour'))
+        breaks.append(dict(bounds=[0, 9], pattern='hour'))
+    return breaks
 
 
 def build_equity_chart(equity_curve):
