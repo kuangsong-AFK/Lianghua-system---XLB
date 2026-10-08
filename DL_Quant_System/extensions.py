@@ -475,8 +475,8 @@ def _cached_live_quote(symbol, force_sim):
 
 
 @st.cache_data(ttl=20, show_spinner=False)
-def _cached_minute_bars(symbol, period='1', limit=240):
-    """分钟K线缓存 20 秒（period: 1/5/15/30/60）。"""
+def _cached_minute_bars(symbol, period='1', limit=2000):
+    """分钟K线缓存 20 秒（period: 1/5/15/30/60；limit 上限 2000，接口实际最多约 1024 根）。"""
     return futures_sim.fetch_minute_bars(get_akshare_module(), symbol,
                                          period=str(period), limit=int(limit))
 
@@ -851,7 +851,7 @@ def render_futures_sandbox():
     import futures_sim as fs
 
     st.markdown(
-        '<div class="glass-card"><h3 style="color:var(--text-color); margin-bottom:0;">🌪️ 期货高频沙盘 · 模拟交易终端 v3</h3>'
+        '<div class="glass-card glass-flat"><h3 style="color:var(--text-color); margin-bottom:0;">🌪️ 期货高频沙盘 · 模拟交易终端 v3</h3>'
         '<p class="sub-text">左盘口 ｜ 中图表 ｜ 右下单 · 实时对价行情 + 全局策略自动交易 + 模拟账户撮合，全部模拟成交、不接实盘。</p></div>',
         unsafe_allow_html=True)
 
@@ -862,18 +862,15 @@ def render_futures_sandbox():
     ACCOUNT_PATH = fs.default_account_path()
 
     # ---------------- 顶栏 ----------------
-    c1, c2, c3, c4, c5 = st.columns(5)
+    c1, c2, c3, c4 = st.columns(4)
     with c1:
         symbol = st.text_input('🎯 合约代码', value='SA0', key='fs_symbol',
                                help='支持连续合约（SA0 / RB0 / I0）或具体合约（如 SA2501）；每个标的的模拟账户独立保存')
     with c2:
-        st.selectbox('📊 策略K线周期', ['1', '5', '15', '30', '60'], index=0, key='fs_period',
-                     help='自动交易时策略用哪一根K线计算信号（1/5/15/30/60 分钟）')
-    with c3:
         speed = st.slider('⏱️ 刷新间隔(秒)', 1, 5, 1, key='fs_speed')
-    with c4:
+    with c3:
         tick_size = st.number_input('📐 最小变动价位', min_value=0.01, value=1.0, step=0.5, key='fs_tick')
-    with c5:
+    with c4:
         st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
         running = st.toggle('🚀 启动行情引擎', key='fs_running')
 
@@ -952,11 +949,16 @@ def render_futures_sandbox():
     else:
         bars1 = fs.merge_tick(bars1, quote)
 
-    # ---------------- 策略计算与自动交易（控件在右侧「策略」标签，参数 1 tick 后生效） ----------------
+    # ---------------- 图表与策略周期（合一：图表看哪个周期，策略就用哪个周期） ----------------
+    view = st.radio('📈 图表与策略周期（当前图表即自动交易的K线）',
+                    ['分时', '1分钟', '5分钟', '15分钟', '30分钟', '60分钟'],
+                    index=1, key='fs_view_period', horizontal=True)
+
+    # ---------------- 策略计算与自动交易 ----------------
     strat_code = st.session_state.get('generated_code', '') or ''
     signal_df, last_signal, strat_err = None, 0, ''
     if strat_code:
-        period = str(st.session_state.get('fs_period', '1'))
+        period = '1' if view == '分时' else view.replace('分钟', '')
         if period == '1':
             sbars = bars1 if bars1 is not None else synth
         else:
@@ -1038,7 +1040,7 @@ def render_futures_sandbox():
     sig_badge = ('🟢 信号多' if last_signal == 1 else '🔴 信号空' if last_signal == -1
                  else ('⚪ 信号观望' if strat_code else '信号--'))
     pos_badge = ('🔴 持多' if acct.position > 0 else '🟢 持空' if acct.position < 0 else '🈳 空仓')
-    period_badge = f'策略 {st.session_state.get("fs_period", "1")}分' if strat_code else '策略 --'
+    period_badge = f'图表/策略 {view}' if strat_code else f'图表 {view}'
     st.markdown(
         f'<div class="glass-card glass-flat" style="padding:10px 16px;margin-bottom:8px;">'
         f'<span style="font-weight:700;">{symbol}</span>　'
@@ -1084,16 +1086,7 @@ def render_futures_sandbox():
 
     with col_c:
         st.markdown('#### 📈 图表')
-        tabs = st.tabs(['📊 分时', '🕯️ 1分钟', '🕯️ 5分钟', '🕯️ 15分钟', '🕯️ 30分钟', '🕯️ 60分钟'])
-        for i, p in enumerate(['1', '5', '15', '30', '60'], start=1):
-            with tabs[i]:
-                b = _cached_minute_bars(symbol, p) if ak is not None else None
-                if p == '1':
-                    b = bars1 if bars1 is not None else synth
-                st.plotly_chart(fs.build_sim_chart(b, acct, kind='candle'),
-                                use_container_width=True, config={'scrollZoom': True},
-                                key=f'fs_chart_{p}')
-        with tabs[0]:
+        if view == '分时':
             b1m = bars1 if bars1 is not None else synth
             if b1m is not None:
                 last_day = b1m['trade_date'].dt.date.max()
@@ -1101,6 +1094,17 @@ def render_futures_sandbox():
             st.plotly_chart(fs.build_sim_chart(b1m, acct, kind='line'),
                             use_container_width=True, config={'scrollZoom': True},
                             key='fs_chart_line')
+            st.caption('分时图：当日最新价线 + 均价线（此视图下策略按 1 分钟K线计算信号）')
+        else:
+            p = view.replace('分钟', '')
+            b = _cached_minute_bars(symbol, p) if ak is not None else None
+            if p == '1':
+                b = bars1 if bars1 is not None else synth
+            st.plotly_chart(fs.build_sim_chart(b, acct, kind='candle'),
+                            use_container_width=True, config={'scrollZoom': True},
+                            key=f'fs_chart_{p}')
+            st.caption(f'K线：{view}周期，最多显示约 500 根（新浪接口历史上限约 1024 根）。'
+                       '策略信号与该图共用同一周期数据。')
 
     with col_r:
         rt1, rt2, rt3 = st.tabs(['🎛️ 下单', '🤖 策略', '⚙️ 设置'])
@@ -1202,8 +1206,8 @@ def render_futures_sandbox():
             if not strat_code:
                 st.info('尚未载入策略：请先到「AI 战情室」生成，或在「极客量化 IDE」载入模板并【同步保存至全局引擎】。')
             else:
-                st.caption('📊 策略K线周期请在顶部顶栏选择（当前：'
-                           f'{st.session_state.get("fs_period", "1")} 分钟）')
+                st.caption(f'📊 策略K线与上方图表联动（当前：{view}'
+                           f'{"" if view != "分时" else "，策略按 1 分钟K线计算"}）')
                 st.toggle('⚡ 启用自动交易', key='fs_auto')
                 a1, a2 = st.columns(2)
                 with a1:
@@ -1248,10 +1252,11 @@ def render_futures_sandbox():
                     st.caption('📜 信号日志：\n' + '　|　'.join(log_lines))
                 with st.expander('❓ 自动交易数据逻辑说明', expanded=False):
                     st.markdown(
-                        '**① 数据来源**：顶栏所选周期的K线，来自 AkShare 新浪分钟线'
-                        '（`futures_zh_minute_sina`，20 秒缓存，最多 240 根）。'
+                        '**① 数据来源**：上方「图表与策略周期」所选周期的K线，来自 AkShare 新浪分钟线'
+                        '（`futures_zh_minute_sina`，20 秒缓存，接口最多约 1024 根历史：'
+                        '1分钟≈4.5 个交易日、5分钟≈21 个交易日、60分钟≈半年）。'
                         '1 分钟周期会把实时快照合并成"进行中"的最新一根K线；'
-                        '5/15/30/60 分钟周期用最近一根已收盘K线。\n\n'
+                        '其余周期用最近一根已收盘K线。\n\n'
                         '**② 数据列**：`Open / High / Low / Close / Volume / trade_date`，'
                         '策略只能基于这些列计算（沙盒约束与回测页一致）。\n\n'
                         '**③ 信号**：每个刷新 tick 把最新K线交给策略 `generate_signals(df)` 跑一遍，'
@@ -1419,10 +1424,10 @@ def render_futures_sandbox():
             st.caption('暂无挂单。')
 
     st.markdown(
-        '<div class="glass-card" style="padding:14px;"><p class="sub-text" style="margin:0;">'
+        '<div class="glass-card glass-flat" style="padding:14px;"><p class="sub-text" style="margin:0;">'
         '📖 玩法说明：<b>对价</b>＝买入按卖一、卖出按买一；<b>超价</b>＝对手价再主动吃N跳；<b>市价</b>＝最新价±滑点；'
         '<b>限价</b>＝挂单等触及；<b>条件单</b>＝价格到触发价自动按对价下单；<b>反手</b>＝平仓+反向开仓。'
-        '「策略」标签可选行情周期/交易模式/自动下单方式/自动止盈止损。'
+        '上方「图表与策略周期」即自动交易的K线周期；「策略」标签可选交易模式/自动下单方式/自动止盈止损。'
         '全部为模拟撮合，不接入实盘、不构成投资建议。</p></div>',
         unsafe_allow_html=True)
 

@@ -219,9 +219,10 @@ def gen_tape(quote, n=6):
     return list(reversed(tape[-n:]))
 
 
-def fetch_minute_bars(ak, symbol, period='1', limit=240):
+def fetch_minute_bars(ak, symbol, period='1', limit=2000):
     """取分钟K线，重命名为 Open/High/Low/Close/Volume + trade_date（升序）。
-    period: '1'/'5'/'15'/'30'/'60'。失败返回 None。"""
+    period: '1'/'5'/'15'/'30'/'60'。limit 上限 2000（新浪接口实际最多返回约 1024 根，
+    1分钟≈4.5个交易日、5分钟≈21个交易日、60分钟≈半年）。失败返回 None。"""
     symbol = normalize_symbol(symbol)
     if ak is None:
         return None
@@ -845,7 +846,7 @@ def build_sim_chart(bars_df, account=None, kind='candle'):
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.04,
                         row_heights=[0.72, 0.28])
     if bars_df is not None and not bars_df.empty:
-        df = bars_df.tail(180)
+        df = bars_df.tail(500)
         x = df['trade_date'].astype(str).str[11:16]
         fig.add_trace(go.Candlestick(
             x=x, open=df['Open'], high=df['High'], low=df['Low'], close=df['Close'],

@@ -222,8 +222,9 @@ V3_CSS = """
         linear-gradient(var(--lg-btn-fill), var(--lg-btn-fill)) padding-box,
         linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.08) 35%,
             color-mix(in srgb, var(--v2-accent) 45%, transparent)) border-box !important;
-    backdrop-filter: blur(10px) saturate(160%) !important;
-    -webkit-backdrop-filter: blur(10px) saturate(160%) !important;
+    /* 按钮不做背景采样（backdrop-filter 会在页面刷新时引发发虚/点击丢失） */
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
     color: var(--v2-text) !important;
     font-weight: 600 !important;
     letter-spacing: 0.02em;
@@ -382,7 +383,6 @@ V3_CSS = """
     border-radius: 14px !important;
     border: 1px solid color-mix(in srgb, var(--v2-accent) 30%, transparent) !important;
     border-left: 3px solid var(--v2-accent) !important;
-    backdrop-filter: blur(16px);
     box-shadow: 0 12px 34px rgba(2, 6, 23, 0.4) !important;
 }
 
